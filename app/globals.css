@@ -1,0 +1,40 @@
+@import "tailwindcss";
+
+/* Design tokens — the portal's palette and type.
+   Deep ink control-panel sidebar, warm-neutral paper content,
+   deep-teal primary accent, brass amber for admin/alerts. */
+@theme {
+  --color-ink: #14181c;
+  --color-ink-soft: #232a31;
+  --color-paper: #f3f3f1;
+  --color-card: #ffffff;
+  --color-line: #e4e4e0;
+  --color-muted: #6b7280;
+  --color-accent: #0e6e6e;
+  --color-accent-soft: #dcefee;
+  --color-amber: #b47216;
+
+  --font-display: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
+  --font-body: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, monospace;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background-color: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Respect reduced-motion preferences. */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
