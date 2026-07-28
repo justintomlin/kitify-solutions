@@ -7,14 +7,16 @@ import { useLanguage } from "./LanguageContext";
 import { LanguageToggle } from "./LanguageToggle";
 
 export function Header({ onMenu }: { onMenu: () => void }) {
-  const { user, logout } = useAuth();
+  const { user, profile, signOut } = useAuth();
   const { t } = useLanguage();
   const router = useRouter();
 
-  const roleLabel = user?.role === "admin" ? t("header.roleAdmin") : t("header.roleUser");
+  const isAdmin = profile?.role === "admin";
+  const roleLabel = isAdmin ? t("header.roleAdmin") : t("header.roleUser");
+  const displayName = profile?.name ?? user?.email ?? "";
 
-  function handleLogout() {
-    logout();
+  async function handleLogout() {
+    await signOut();
     router.push("/");
   }
 
@@ -31,13 +33,13 @@ export function Header({ onMenu }: { onMenu: () => void }) {
 
       <div className="min-w-0">
         <div className="truncate font-display text-base font-semibold">
-          {t("header.welcome", { name: user?.name ?? "" })}
+          {t("header.welcome", { name: displayName })}
         </div>
       </div>
 
       <div className="ml-auto flex items-center gap-2.5">
         <span className="hidden items-center gap-1.5 rounded-full border border-line px-2.5 py-1 font-mono text-[11px] uppercase tracking-wide text-ink/60 sm:inline-flex">
-          <span className={`h-1.5 w-1.5 rounded-full ${user?.role === "admin" ? "bg-amber" : "bg-accent"}`} />
+          <span className={`h-1.5 w-1.5 rounded-full ${isAdmin ? "bg-amber" : "bg-accent"}`} />
           {roleLabel}
         </span>
         <LanguageToggle />

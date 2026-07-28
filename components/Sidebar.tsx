@@ -28,8 +28,7 @@ function NavLink({ item, active, label }: { item: NavItem; active: boolean; labe
 export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const { t } = useLanguage();
-  const { user } = useAuth();
-  const isAdmin = user?.role === "admin";
+  const { isAdmin } = useAuth();
 
   return (
     <div className="flex h-full flex-col bg-ink text-white">
@@ -42,7 +41,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           <NavLink
             key={item.href}
             item={item}
-            active={pathname === item.href}
+            active={pathname === item.href || pathname.startsWith(item.href + "/")}
             label={t(`nav.${item.key}`)}
           />
         ))}
@@ -56,7 +55,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
               <NavLink
                 key={item.href}
                 item={item}
-                active={pathname === item.href}
+                active={pathname === item.href || pathname.startsWith(item.href + "/")}
                 label={t(`nav.${item.key}`)}
               />
             ))}

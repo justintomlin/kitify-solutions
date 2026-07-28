@@ -5,18 +5,20 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthContext";
 import { Sidebar } from "@/components/Sidebar";
 import { Header } from "@/components/Header";
+import { OnboardingGate } from "@/components/OnboardingGate";
 
 export default function PortalLayout({ children }: { children: React.ReactNode }) {
-  const { user, ready } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  // Guard: bounce to login if not signed in.
+  // Guard: portal routes require a session. Bounce to the login screen once the session
+  // has resolved and there's no user. The loading state prevents a logged-out flicker.
   useEffect(() => {
-    if (ready && !user) router.replace("/");
-  }, [ready, user, router]);
+    if (!loading && !user) router.replace("/");
+  }, [loading, user, router]);
 
-  if (!ready || !user) {
+  if (loading || !user) {
     return (
       <div className="flex min-h-dvh items-center justify-center text-muted">
         <div className="h-6 w-6 animate-spin rounded-full border-2 border-line border-t-accent" />
@@ -25,6 +27,9 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
   }
 
   return (
+    // OnboardingGate blocks the entire portal (chrome included) until an admin-created
+    // contractor sets a permanent password and confirms their info.
+    <OnboardingGate>
     <div className="min-h-dvh md:grid md:grid-cols-[260px_1fr]">
       {/* Desktop sidebar */}
       <aside className="sticky top-0 hidden h-dvh md:block">
@@ -49,5 +54,6 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
         <main className="flex-1 px-4 py-6 md:px-8 md:py-10">{children}</main>
       </div>
     </div>
+    </OnboardingGate>
   );
 }

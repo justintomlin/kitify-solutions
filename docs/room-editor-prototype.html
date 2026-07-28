@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Room Editor — Prototype</title>
+<style>
+  :root{--ink:#14181c;--paper:#f3f3f1;--card:#fff;--line:#e3e2dd;--accent:#0e6e6e;--accent-soft:#dbeceb;--muted:#8a8a84;
+        --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;--disp:'Space Grotesk','Segoe UI',system-ui,sans-serif;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--disp)}
+  .wrap{max-width:1120px;margin:0 auto;padding:20px}
+  .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}
+  h1{font-size:20px;margin:2px 0 16px}
+  .grid{display:grid;grid-template-columns:1fr 330px;gap:20px}
+  @media(max-width:900px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px}
+  .planwrap{padding:12px;position:relative}
+  svg{display:block;width:100%;height:auto;background:#faf9f7;border-radius:10px}
+  .lbl{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+  .btn{font-family:var(--disp);font-size:12px;font-weight:600;border:1px solid var(--line);background:var(--card);
+       color:var(--ink);border-radius:8px;padding:7px 11px;cursor:pointer;text-align:center}
+  .btn:hover:not(:disabled){background:#f0efec}
+  .btn.active{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+  .btn:disabled{opacity:.35;cursor:not-allowed}
+  .btn.sm{padding:5px 8px;font-size:11px}
+  .bar{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+  .seg{display:flex;gap:6px;flex-wrap:wrap}.seg .btn{flex:1}
+  .field{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:8px 0;font-size:13px}
+  .fi{display:inline-flex;align-items:center;gap:2px}.fi span{font-size:11px;color:var(--muted)}
+  input[type=number]{width:46px;border:1px solid var(--line);border-radius:6px;padding:4px;text-align:center;font-family:var(--mono);font-size:12px}
+  table{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}
+  th{font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);text-align:left;padding:4px}
+  td{padding:5px 4px;border-top:1px solid var(--line)}
+  .metrics{display:flex;gap:20px;flex-wrap:wrap;align-items:center;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+  .metric .val{font-size:18px;font-weight:700}
+  .foot{margin-top:8px;color:var(--muted);font-size:12px;line-height:1.5}
+  .sub{border-top:1px solid var(--line);margin-top:14px;padding-top:10px}
+  .hint{font-size:12px;color:var(--accent);font-weight:600}
+  .selhdr{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">Room configurator · prototype</div>
+  <h1>Draw the space</h1>
+
+  <div class="grid">
+    <div class="card planwrap">
+      <div class="bar">
+        <span class="lbl" style="margin-right:2px">Add</span>
+        <button class="btn sm" id="addDoor"   onclick="arm('door')">+ Door</button>
+        <button class="btn sm" id="addShower" onclick="arm('bath')">+ Shower / Tub</button>
+        <button class="btn sm" id="addToilet" onclick="arm('toilet')">+ Toilet</button>
+        <button class="btn sm" id="addVanity" onclick="arm('vanity')">+ Vanity</button>
+        <span style="flex:1"></span>
+        <span class="hint" id="armHint"></span>
+        <button class="btn sm" onclick="undo()" title="Undo (Ctrl+Z)">↶ Undo</button>
+        <button class="btn sm" onclick="resetAll()">Reset</button>
+        <button class="btn sm" onclick="printPlan()">Print</button>
+      </div>
+      <svg id="plan" viewBox="0 0 620 440" aria-label="Room plan"></svg>
+      <div class="metrics">
+        <div class="metric"><div class="lbl">Perimeter</div><div class="val" id="mPerim">—</div></div>
+        <div class="metric"><div class="lbl">Wall SF</div><div class="val" id="mWall">—</div></div>
+        <div class="metric"><div class="lbl">Floor SF</div><div class="val" id="mFloor">—</div></div>
+        <span style="flex:1"></span>
+        <label class="lbl" style="display:flex;align-items:center;gap:6px;cursor:pointer">
+          <input type="checkbox" id="clrToggle" checked onchange="showClear=this.checked;render()"> Clearances
+        </label>
+        <label class="lbl" style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-left:14px">
+          <input type="checkbox" id="adaToggle" onchange="ada=this.checked;render()"> ADA mode
+        </label>
+      </div>
+      <div id="matBox"></div>
+      <div id="clrBox"></div>
+      <div class="foot">Click a fixture on the plan to select and edit it. Click empty space to deselect.</div>
+    </div>
+
+    <div class="card">
+      <!-- ROOM (always) -->
+      <div class="lbl">Room</div>
+      <div class="seg" style="margin:6px 0">
+        <button class="btn" id="sRect" onclick="setShape('rect')">Rectangle</button>
+        <button class="btn" id="sL" onclick="setShape('L')">L-shape</button>
+      </div>
+      <div id="orient" style="display:none">
+        <div class="lbl" style="margin-top:8px">Cutout corner</div>
+        <div class="seg" id="orientBtns" style="margin-top:4px"></div>
+      </div>
+      <div class="field"><span>Width</span><span class="fi"><input type="number" id="wFt"><span>'</span><input type="number" min="0" max="11" id="wIn"><span>"</span></span></div>
+      <div class="field"><span>Depth</span><span class="fi"><input type="number" id="dFt"><span>'</span><input type="number" min="0" max="11" id="dIn"><span>"</span></span></div>
+      <div class="field" id="p1row" style="display:none"><span>Cutout width</span><span class="fi"><input type="number" id="p1Ft"><span>'</span><input type="number" min="0" max="11" id="p1In"><span>"</span></span></div>
+      <div class="field" id="p2row" style="display:none"><span>Cutout depth</span><span class="fi"><input type="number" id="p2Ft"><span>'</span><input type="number" min="0" max="11" id="p2In"><span>"</span></span></div>
+      <div class="field"><span>Ceiling height</span><span class="fi"><input type="number" id="hFt"><span>'</span><input type="number" min="0" max="11" id="hIn"><span>"</span></span></div>
+
+      <!-- CONTEXTUAL -->
+      <div class="sub" id="ctx"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ================= state =================
+let shape='rect';
+let S={w:96,d:60,h:96,cw:36,cd:28,corner:'tl'};   // 8'0 x 5'0 room, 3'0 x 2'4 cutout top-left
+let door=null;      // {edge,t,w,type,swing}
+let toilet=null;    // {edge,t,rough}
+let sel=null;       // null | 'door' | 'toilet' | 'bath' | 'vanity'
+let armed=null;     // null | 'door' | 'toilet' | 'bath' | 'vanity'
+let excluded=new Set();
+let LAST=null;
+let showClear=true;
+let shapeNote='';
+let history=[], suppress=false;
+function snapshot(){ return JSON.stringify({shape,S,door,toilet,bath,vanity,excluded:[...excluded]}); }
+function pushHistory(){ if(suppress)return; const s0=snapshot();
+  if(history[history.length-1]!==s0){ history.push(s0); if(history.length>60)history.shift(); } }
+function undo(){ if(history.length<2)return; history.pop();
+  const st=JSON.parse(history[history.length-1]);
+  shape=st.shape; S=st.S; door=st.door; toilet=st.toilet; bath=st.bath; vanity=st.vanity; excluded=new Set(st.excluded);
+  suppress=true; render(); suppress=false; }
+function resetAll(){
+  if(!confirm('Clear the room and all fixtures?')) return;
+  if(document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  shape='rect';
+  S={w:96,d:60,h:96,cw:36,cd:28,corner:'tl'};
+  door=null; toilet=null; bath=null; vanity=null;
+  sel=null; armed=null; excluded=new Set(); history=[]; ada=false; showClear=true;
+  const ct=document.getElementById('clrToggle'), at=document.getElementById('adaToggle');
+  if(ct)ct.checked=true; if(at)at.checked=false;
+  render();
+}
+const DOOR_SIZES=[24,28,30,32,36], RO=2, TOILET_W=20, TOILET_D=30;  // RO: rough opening is door size + 2"
+const roOf=w=>w+RO;
+// real SKUs (ThermaGlass) — plan footprint comes from the catalog, never free text
+const BASES=[
+  {id:'32x32',w:32,d:32},{id:'36x36',w:36,d:36},
+  {id:'48x30',w:48,d:30},{id:'48x32',w:48,d:32},{id:'48x36',w:48,d:36},
+  {id:'60x30',w:60,d:30},{id:'60x32',w:60,d:32},{id:'60x36',w:60,d:36},
+  {id:'72x36',w:72,d:36},{id:'78x36',w:78,d:36}];
+const TUBS =[{id:'60x30',w:60,d:30},{id:'60x32',w:60,d:32},{id:'60x36',w:60,d:36},{id:'72x36',w:72,d:36}];
+let bath=null;   // {edge,t,kind:'shower'|'tub',sku,rot,snapped}
+let vanity=null; // {edge,t,w,sinks}
+const VANITY_SIZES=[18,24,30,36,42,48,60], VANITY_D=21;   // depth per CS Factory CAD
+const maxSinks=w=>w>=48?2:1;
+const SNAP_IN=6; // inches of travel within which we snap flush to a corner
+function bathSku(){ return (bath.kind==='tub'?TUBS:BASES).find(x=>x.id===bath.sku) || (bath.kind==='tub'?TUBS:BASES)[0]; }
+
+const ftin=v=>{v=Math.round(v);const f=Math.floor(v/12),i=v-f*12;return (f?f+"'":"")+(i||!f?i+'"':"");};
+function parseLen(str){ if(str==null)return null; str=(''+str).trim(); if(!str)return null;
+  const q=str.indexOf("'"); if(q>=0){const f=parseFloat(str.slice(0,q))||0,r=str.slice(q+1).replace('"','').trim(),i=r?parseFloat(r)||0:0;return Math.max(0,Math.round(f*12+i));}
+  const p=str.split(/\s+/).map(parseFloat).filter(n=>!isNaN(n)); if(p.length===2)return Math.max(0,Math.round(p[0]*12+p[1]));
+  const n=parseFloat(str); return isNaN(n)?null:Math.max(0,Math.round(n)); }
+
+// ================= geometry =================
+const MINR=24, MAXR=480;   // 2ft .. 40ft
+function clampShape(){ S.w=Math.min(MAXR,Math.max(MINR,S.w)); S.d=Math.min(MAXR,Math.max(MINR,S.d)); S.h=Math.min(240,Math.max(48,S.h));
+  if(shape==='L'){ S.cw=Math.max(6,Math.min(S.cw,S.w-6)); S.cd=Math.max(6,Math.min(S.cd,S.d-6)); } }
+function build(){
+  clampShape(); const w=S.w,d=S.d; let V,C;
+  let SIDE;
+  if(shape==='rect'){ V=[[0,0],[w,0],[w,d],[0,d]]; C=['w','d','w','d']; SIDE=['top','right','bottom','left']; }
+  else{ const cw=S.cw,cd=S.cd;
+    V=[[cw,0],[w,0],[w,d],[0,d],[0,cd],[cw,cd]]; C=['w','d','w','d','cw','cd'];
+    SIDE=['top','right','bottom','left','cutH','cutV'];
+    const mx=(S.corner==='tr'||S.corner==='br'), my=(S.corner==='bl'||S.corner==='br');
+    V=V.map(([x,y])=>[mx?w-x:x,my?d-y:y]); }
+  const edges=[],n=V.length;
+  for(let i=0;i<n;i++){ const a=V[i],b=V[(i+1)%n],L=Math.hypot(b[0]-a[0],b[1]-a[1]); if(L<.5)continue; edges.push({a,b,len:L,p:C[i],side:SIDE[i]}); }
+  return {verts:V,edges};
+}
+const edgeVec=e=>{const dx=e.b[0]-e.a[0],dy=e.b[1]-e.a[1],L=Math.hypot(dx,dy)||1;return{ux:dx/L,uy:dy/L,L};};
+function clampFix(o,widthIn,edges){ if(!o)return null; if(o.edge>=edges.length)return null;
+  const {L}=edgeVec(edges[o.edge]); const half=widthIn/2/L;
+  o.t = half>=.5 ? .5 : Math.max(half,Math.min(1-half,o.t)); return o; }
+function minWallFor(kind){
+  if(kind==='door') return roOf(Math.min(...DOOR_SIZES));   // 24" door + 2" R.O.
+  if(kind==='toilet') return TOILET_W+4;
+  if(kind==='bath') return Math.min(...BASES.map(x=>x.w), ...TUBS.map(x=>x.w));
+  if(kind==='vanity') return Math.min(...VANITY_SIZES);
+  return 0;
+}
+// footprint of a wall-mounted fixture, in room coords, as 4 corners
+function footprint(edges,o,w,d){
+  const e=edges[o.edge]; if(!e) return null;
+  const v=edgeVec(e);
+  const mid=[e.a[0]+v.ux*v.L*o.t, e.a[1]+v.uy*v.L*o.t];
+  let nx=-v.uy,ny=v.ux;
+  const cen=LAST?LAST.cen:[0,0];
+  if((cen[0]-mid[0])*nx+(cen[1]-mid[1])*ny<0){nx=-nx;ny=-ny;}
+  const P4=(a,i2)=>[mid[0]+v.ux*a+nx*i2, mid[1]+v.uy*a+ny*i2];
+  return {pts:[P4(-w/2,0),P4(w/2,0),P4(w/2,d),P4(-w/2,d)], u:{x:v.ux,y:v.uy}, n:{x:nx,y:ny}, mid, L:v.L, e};
+}
+// project a set of points onto an axis -> [min,max]
+function proj(pts,ax,origin){ const vals=pts.map(p=>(p[0]-origin[0])*ax.x+(p[1]-origin[1])*ax.y); return [Math.min(...vals),Math.max(...vals)]; }
+
+// keep `mover` (on its wall) from overlapping `blocker`; returns adjusted t
+function avoidOverlap(edges,mover,mw,md,blocker,bw,bd){
+  const A=footprint(edges,mover,mw,md), B=footprint(edges,blocker,bw,bd);
+  if(!A||!B) return mover.t;
+  // work in mover's local frame, origin at its wall start
+  const e=A.e, origin=e.a;
+  const [an0,an1]=proj(A.pts,A.n,origin), [bn0,bn1]=proj(B.pts,A.n,origin);
+  if(an1<=bn0+0.5 || bn1<=an0+0.5) return mover.t;      // depths don't overlap -> no conflict
+  const [au0,au1]=proj(A.pts,A.u,origin), [bu0,bu1]=proj(B.pts,A.u,origin);
+  if(au1<=bu0+0.5 || bu1<=au0+0.5) return mover.t;      // along-wall extents clear -> fine
+  // overlapping: push to whichever side is nearer
+  const c=(au0+au1)/2;
+  const leftC = bu0-mw/2, rightC = bu1+mw/2;
+  const target = Math.abs(c-leftC)<=Math.abs(c-rightC) ? leftC : rightC;
+  const half=mw/2/A.L;
+  let t=target/A.L;
+  return half>=.5?.5:Math.max(half,Math.min(1-half,t));
+}
+function inPoly(pt,poly){ let c=false;
+  for(let i=0,j=poly.length-1;i<poly.length;j=i++){
+    const xi=poly[i][0],yi=poly[i][1],xj=poly[j][0],yj=poly[j][1];
+    if(((yi>pt[1])!==(yj>pt[1])) && (pt[0] < (xj-xi)*(pt[1]-yi)/((yj-yi)||1e-9)+xi)) c=!c; }
+  return c; }
+// does a fixture of w x d on this edge at position t sit fully inside the room?
+function fits(verts,e,t,w,d,cen){
+  const v=edgeVec(e);
+  const mid=[e.a[0]+v.ux*v.L*t, e.a[1]+v.uy*v.L*t];
+  let nx=-v.uy,ny=v.ux; if((cen[0]-mid[0])*nx+(cen[1]-mid[1])*ny<0){nx=-nx;ny=-ny;}
+  const IN=0.75;   // pull test points just inside the outline
+  const corners=[[-w/2+IN,IN],[w/2-IN,IN],[w/2-IN,d-IN],[-w/2+IN,d-IN],[0,d-IN],[0,IN]];
+  return corners.every(([a,i2])=>inPoly([mid[0]+v.ux*a+nx*i2, mid[1]+v.uy*a+ny*i2], verts));
+}
+// biggest catalogue unit that genuinely fits this wall, snapped into a corner
+function bestFit(verts,e,list,cen){
+  const L=edgeVec(e).L;
+  // try each unit both ways round: (w along wall, d deep) and (d along wall, w deep)
+  const cands=[];
+  for(const x of list){
+    cands.push({x,along:x.w,deep:x.d,rot:false});
+    if(x.d!==x.w) cands.push({x,along:x.d,deep:x.w,rot:true});
+  }
+  cands.sort((a,b)=>(b.along*b.deep)-(a.along*a.deep));   // biggest usable area first
+  for(const c of cands){
+    if(c.along>L) continue;
+    const half=c.along/2/L;
+    for(const t of [half,1-half,.5]) if(fits(verts,e,t,c.along,c.deep,cen)) return {sku:c.x,t,rot:c.rot};
+  }
+  return null;
+}
+// current footprint of the bathing area, honouring rotation
+function bathDims(){ const k=bathSku(); return bath&&bath.rot? {w:k.d,d:k.w} : {w:k.w,d:k.d}; }
+function cenOf(v){return [v.reduce((a,p)=>a+p[0],0)/v.length, v.reduce((a,p)=>a+p[1],0)/v.length];}
+// smallest along-wall and depth needed by any unit in the list (either orientation)
+function minNeed(list){
+  let a=Infinity,d=Infinity;
+  for(const x of list){ a=Math.min(a,x.w,x.d); d=Math.min(d,x.w,x.d); }
+  return {along:a,deep:d};
+}
+// what's blocking a unit on this edge? returns null if something fits
+function whyNoFit(verts,e,list,cen){
+  if(bestFit(verts,e,list,cen)) return null;
+  const L=edgeVec(e).L, need=minNeed(list);
+  if(L<need.along) return `this wall is ${ftin(L)} — the smallest unit needs ${need.along}"`;
+  return `there isn't ${need.deep}" of depth here for the smallest unit`;
+}
+// ---------- CLEARANCES (IRC) ----------
+let ada=false;
+const RULES={
+  std:{ toiletSide:15, toiletFront:21, vanityFront:21, showerFront:24, doorClear:0,  turn:0,  label:'IRC minimum' },
+  ada:{ toiletSide:30, toiletFront:56, vanityFront:48, showerFront:36, doorClear:32, turn:60, label:'ADA / ANSI A117.1' }
+};
+const CL_=()=>ada?RULES.ada:RULES.std;
+function aabb(pts){ const xs=pts.map(p=>p[0]),ys=pts.map(p=>p[1]);
+  return {x0:Math.min(...xs),x1:Math.max(...xs),y0:Math.min(...ys),y1:Math.max(...ys)}; }
+function overlaps(a,b,tol=0.5){ return !(a.x1<=b.x0+tol||b.x1<=a.x0+tol||a.y1<=b.y0+tol||b.y1<=a.y0+tol); }
+// rectangle on a wall: centred at t, `w` along wall, from `from` to `to` inches deep
+function zoneOn(edges,o,w,from,to,cen){
+  const e=edges[o.edge]; if(!e) return null;
+  const v=edgeVec(e);
+  const mid=[e.a[0]+v.ux*v.L*o.t, e.a[1]+v.uy*v.L*o.t];
+  let nx=-v.uy,ny=v.ux; if((cen[0]-mid[0])*nx+(cen[1]-mid[1])*ny<0){nx=-nx;ny=-ny;}
+  const P4=(a,i2)=>[mid[0]+v.ux*a+nx*i2, mid[1]+v.uy*a+ny*i2];
+  return [P4(-w/2,from),P4(w/2,from),P4(w/2,to),P4(-w/2,to)];
+}
+function activeFixtures(edges){
+  const out=[];
+  if(toilet) out.push({k:'toilet',name:'toilet',o:toilet,w:TOILET_W,d:TOILET_D});
+  if(vanity) out.push({k:'vanity',name:'vanity',o:vanity,w:vanity.w,d:VANITY_D});
+  if(bath){ const b=bathDims(); out.push({k:'bath',name:bath.kind==='tub'?'tub':'shower',o:bath,w:b.w,d:b.d}); }
+  if(door) out.push({k:'door',name:'door',o:door,w:roOf(door.w),d:4});
+  return out.filter(f=>edges[f.o.edge]);
+}
+function checkClearances(verts,edges,cen){
+  const R=CL_();
+  const list=activeFixtures(edges), issues=[], zones=[];
+  const rectOf=f=>aabb(zoneOn(edges,f.o,f.w,0,f.d,cen));
+  const inside=pts=>pts.every(pt=>inPoly(pt,verts));
+
+  const test=(f,zonePts,label,req)=>{
+    if(!zonePts) return;
+    zones.push({pts:zonePts,ok:true});
+    const z=zones[zones.length-1];
+    const za=aabb(zonePts);
+    let bad=null;
+    if(!inside(zonePts)) bad='a wall';
+    else for(const g of list){ if(g===f) continue; if(g.k==='door') continue;
+      if(overlaps(za,rectOf(g))){ bad='the '+g.name; break; } }
+    if(bad){ z.ok=false; issues.push(`${req}" ${label} for the ${f.name} is blocked by ${bad}.`); }
+  };
+
+  for(const f of list){
+    if(f.k==='toilet'){
+      test(f, zoneOn(edges,f.o,R.toiletSide*2,0,f.d,cen), ada?'clear floor width':'side clearance', R.toiletSide);
+      test(f, zoneOn(edges,f.o,R.toiletSide*2,f.d,f.d+R.toiletFront,cen), 'clear floor depth', R.toiletFront);
+    } else if(f.k==='vanity'){
+      test(f, zoneOn(edges,f.o,f.w,f.d,f.d+R.vanityFront,cen), ada?'clear floor space':'front clearance', R.vanityFront);
+    } else if(f.k==='bath'){
+      test(f, zoneOn(edges,f.o,f.w,f.d,f.d+R.showerFront,cen), 'entry clearance', R.showerFront);
+    }
+  }
+  // ---- ADA-only checks ----
+  let turnCircle=null;
+  if(ada){
+    // 32" clear door width -> needs a 36" door
+    if(door && door.w<36) issues.push(`ADA needs 32" clear width — use a 36" door (currently ${door.w}").`);
+    // 60" turning circle must fit clear of every fixture
+    const R60=R.turn/2;
+    const xs=verts.map(p=>p[0]),ys=verts.map(p=>p[1]);
+    let best=null;
+    for(let x=Math.min(...xs)+R60; x<=Math.max(...xs)-R60; x+=3){
+      for(let y=Math.min(...ys)+R60; y<=Math.max(...ys)-R60; y+=3){
+        const box={x0:x-R60,x1:x+R60,y0:y-R60,y1:y+R60};
+        const cornersIn=[[x-R60,y-R60],[x+R60,y-R60],[x+R60,y+R60],[x-R60,y+R60],[x,y]].every(pt=>inPoly(pt,verts));
+        if(!cornersIn) continue;
+        let clear=true;
+        for(const g of list){ if(g.k==='door') continue;
+          const ga=aabb(zoneOn(edges,g.o,g.w,0,g.d,cen));
+          if(overlaps(box,ga)){ clear=false; break; } }
+        if(clear){ best={x,y}; break; }
+      }
+      if(best) break;
+    }
+    if(best) turnCircle={x:best.x,y:best.y,r:R60};
+    else issues.push(`No 60" turning circle fits clear of the fixtures — ADA requires one.`);
+  }
+  return {issues,zones,turnCircle,mode:R.label};
+}
+// largest size that fits this wall AND clears every other fixture already placed
+function freeFit(verts,edges,i,sizes,depth,cen,skipKind){
+  const e=edges[i]; if(!e) return null;
+  const L=edgeVec(e).L;
+  const others=activeFixtures(edges).filter(f=>f.k!==skipKind);
+  const boxes=others.map(g=>aabb(zoneOn(edges,g.o,g.w,0,g.d,cen)));
+  for(const w of [...sizes].sort((a,b)=>b-a)){
+    if(w>L) continue;
+    const half=w/2;
+    for(let c=half;c<=L-half;c+=1){
+      const t=c/L;
+      if(!fits(verts,e,t,w,depth,cen)) continue;
+      const za=aabb(zoneOn(edges,{edge:i,t},w,0,depth,cen));
+      if(boxes.some(b=>overlaps(za,b))) continue;
+      return {w,t};
+    }
+  }
+  return null;
+}
+// keep fixtures on the wall they were placed on, even when the shape changes
+function reanchor(edges){
+  for(const o of [door,toilet,bath,vanity]){
+    if(!o) continue;
+    if(o.side){                                   // find that wall in the new geometry
+      const i=edges.findIndex(e=>e.side===o.side);
+      if(i>=0){ o.edge=i; o.orphaned=false; }
+      else {                                      // that wall no longer exists
+        const alt=edges.reduce((b,e,k)=>e.len>(edges[b]?edges[b].len:0)?k:b,0);
+        o.edge=alt; o.side=edges[alt].side; o.orphaned=true;
+      }
+    } else if(edges[o.edge]) o.side=edges[o.edge].side;
+  }
+}
+// how much of each wall is taken up by the bathing area (those walls are priced by the shower module)
+function wallDeductions(edges,cen){
+  const ded=edges.map(()=>0);
+  if(bath&&edges[bath.edge]){
+    const b=bathDims(), e=edges[bath.edge], v=edgeVec(e);
+    ded[bath.edge]+=Math.min(b.w,e.len);
+    // if it's snapped into a corner, it also covers part of the adjoining wall
+    const half=b.w/2/v.L, atA=Math.abs(bath.t-half)<0.01, atB=Math.abs(bath.t-(1-half))<0.01;
+    if(atA||atB){
+      const corner = atA ? e.a : e.b;
+      edges.forEach((o,i)=>{ if(i===bath.edge) return;
+        const touches=(Math.hypot(o.a[0]-corner[0],o.a[1]-corner[1])<1)||(Math.hypot(o.b[0]-corner[0],o.b[1]-corner[1])<1);
+        if(touches) ded[i]+=Math.min(b.d,o.len);
+      });
+    }
+  }
+  return ded;
+}
+// baseboard runs the perimeter, less door openings, less the bathing area, less the vanity face
+function baseboardLF(edges,ded){
+  let lf=edges.reduce((a,e,i)=>a+Math.max(0,e.len-ded[i]),0);
+  if(door) lf-=roOf(door.w);
+  if(vanity) lf-=vanity.w;
+  return Math.max(0,lf)/12;
+}
+function shoelace(v){let A=0;for(let i=0;i<v.length;i++){const j=(i+1)%v.length;A+=v[i][0]*v[j][1]-v[j][0]*v[i][1];}return Math.abs(A)/2/144;}
+function applyEdit(p,val,cur){ const dl=val-cur; if(p==='w'||p==='d')S[p]=Math.max(12,S[p]+dl); else S[p]=Math.max(6,S[p]+dl); clampShape(); }
+
+// ================= render =================
+function render(){
+  const {verts,edges}=build();
+  reanchor(edges);
+  if(door&&edges[door.edge]){ const L=edgeVec(edges[door.edge]).L;
+    const allow=DOOR_SIZES.filter(w=>roOf(w)<=L); if(allow.length&&!allow.includes(door.w)) door.w=Math.max(...allow); }
+  door=clampFix(door,door?roOf(door.w):0,edges); toilet=clampFix(toilet,TOILET_W,edges);
+  if(bath){ if(bath.edge>=edges.length) bath=null; else{
+      const sk=bathDims(), {L}=edgeVec(edges[bath.edge]), half=sk.w/2/L;
+      bath.tooWide = sk.w>L; bath.overBy=Math.max(0,sk.w-L);
+      bath.snapped=null;
+      if(bath.tooWide){ bath.t=.5; }
+      else{
+        bath.t=Math.max(half,Math.min(1-half,bath.t));
+        if(Math.abs(bath.t-half)*L<=SNAP_IN){ bath.t=half; bath.snapped='a'; }
+        else if(Math.abs((1-half)-bath.t)*L<=SNAP_IN){ bath.t=1-half; bath.snapped='b'; }
+      }
+      bath.overhang = bath.tooWide || !fits(verts,edges[bath.edge],bath.t,sk.w,sk.d,cenOf(verts));
+    } }
+  if(!bath&&sel==='bath')sel=null;
+  if(!door&&sel==='door')sel=null; if(!toilet&&sel==='toilet')sel=null;
+
+  const perim=edges.reduce((a,e)=>a+e.len,0);
+  const ded=wallDeductions(edges,cenOf(verts));
+  const wallSFgross=edges.reduce((a,e)=>a+e.len*S.h/144,0);
+  const wallSF=edges.reduce((a,e,i)=>a+(excluded.has(i)?0:Math.max(0,e.len-ded[i])*S.h/144),0);
+  const bbLF=baseboardLF(edges,ded);
+  const floorSF=shoelace(verts);
+  const xs=verts.map(p=>p[0]),ys=verts.map(p=>p[1]);
+  const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
+  const bw=Math.max(1,maxX-minX),bh=Math.max(1,maxY-minY),W=620,H=440,pad=84;
+  const s=Math.min((W-pad*2)/bw,(H-pad*2)/bh),ox=(W-bw*s)/2-minX*s,oy=(H-bh*s)/2-minY*s;
+  const P=(x,y)=>[x*s+ox,y*s+oy];
+  const cen=[verts.reduce((a,p)=>a+p[0],0)/verts.length,verts.reduce((a,p)=>a+p[1],0)/verts.length];
+  LAST={edges,P,s,ox,oy,cen,verts};
+  // fixtures must not overlap: toilet yields to bath; vanity yields to both
+  if(toilet&&bath&&edges[toilet.edge]&&edges[bath.edge]){
+    const sk=bathDims();
+    toilet.t = avoidOverlap(edges, toilet, TOILET_W, TOILET_D, bath, sk.w, sk.d);
+  }
+  // nothing may sit across the door opening
+  if(door&&edges[door.edge]){
+    if(vanity&&edges[vanity.edge]) vanity.t=avoidOverlap(edges,vanity,vanity.w,VANITY_D,door,roOf(door.w),6);
+    if(toilet&&edges[toilet.edge]) toilet.t=avoidOverlap(edges,toilet,TOILET_W,TOILET_D,door,roOf(door.w),6);
+  }
+  if(vanity&&edges[vanity.edge]){
+    if(bath&&edges[bath.edge]){ const sk=bathDims();
+      vanity.t = avoidOverlap(edges, vanity, vanity.w, VANITY_D, bath, sk.w, sk.d); }
+    if(toilet&&edges[toilet.edge]){
+      vanity.t = avoidOverlap(edges, vanity, vanity.w, VANITY_D, toilet, TOILET_W, TOILET_D); }
+    const {L}=edgeVec(edges[vanity.edge]), half=vanity.w/2/L;
+    vanity.t = half>=.5?.5:Math.max(half,Math.min(1-half,vanity.t));
+    vanity.overhang = vanity.w>L || !fits(verts,edges[vanity.edge],vanity.t,vanity.w,VANITY_D,cenOf(verts));
+  }
+  if(vanity&&vanity.edge>=edges.length) vanity=null;
+  if(!vanity&&sel==='vanity')sel=null;
+
+  let g=`<polygon pointer-events="none" points="${verts.map(p=>P(p[0],p[1]).join(',')).join(' ')}" fill="#0e6e6e" fill-opacity=".05"/>`;
+
+  // overall dims
+  const dc='#8a8a84',tk=5,[blx,bly]=P(minX,maxY),[brx,bry]=P(maxX,maxY),[tlx,tly]=P(minX,minY);
+  const wy=bly+34;
+  g+=`<line x1="${blx}" y1="${bly+8}" x2="${blx}" y2="${wy+tk}" stroke="${dc}"/><line x1="${brx}" y1="${bry+8}" x2="${brx}" y2="${wy+tk}" stroke="${dc}"/>`;
+  g+=`<line x1="${blx}" y1="${wy}" x2="${brx}" y2="${wy}" stroke="${dc}"/>`;
+  g+=`<g class="dim" data-d="w" data-x="${(blx+brx)/2}" data-y="${wy}" style="cursor:pointer"><rect x="${(blx+brx)/2-24}" y="${wy-9}" width="48" height="18" rx="4" fill="#faf9f7"/><text x="${(blx+brx)/2}" y="${wy}" text-anchor="middle" dominant-baseline="middle" font-family="var(--mono)" font-size="11" font-weight="700">${ftin(bw)}</text></g>`;
+  const dx0=tlx-34;
+  g+=`<line x1="${tlx-8}" y1="${tly}" x2="${dx0-tk}" y2="${tly}" stroke="${dc}"/><line x1="${blx-8}" y1="${bly}" x2="${dx0-tk}" y2="${bly}" stroke="${dc}"/>`;
+  g+=`<line x1="${dx0}" y1="${tly}" x2="${dx0}" y2="${bly}" stroke="${dc}"/>`;
+  g+=`<g class="dim" data-d="d" data-x="${dx0}" data-y="${(tly+bly)/2}" style="cursor:pointer"><rect x="${dx0-9}" y="${(tly+bly)/2-24}" width="18" height="48" fill="#faf9f7"/><text x="${dx0}" y="${(tly+bly)/2}" text-anchor="middle" dominant-baseline="middle" transform="rotate(-90 ${dx0} ${(tly+bly)/2})" font-family="var(--mono)" font-size="11" font-weight="700">${ftin(bh)}</text></g>`;
+
+  // walls
+  edges.forEach((e,i)=>{const[ax,ay]=P(e.a[0],e.a[1]),[bx,by]=P(e.b[0],e.b[1]);
+    g+=`<line x1="${ax}" y1="${ay}" x2="${bx}" y2="${by}" stroke="${excluded.has(i)?'#b9b6ae':'#14181c'}" stroke-width="3" stroke-linecap="round"/>`;});
+  // wall hit targets (armed placement)
+  let hitLayer='';
+  if(armed){ const need=minWallFor(armed);
+    edges.forEach((e,i)=>{const[ax,ay]=P(e.a[0],e.a[1]),[bx,by]=P(e.b[0],e.b[1]);
+      const ok = armed==='bath' ? !!bestFit(verts,e,BASES,cen)
+               : armed==='toilet' ? (e.len>=need && fits(verts,e,.5,TOILET_W,TOILET_D,cen))
+               : armed==='vanity' ? !!freeFit(verts,edges,i,VANITY_SIZES,VANITY_D,cen,'vanity')
+               : e.len>=need;
+      if(ok) hitLayer+=`<line class="wallhit" data-i="${i}" x1="${ax}" y1="${ay}" x2="${bx}" y2="${by}" stroke="#0e6e6e" stroke-opacity=".16" stroke-width="18" stroke-linecap="round" style="cursor:pointer"/>`;
+      else g+=`<line pointer-events="none" x1="${ax}" y1="${ay}" x2="${bx}" y2="${by}" stroke="#b9b6ae" stroke-opacity=".25" stroke-width="14" stroke-linecap="round"/>`;});}
+  // segment labels
+  edges.forEach((e,i)=>{const[ax,ay]=P(e.a[0],e.a[1]),[bx,by]=P(e.b[0],e.b[1]);
+    let dx=bx-ax,dy=by-ay,L=Math.hypot(dx,dy)||1,px=-dy/L,py=dx/L;
+    const[cx,cy]=P(cen[0],cen[1]),mx=(ax+bx)/2,my=(ay+by)/2;
+    if((mx-cx)*px+(my-cy)*py<0){px=-px;py=-py;}
+    const lx=mx+px*15,ly=my+py*15;
+    g+=`<g class="seglbl" data-p="${e.p}" data-len="${e.len}" data-x="${lx}" data-y="${ly}" style="cursor:pointer"><rect x="${lx-20}" y="${ly-10}" width="40" height="20" rx="5" fill="#fff" fill-opacity=".01"/><text x="${lx}" y="${ly}" text-anchor="middle" dominant-baseline="middle" font-family="var(--mono)" font-size="11" fill="${excluded.has(i)?'#b9b6ae':'#14181c'}">${ftin(e.len)}</text></g>`;});
+
+  // ---- clearance zones (drawn beneath fixtures) ----
+  const CL=checkClearances(verts,edges,cen);
+  if(showClear && CL.turnCircle){
+    const c0=P(CL.turnCircle.x,CL.turnCircle.y), edge=P(CL.turnCircle.x+CL.turnCircle.r,CL.turnCircle.y);
+    const rp=Math.hypot(edge[0]-c0[0],edge[1]-c0[1]);
+    g+=`<circle pointer-events="none" cx="${c0[0]}" cy="${c0[1]}" r="${rp}" fill="#0e6e6e" fill-opacity="0.05" stroke="#0e6e6e" stroke-width="1" stroke-dasharray="6 4"/>`+
+       `<text pointer-events="none" x="${c0[0]}" y="${c0[1]-rp+12}" text-anchor="middle" font-family="var(--mono)" font-size="9" fill="#0e6e6e">60" TURNING</text>`;
+  }
+  if(showClear) CL.zones.forEach(z=>{
+    const pts=z.pts.map(pt=>P(pt[0],pt[1]).join(',')).join(' ');
+    g+=`<polygon pointer-events="none" points="${pts}" fill="${z.ok?'#0e6e6e':'#b47216'}" fill-opacity="${z.ok?0.06:0.16}" stroke="${z.ok?'#0e6e6e':'#b47216'}" stroke-width="1" stroke-dasharray="4 3" stroke-opacity="${z.ok?0.4:0.9}"/>`;
+  });
+
+  // ---- door ----
+  if(door&&edges[door.edge]){
+    const e=edges[door.edge],v=edgeVec(e),ow=roOf(door.w),half=ow/2/v.L;
+    const p0=[e.a[0]+v.ux*v.L*(door.t-half),e.a[1]+v.uy*v.L*(door.t-half)];
+    const p1=[e.a[0]+v.ux*v.L*(door.t+half),e.a[1]+v.uy*v.L*(door.t+half)];
+    const[x0,y0]=P(p0[0],p0[1]),[x1,y1]=P(p1[0],p1[1]);
+    let nx=-v.uy,ny=v.ux; const mid=[(p0[0]+p1[0])/2,(p0[1]+p1[1])/2];
+    if((cen[0]-mid[0])*nx+(cen[1]-mid[1])*ny<0){nx=-nx;ny=-ny;}
+    const inPt=(a,i2)=>P(mid[0]+v.ux*a+nx*i2, mid[1]+v.uy*a+ny*i2);
+    g+=`<line x1="${x0}" y1="${y0}" x2="${x1}" y2="${y1}" stroke="#faf9f7" stroke-width="7" stroke-linecap="butt"/>`;
+    if(door.type==='swing'){
+      const dpix=Math.hypot(x1-x0,y1-y0), hl=door.swing.endsWith('l'), out=door.swing.startsWith('out');
+      const hx=hl?x0:x1,hy=hl?y0:y1, sx2=hl?x1:x0, sy2=hl?y1:y0;
+      const tip=inPt(hl?-ow/2:ow/2, out?-ow:ow);
+      g+=`<path d="M ${sx2} ${sy2} A ${dpix} ${dpix} 0 0 ${((hl?1:0)^(out?1:0))} ${tip[0]} ${tip[1]}" fill="none" stroke="#14181c" stroke-width="1.2"/>`;
+      g+=`<line x1="${hx}" y1="${hy}" x2="${tip[0]}" y2="${tip[1]}" stroke="#14181c" stroke-width="3"/>`;
+    } else if(door.type==='sliding'){
+      const o=inPt(0,4), a0=inPt(-ow*.45,4), a1=inPt(ow*.45,4);
+      g+=`<line x1="${a0[0]}" y1="${a0[1]}" x2="${o[0]}" y2="${o[1]}" stroke="#14181c" stroke-width="3"/>`;
+      g+=`<line x1="${o[0]}" y1="${o[1]}" x2="${a1[0]}" y2="${a1[1]}" stroke="#14181c" stroke-width="1"/>`;
+    }
+    const dm=inPt(0,0), h_=dm;
+    g+=`<circle class="pick" data-k="door" r="22" fill="transparent" style="cursor:grab" cx="${h_[0]}" cy="${h_[1]}"/>`+`<circle class="pick" data-k="door" cx="${dm[0]}" cy="${dm[1]}" r="11" fill="#0e6e6e" fill-opacity="${sel==='door'?.35:.15}" stroke="#0e6e6e" stroke-width="${sel==='door'?2:1.2}" style="cursor:grab"/>`;
+  }
+
+  // ---- toilet ----
+  if(toilet&&edges[toilet.edge]){
+    const e=edges[toilet.edge],v=edgeVec(e);
+    const mid=[e.a[0]+v.ux*v.L*toilet.t, e.a[1]+v.uy*v.L*toilet.t];
+    let nx=-v.uy,ny=v.ux; if((cen[0]-mid[0])*nx+(cen[1]-mid[1])*ny<0){nx=-nx;ny=-ny;}
+    const pt=(a,i2)=>P(mid[0]+v.ux*a+nx*i2, mid[1]+v.uy*a+ny*i2);
+    const TD=8,BL=TOILET_D-TD,BW=15;
+    const c1=pt(-TOILET_W/2,0),c2=pt(TOILET_W/2,0),c3=pt(TOILET_W/2,TD),c4=pt(-TOILET_W/2,TD);
+    const stroke=sel==='toilet'?'#0e6e6e':'#14181c', sw=sel==='toilet'?2:1.5;
+    g+=`<polygon pointer-events="none" points="${c1.join(',')} ${c2.join(',')} ${c3.join(',')} ${c4.join(',')}" fill="#fff" stroke="${stroke}" stroke-width="${sw}"/>`;
+    const bc=pt(0,TD+BL/2), e2=P(mid[0]+v.ux,mid[1]+v.uy), e0=P(mid[0],mid[1]);
+    const ang=Math.atan2(e2[1]-e0[1],e2[0]-e0[0])*180/Math.PI;
+    const rx=Math.hypot(pt(BW/2,0)[0]-pt(0,0)[0],pt(BW/2,0)[1]-pt(0,0)[1]);
+    const ry=Math.hypot(pt(0,BL/2)[0]-pt(0,0)[0],pt(0,BL/2)[1]-pt(0,0)[1]);
+    g+=`<ellipse pointer-events="none" cx="${bc[0]}" cy="${bc[1]}" rx="${rx}" ry="${ry}" transform="rotate(${ang} ${bc[0]} ${bc[1]})" fill="#fff" stroke="${stroke}" stroke-width="${sw}"/>`;
+    const h=pt(0,TD/2), h_=h;
+    g+=`<circle class="pick" data-k="toilet" r="22" fill="transparent" style="cursor:grab" cx="${h_[0]}" cy="${h_[1]}"/>`+`<circle class="pick" data-k="toilet" cx="${h[0]}" cy="${h[1]}" r="11" fill="#0e6e6e" fill-opacity="${sel==='toilet'?.35:.15}" stroke="#0e6e6e" stroke-width="${sel==='toilet'?2:1.2}" style="cursor:grab"/>`;
+  }
+
+  // ---- bathing area (legend: shower = rect with X; tub = rounded rect + drain) ----
+  if(bath&&edges[bath.edge]){
+    const e=edges[bath.edge],v=edgeVec(e),sku=bathDims();
+    const mid=[e.a[0]+v.ux*v.L*bath.t, e.a[1]+v.uy*v.L*bath.t];
+    let nx=-v.uy,ny=v.ux; if((cen[0]-mid[0])*nx+(cen[1]-mid[1])*ny<0){nx=-nx;ny=-ny;}
+    const pt=(a,i2)=>P(mid[0]+v.ux*a+nx*i2, mid[1]+v.uy*a+ny*i2);
+    const hw=sku.w/2, dp=sku.d;
+    const q1=pt(-hw,0),q2=pt(hw,0),q3=pt(hw,dp),q4=pt(-hw,dp);
+    const stroke=bath.overhang?'#b47216':(sel==='bath'?'#0e6e6e':'#14181c'), sw=bath.overhang?2:(sel==='bath'?2:1.5);
+    if(bath.kind==='shower'){
+      g+=`<polygon pointer-events="none" points="${q1.join(',')} ${q2.join(',')} ${q3.join(',')} ${q4.join(',')}" fill="#fff" stroke="${stroke}" stroke-width="${sw}"/>`;
+      g+=`<line x1="${q1[0]}" y1="${q1[1]}" x2="${q3[0]}" y2="${q3[1]}" stroke="${stroke}" stroke-width="1"/>`;
+      g+=`<line x1="${q2[0]}" y1="${q2[1]}" x2="${q4[0]}" y2="${q4[1]}" stroke="${stroke}" stroke-width="1"/>`;
+    } else {
+      g+=`<polygon pointer-events="none" points="${q1.join(',')} ${q2.join(',')} ${q3.join(',')} ${q4.join(',')}" fill="#fff" stroke="${stroke}" stroke-width="${sw}"/>`;
+      const inr=6, r1=pt(-hw+inr,inr),r2=pt(hw-inr,inr),r3=pt(hw-inr,dp-inr),r4=pt(-hw+inr,dp-inr);
+      g+=`<polygon pointer-events="none" points="${r1.join(',')} ${r2.join(',')} ${r3.join(',')} ${r4.join(',')}" fill="none" stroke="${stroke}" stroke-width="1" opacity=".8"/>`;
+      const dr=pt(-hw+7,dp/2); g+=`<circle cx="${dr[0]}" cy="${dr[1]}" r="3" fill="none" stroke="${stroke}" stroke-width="1"/>`;
+    }
+    if(bath.snapped){ const c1=bath.snapped==='a'?q1:q2; g+=`<circle cx="${c1[0]}" cy="${c1[1]}" r="6" fill="none" stroke="#0e6e6e" stroke-width="2"/>`; }
+    if(bath.overhang){ const wp=pt(0,dp+9);
+      g+=`<rect pointer-events="none" x="${wp[0]-78}" y="${wp[1]-10}" width="156" height="20" rx="10" fill="#f6e8cf" stroke="#b47216"/>`+
+         `<text x="${wp[0]}" y="${wp[1]}" text-anchor="middle" dominant-baseline="middle" font-family="var(--mono)" font-size="10" fill="#b47216">DOESN'T FIT THIS WALL</text>`; }
+    const h=pt(0,dp/2), h_=h;
+    g+=`<circle class="pick" data-k="bath" r="22" fill="transparent" style="cursor:grab" cx="${h_[0]}" cy="${h_[1]}"/>`+`<circle class="pick" data-k="bath" cx="${h[0]}" cy="${h[1]}" r="11" fill="#0e6e6e" fill-opacity="${sel==='bath'?.35:.15}" stroke="#0e6e6e" stroke-width="${sel==='bath'?2:1.2}" style="cursor:grab"/>`;
+  }
+
+  // ---- vanity (legend: rectangle at wall + basin oval) ----
+  if(vanity&&edges[vanity.edge]){
+    const e=edges[vanity.edge],v=edgeVec(e);
+    const mid=[e.a[0]+v.ux*v.L*vanity.t, e.a[1]+v.uy*v.L*vanity.t];
+    let nx=-v.uy,ny=v.ux; if((cen[0]-mid[0])*nx+(cen[1]-mid[1])*ny<0){nx=-nx;ny=-ny;}
+    const pt=(a,i2)=>P(mid[0]+v.ux*a+nx*i2, mid[1]+v.uy*a+ny*i2);
+    const hw=vanity.w/2, dp=VANITY_D;
+    const q1=pt(-hw,0),q2=pt(hw,0),q3=pt(hw,dp),q4=pt(-hw,dp);
+    const stroke=vanity.overhang?'#b47216':(sel==='vanity'?'#0e6e6e':'#14181c'), sw=vanity.overhang?2:(sel==='vanity'?2:1.5);
+    g+=`<polygon pointer-events="none" points="${q1.join(',')} ${q2.join(',')} ${q3.join(',')} ${q4.join(',')}" fill="#fff" stroke="${stroke}" stroke-width="${sw}"/>`;
+    const e2=P(mid[0]+v.ux,mid[1]+v.uy), e0=P(mid[0],mid[1]);
+    const ang=Math.atan2(e2[1]-e0[1],e2[0]-e0[0])*180/Math.PI;
+    const n=vanity.sinks||1;
+    for(let k=0;k<n;k++){
+      const off = n===1 ? 0 : (k===0? -vanity.w*0.24 : vanity.w*0.24);
+      const bc=pt(off,dp*0.55);
+      const rx=Math.hypot(pt(off+ (n===1?9:7),dp*0.55)[0]-bc[0], pt(off+(n===1?9:7),dp*0.55)[1]-bc[1]);
+      const ry=Math.hypot(pt(off,dp*0.55+6)[0]-bc[0], pt(off,dp*0.55+6)[1]-bc[1]);
+      g+=`<ellipse pointer-events="none" cx="${bc[0]}" cy="${bc[1]}" rx="${rx}" ry="${ry}" transform="rotate(${ang} ${bc[0]} ${bc[1]})" fill="none" stroke="${stroke}" stroke-width="1"/>`;
+    }
+    if(vanity.overhang){ const wp=pt(0,dp+9);
+      g+=`<rect pointer-events="none" x="${wp[0]-70}" y="${wp[1]-10}" width="140" height="20" rx="10" fill="#f6e8cf" stroke="#b47216"/>`+
+         `<text x="${wp[0]}" y="${wp[1]}" text-anchor="middle" dominant-baseline="middle" font-family="var(--mono)" font-size="10" fill="#b47216">DOESN'T FIT HERE</text>`; }
+    const h=pt(0,dp/2), h_=h;
+    g+=`<circle class="pick" data-k="vanity" r="22" fill="transparent" style="cursor:grab" cx="${h_[0]}" cy="${h_[1]}"/>`+`<circle class="pick" data-k="vanity" cx="${h[0]}" cy="${h[1]}" r="11" fill="#0e6e6e" fill-opacity="${sel==='vanity'?.35:.15}" stroke="#0e6e6e" stroke-width="${sel==='vanity'?2:1.2}" style="cursor:grab"/>`;
+  }
+
+  verts.forEach(p=>{const[qx,qy]=P(p[0],p[1]);g+=`<circle cx="${qx}" cy="${qy}" r="4" fill="#0e6e6e"/>`;});
+  const[cx,cy]=P(cen[0],cen[1]);
+  g+=`<text x="${cx}" y="${cy}" text-anchor="middle" font-family="var(--mono)" font-size="12" fill="#8a8a84">${floorSF.toFixed(1)} sf</text>`;
+
+  g+=hitLayer;                       // placement targets sit above all artwork
+  document.getElementById('plan').innerHTML=g;
+  document.getElementById('mPerim').textContent=ftin(perim);
+  document.getElementById('mWall').textContent=wallSF.toFixed(1)+' sf';
+  document.getElementById('mFloor').textContent=floorSF.toFixed(1)+' sf';
+  // materials summary
+  const waste=1.10;
+  document.getElementById('matBox').innerHTML =
+    `<div style="margin-top:10px;display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px">`+
+    `<div style="border:1px solid var(--line);border-radius:10px;padding:8px 10px">
+       <div class="lbl">Flooring</div><div style="font-size:15px;font-weight:700">${floorSF.toFixed(1)} sf</div>
+       <div style="font-size:11px;color:var(--muted)">${(floorSF*waste).toFixed(1)} sf with 10% waste</div></div>`+
+    `<div style="border:1px solid var(--line);border-radius:10px;padding:8px 10px">
+       <div class="lbl">Baseboard</div><div style="font-size:15px;font-weight:700">${bbLF.toFixed(1)} lf</div>
+       <div style="font-size:11px;color:var(--muted)">less door, vanity & bathing area</div></div>`+
+    `<div style="border:1px solid var(--line);border-radius:10px;padding:8px 10px">
+       <div class="lbl">Wall area (billable)</div><div style="font-size:15px;font-weight:700">${wallSF.toFixed(1)} sf</div>
+       <div style="font-size:11px;color:var(--muted)">${bath?`${(wallSFgross-wallSF).toFixed(1)} sf in the bathing area excluded`:'no bathing area placed'}</div></div>`+
+    `</div>`;
+
+  if(shapeNote && (door||toilet||bath||vanity)) shapeNote='';
+  const moved=[['door',door],['toilet',toilet],['shower/tub',bath],['vanity',vanity]].filter(([n,o])=>o&&o.orphaned).map(([n])=>n);
+  const cb=document.getElementById('clrBox');
+  if(shapeNote){
+    cb.innerHTML=`<div style="margin-top:10px;padding:8px 12px;border:1px solid var(--line);background:var(--paper);border-radius:10px;font-size:12px;color:var(--muted)">${shapeNote}</div>`;
+  } else if(moved.length){
+    cb.innerHTML=`<div style="margin-top:10px;padding:10px 12px;border:1px solid #b47216;background:#f6e8cf;border-radius:10px">`+
+      `<div class="lbl" style="color:#b47216;margin-bottom:4px">⚠ Wall removed</div>`+
+      `<div style="font-size:12px;color:#7a4d0f;line-height:1.5">The wall the ${moved.join(' and ')} sat on no longer exists — ${moved.length>1?'they have':'it has'} been moved to the longest wall. Check the placement.</div></div>`;
+  } else if(CL.issues.length){
+    cb.innerHTML=`<div style="margin-top:10px;padding:10px 12px;border:1px solid #b47216;background:#f6e8cf;border-radius:10px">`+
+      `<div class="lbl" style="color:#b47216;margin-bottom:4px">⚠ ${CL.mode} — ${CL.issues.length} issue${CL.issues.length>1?'s':''}</div>`+
+      CL.issues.map(t=>`<div style="font-size:12px;color:#7a4d0f;line-height:1.5">• ${t}</div>`).join('')+`</div>`;
+  } else if(activeFixtures(edges).length){
+    cb.innerHTML=`<div style="margin-top:10px;padding:8px 12px;border:1px solid var(--accent);background:var(--accent-soft);border-radius:10px;font-size:12px;color:var(--accent)">✓ Meets ${CL.mode} clearances.</div>`;
+  } else cb.innerHTML='';
+  wire(edges); syncRoom(); syncCtx(edges); pushHistory();
+}
+
+// ================= panels =================
+function syncRoom(){
+  document.getElementById('sRect').classList.toggle('active',shape==='rect');
+  document.getElementById('sL').classList.toggle('active',shape==='L');
+  document.getElementById('orient').style.display=shape==='L'?'block':'none';
+  if(shape==='L') document.getElementById('orientBtns').innerHTML=
+    [['tl','Top-left'],['tr','Top-right'],['bl','Bottom-left'],['br','Bottom-right']]
+    .map(([k,t])=>`<button class="btn sm ${S.corner===k?'active':''}" onclick="setCorner('${k}')">${t}</button>`).join('');
+  const set=(id,v)=>{const el=document.getElementById(id); if(el&&document.activeElement!==el)el.value=v;};
+  set('wFt',Math.floor(S.w/12));set('wIn',S.w%12);set('dFt',Math.floor(S.d/12));set('dIn',S.d%12);
+  set('hFt',Math.floor(S.h/12));set('hIn',S.h%12);
+  const on=shape==='L';
+  document.getElementById('p1row').style.display=on?'flex':'none';
+  document.getElementById('p2row').style.display=on?'flex':'none';
+  if(on){ set('p1Ft',Math.floor(S.cw/12));set('p1In',S.cw%12);set('p2Ft',Math.floor(S.cd/12));set('p2In',S.cd%12); }
+  document.getElementById('addDoor').classList.toggle('active',armed==='door');
+  document.getElementById('addToilet').classList.toggle('active',armed==='toilet');
+  document.getElementById('addShower').classList.toggle('active',armed==='bath');
+  document.getElementById('addVanity').classList.toggle('active',armed==='vanity');
+  if(armed==='bath'&&LAST){
+    const any=LAST.edges.some(e=>bestFit(LAST.verts,e,BASES,LAST.cen));
+    document.getElementById('armHint').textContent = any
+      ? 'Click a highlighted wall to place the shower or tub'
+      : 'No wall has room for a base yet — enlarge the room or cutout';
+  } else {
+    document.getElementById('armHint').textContent = armed? 'Click a highlighted wall to place the '+(armed==='door'?'door':armed==='vanity'?'vanity':'toilet') : '';
+  }
+}
+function syncCtx(edges){
+  const c=document.getElementById('ctx');
+  if(sel==='door'&&door){
+    const L=edgeVec(edges[door.edge]).L;
+    c.innerHTML=`<div class="selhdr"><span class="lbl" style="color:var(--ink)">Entry door</span><span style="flex:1"></span><button class="btn sm" onclick="del('door')">Remove</button></div>`+
+      `<div class="field"><span>Type</span><div class="seg">`+
+      [['opening','Opening'],['swing','Swing'],['sliding','Sliding']].map(([k,t])=>`<button class="btn sm ${door.type===k?'active':''}" onclick="setDoor('type','${k}')">${t}</button>`).join('')+`</div></div>`+
+      `<div class="field"><span>Width</span><div class="seg">`+
+      DOOR_SIZES.map(w=>`<button class="btn sm ${door.w===w?'active':''}" ${roOf(w)<=L?'':'disabled'} onclick="setDoor('w',${w})">${w}"</button>`).join('')+`</div></div>`+
+      `<div class="foot" style="margin-top:-2px"><b>${door.w}" door</b> · ${roOf(door.w)}" rough opening · on a ${ftin(L)} wall</div>`+
+      (door.type==='swing'?`<div class="field"><span>Swing</span><div class="seg">`+
+        [['in-l','In/L'],['in-r','In/R'],['out-l','Out/L'],['out-r','Out/R']].map(([k,t])=>`<button class="btn sm ${door.swing===k?'active':''}" onclick="setDoor('swing','${k}')">${t}</button>`).join('')+`</div></div>`:'')+
+      `<div class="foot">Drag its handle on the plan to slide it along the wall. Sizes whose rough opening exceeds this wall are disabled.</div>`;
+  } else if(sel==='bath'&&bath){
+    const L=edgeVec(edges[bath.edge]).L, list=bath.kind==='tub'?TUBS:BASES, sku=bathSku(), dims=bathDims();
+    c.innerHTML=`<div class="selhdr"><span class="lbl" style="color:var(--ink)">Bathing area</span><span style="flex:1"></span><button class="btn sm" onclick="del('bath')">Remove</button></div>`+
+      `<div class="field"><span>Type</span><div class="seg">`+
+      [['shower','Shower'],['tub','Tub / shower']].map(([k,t])=>`<button class="btn sm ${bath.kind===k?'active':''}" onclick="setBathKind('${k}')">${t}</button>`).join('')+`</div></div>`+
+      `<div class="lbl" style="margin-top:6px">Size</div><div class="seg" style="margin-top:4px">`+
+      list.map(x=>{const a=bath.rot?x.d:x.w; return `<button class="btn sm ${sku.id===x.id?'active':''}" style="${a<=L?'':'border-color:#b47216;color:#b47216'}" onclick="setBathSku('${x.id}')">${x.w}×${x.d}${a<=L?'':' !'}</button>`;}).join('')+`</div>`+
+      `<div class="field" style="margin-top:8px"><span>Orientation</span><div class="seg">`+
+      [[false,`${sku.w}" along wall`],[true,`${sku.d}" along wall`]].map(([r,t])=>`<button class="btn sm ${!!bath.rot===r?'active':''}" onclick="setBathRot(${r})">${t}</button>`).join('')+`</div></div>`+
+      (bath.overhang
+        ? `<div class="foot" style="color:#b47216"><b>${bath.tooWide? sku.w+'" is '+ftin(sku.w-L)+' wider than this '+ftin(L)+' wall.' : sku.w+'×'+sku.d+' doesn\u2019t fit the room here \u2014 it runs past a wall.'}</b> Your selection is kept — move it, choose a smaller unit, or leave it if the wall is being reframed.`+
+          (LAST&&bestFit(LAST.verts,edges[bath.edge],list,LAST.cen)? ` <button class="btn sm" onclick="fitBath()" style="margin-top:6px">Fit to this wall</button>`:'')+`</div>`
+        : `<div class="foot">${bath.snapped?'<b>Snapped to corner</b> — ':''}Drag to slide along the wall; it snaps flush at either corner. Sizes marked <span style="color:#b47216">!</span> are wider than this wall.</div>`);
+  } else if(sel==='vanity'&&vanity){
+    const L=edgeVec(edges[vanity.edge]).L;
+    c.innerHTML=`<div class="selhdr"><span class="lbl" style="color:var(--ink)">Vanity</span><span style="flex:1"></span><button class="btn sm" onclick="del('vanity')">Remove</button></div>`+
+      `<div class="lbl">Size</div><div class="seg" style="margin-top:4px">`+
+      VANITY_SIZES.map(w=>`<button class="btn sm ${vanity.w===w?'active':''}" style="${w<=L?'':'border-color:#b47216;color:#b47216'}" onclick="setVanity('w',${w})">${w}"</button>`).join('')+`</div>`+
+      `<div class="field" style="margin-top:8px"><span>Sinks</span><div class="seg">`+
+      [1,2].map(n=>`<button class="btn sm ${(vanity.sinks||1)===n?'active':''}" ${n<=maxSinks(vanity.w)?'':'disabled'} onclick="setVanity('sinks',${n})">${n}</button>`).join('')+`</div></div>`+
+      (vanity.overhang
+        ? `<div class="foot" style="color:#b47216"><b>${vanity.w}" doesn't fit here.</b> Your selection is kept — move it, pick a smaller size, or leave it if the wall is changing.</div>`
+        : `<div class="foot">${vanity.w}" × ${VANITY_D}" deep. Two sinks on 48" and 60" only. Drag to slide along the wall.</div>`);
+  } else if(sel==='toilet'&&toilet){
+    c.innerHTML=`<div class="selhdr"><span class="lbl" style="color:var(--ink)">Toilet</span><span style="flex:1"></span><button class="btn sm" onclick="del('toilet')">Remove</button></div>`+
+      `<div class="field"><span>Rough-in</span><div class="seg">`+
+      [10,12,14].map(r=>`<button class="btn sm ${toilet.rough===r?'active':''}" onclick="setToilet(${r})">${r}"</button>`).join('')+`</div></div>`+
+      `<div class="foot">Elongated bowl · 20" wide × 30" deep. Drag its handle to slide along the wall.</div>`;
+  } else {
+    const dedT=LAST?wallDeductions(edges,LAST.cen):edges.map(()=>0);
+    let rows=''; edges.forEach((e,i)=>{
+      const net=Math.max(0,e.len-dedT[i]);
+      rows+=`<tr><td class="lbl">W${i+1}</td><td>${ftin(e.len)}</td>`+
+        `<td style="color:${dedT[i]?'#b47216':'var(--muted)'};font-size:11px">${dedT[i]?'−'+ftin(dedT[i]):'—'}</td>`+
+        `<td>${ftin(net)}</td>`+
+        `<td><input type="checkbox" ${excluded.has(i)?'':'checked'} onchange="toggleEx(${i},this.checked)"></td></tr>`; });
+    c.innerHTML=`<div class="lbl">Walls</div><table><thead><tr><th>#</th><th>Wall</th><th>Bath</th><th>Net</th><th>Bill</th></tr></thead><tbody>${rows}</tbody></table>`+
+      `<div class="foot">Wall length taken by the shower or tub is deducted automatically — the shower module prices those walls. Untick a wall to leave it out entirely.</div>`;
+  }
+}
+
+// ================= interactions =================
+function wire(edges){
+  const svg=document.getElementById('plan');
+  const r=svg.getBoundingClientRect(),vb=svg.viewBox.baseVal,sx=r.width/vb.width,sy=r.height/vb.height;
+  const px=x=>r.left+x*sx+window.scrollX, py=y=>r.top+y*sy+window.scrollY;
+
+  svg.addEventListener('click',e=>{ if(e.target===svg){ sel=null; render(); } });
+
+  svg.querySelectorAll('.seglbl').forEach(gEl=>gEl.addEventListener('click',ev=>{ev.stopPropagation();
+    const p=gEl.dataset.p,len=+gEl.dataset.len;
+    spawn(px(+gEl.dataset.x),py(+gEl.dataset.y),ftin(len),v=>applyEdit(p,v,len));}));
+  svg.querySelectorAll('.dim').forEach(gEl=>gEl.addEventListener('click',ev=>{ev.stopPropagation();
+    const d=gEl.dataset.d; spawn(px(+gEl.dataset.x),py(+gEl.dataset.y),ftin(d==='w'?S.w:S.d),v=>{S[d]=Math.max(12,v);clampShape();});}));
+
+  svg.querySelectorAll('.wallhit').forEach(h=>h.addEventListener('click',ev=>{ev.stopPropagation();
+    if(!armed)return; const i=+h.dataset.i,L=edgeVec(edges[i]).L;
+    if(armed==='door'){ const allow=DOOR_SIZES.filter(w=>roOf(w)<=L); if(!allow.length)return;
+      const pref=ada?36:30; const w=allow.includes(pref)?pref:Math.max(...allow); door={edge:i,side:edges[i].side,t:.5,w,type:'opening',swing:'in-r'}; sel='door'; }
+    else if(armed==='toilet'){ toilet={edge:i,side:edges[i].side,t:.5,rough:12}; sel='toilet'; }
+    else if(armed==='vanity'){
+      const f=freeFit(LAST.verts,edges,i,VANITY_SIZES,VANITY_D,LAST.cen,'vanity');
+      if(!f) return;
+      vanity={edge:i,side:edges[i].side,t:f.t,w:f.w,sinks:maxSinks(f.w)}; sel='vanity';
+    }
+    else if(armed==='bath'){
+      // prefer the house standard 60x32 when the space allows it
+      const pref=BASES.find(x=>x.id==='60x32');
+      let chosen=null;
+      if(pref){ const half=pref.w/2/L;
+        for(const t of [half,1-half,.5]) if(pref.w<=L && fits(LAST.verts,edges[i],t,pref.w,pref.d,LAST.cen)){ chosen={sku:pref,t,rot:false}; break; } }
+      if(!chosen) chosen=bestFit(LAST.verts,edges[i],BASES,LAST.cen);
+      if(!chosen) return;
+      bath={edge:i,side:edges[i].side,t:chosen.t,kind:'shower',sku:chosen.sku.id,rot:chosen.rot,snapped:null}; sel='bath';
+    }
+    armed=null; render();}));
+
+  svg.querySelectorAll('.pick').forEach(h=>{
+    h.addEventListener('click',ev=>{ev.stopPropagation(); sel=h.dataset.k; render();});
+    const K=h.dataset.k;
+    const obj = K==='door'?door : K==='toilet'?toilet : K==='vanity'?vanity : bath;
+    const wf  = K==='door'?()=>roOf(door.w) : K==='toilet'?()=>TOILET_W : K==='vanity'?()=>vanity.w : ()=>bathDims().w;
+    const start=ev=>{ ev.preventDefault(); ev.stopPropagation(); sel=h.dataset.k;
+      const move=e2=>{ const p=e2.touches?e2.touches[0]:e2;
+        const rr=svg.getBoundingClientRect(),vv=svg.viewBox.baseVal;
+        const ux=(p.clientX-rr.left)*(vv.width/rr.width), uy=(p.clientY-rr.top)*(vv.height/rr.height);
+        const rx=(ux-LAST.ox)/LAST.s, ry=(uy-LAST.oy)/LAST.s;
+        const e=LAST.edges[obj.edge]; if(!e)return; const v=edgeVec(e);
+        const t=((rx-e.a[0])*v.ux+(ry-e.a[1])*v.uy)/v.L, half=wf()/2/v.L;
+        let tt = half>=.5?.5:Math.max(half,Math.min(1-half,t));
+        const inches=Math.round(tt*v.L);                 // whole-inch positions only
+        tt=Math.max(half,Math.min(1-half,inches/v.L));
+        obj.t = half>=.5?.5:tt; render(); };
+      const up=()=>{['mousemove','mouseup','touchmove','touchend'].forEach(n=>window.removeEventListener(n,n.includes('move')?move:up));};
+      window.addEventListener('mousemove',move); window.addEventListener('mouseup',up);
+      window.addEventListener('touchmove',move,{passive:false}); window.addEventListener('touchend',up); };
+    h.addEventListener('mousedown',start); h.addEventListener('touchstart',start,{passive:false});
+  });
+}
+function spawn(px,py,val,cb){
+  const i=document.createElement('input'); i.type='text'; i.value=val;
+  i.style.cssText=`position:absolute;left:${px-30}px;top:${py-13}px;width:60px;font-family:var(--mono);font-size:12px;text-align:center;padding:3px;border:1px solid var(--accent);border-radius:6px;z-index:50;background:#fff`;
+  document.body.appendChild(i); i.focus(); i.select();
+  let done=false; const c=()=>{if(done)return;done=true;const v=parseLen(i.value);if(v!=null)cb(v);i.remove();render();};
+  i.addEventListener('keydown',k=>{if(k.key==='Enter')c();if(k.key==='Escape'){done=true;i.remove();}});
+  i.addEventListener('blur',c);
+}
+
+// ================= handlers =================
+function arm(k){ armed=armed===k?null:k; render(); }
+function setShape(s){
+  if(s===shape) return;
+  const had = !!(door||toilet||bath||vanity);
+  if(had && !confirm('Changing the room shape will remove the placed fixtures. Continue?')) return;
+  shape=s;
+  door=null; toilet=null; bath=null; vanity=null;
+  sel=null; armed=null; excluded=new Set();
+  shapeNote = had ? 'Fixtures were cleared when the room shape changed — place them again.' : '';
+  render();
+}
+function setCorner(c){ S.corner=c; render(); }
+function setDoor(k,v){ if(door){door[k]=v; render();} }
+function setBathKind(k){ if(!bath)return; const prev=bathSku(); bath.kind=k;
+  const list=k==='tub'?TUBS:BASES;
+  const same=list.find(x=>x.id===prev.id) || list.reduce((b,x)=>Math.abs(x.w-prev.w)<Math.abs(b.w-prev.w)?x:b, list[0]);
+  bath.sku=same.id; render(); }
+function fitBath(){ if(!bath||!LAST)return;
+  const list=bath.kind==='tub'?TUBS:BASES;
+  const best=bestFit(LAST.verts,LAST.edges[bath.edge],list,LAST.cen);
+  if(best){ bath.sku=best.sku.id; bath.rot=best.rot; bath.t=best.t; render(); } }
+function setVanity(k,v){ if(!vanity)return; vanity[k]=v;
+  if(k==='w'&&(vanity.sinks||1)>maxSinks(v)) vanity.sinks=1; render(); }
+function setBathRot(r){ if(bath){bath.rot=r; render();} }
+function setBathSku(id){ if(bath){bath.sku=id; render();} }
+function setToilet(r){ if(toilet){toilet.rough=r; render();} }
+function del(k){ if(k==='door')door=null; else if(k==='toilet')toilet=null; else if(k==='bath')bath=null; else if(k==='vanity')vanity=null; sel=null; render(); }
+function toggleEx(i,ck){ ck?excluded.delete(i):excluded.add(i); render(); }
+function setD(dim,part,val){ const cur=S[dim],f=part==='ft'?+val:Math.floor(cur/12),i=part==='in'?+val:cur%12; S[dim]=Math.max(dim==='h'?0:12,f*12+i); render(); }
+function setP(which,part,val){ const key=which===1?'cw':'cd',cur=S[key],f=part==='ft'?+val:Math.floor(cur/12),i=part==='in'?+val:cur%12; S[key]=Math.max(6,f*12+i); render(); }
+['wFt','wIn','dFt','dIn','hFt','hIn'].forEach(id=>document.getElementById(id).oninput=e=>setD(id[0]==='w'?'w':id[0]==='d'?'d':'h', id.endsWith('Ft')?'ft':'in', e.target.value));
+['p1Ft','p1In','p2Ft','p2In'].forEach(id=>document.getElementById(id).oninput=e=>setP(id[1]==='1'?1:2, id.endsWith('Ft')?'ft':'in', e.target.value));
+
+function fixtureSchedule(){
+  const rows=[];
+  if(bath){ const b=bathDims(); rows.push([bath.kind==='tub'?'Tub / shower':'Shower base', `${bathSku().w}" × ${bathSku().d}"`, bath.rot?'turned':'standard']); }
+  if(vanity) rows.push(['Vanity', `${vanity.w}" × ${VANITY_D}"`, `${vanity.sinks||1} sink${(vanity.sinks||1)>1?'s':''}`]);
+  if(toilet) rows.push(['Toilet', 'Elongated, 20" × 30"', `${toilet.rough}" rough-in`]);
+  if(door) rows.push(['Door', `${door.w}" door`, `${roOf(door.w)}" rough opening · ${door.type}`]);
+  return rows;
+}
+function printPlan(){
+  const svg=document.getElementById('plan').outerHTML;
+  const {edges}=build(), verts=build().verts;
+  const perim=edges.reduce((a,e)=>a+e.len,0);
+  const ded=wallDeductions(edges,cenOf(verts));
+  const wallSFgross=edges.reduce((a,e)=>a+e.len*S.h/144,0);
+  const wallSF=edges.reduce((a,e,i)=>a+(excluded.has(i)?0:Math.max(0,e.len-ded[i])*S.h/144),0);
+  const bbLF=baseboardLF(edges,ded);
+  const rows=fixtureSchedule();
+  const CLx=LAST?checkClearances(LAST.verts,LAST.edges,LAST.cen):{issues:[]};
+  const w=window.open('','_blank');
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Bathroom plan</title>
+  <style>body{font-family:system-ui,sans-serif;color:#14181c;margin:32px;max-width:760px}
+  h1{font-size:20px;margin:0 0 2px}.sub{color:#777;font-size:12px;margin-bottom:18px}
+  svg{width:100%;height:auto;border:1px solid #e3e2dd;border-radius:8px}
+  table{width:100%;border-collapse:collapse;margin-top:16px;font-size:13px}
+  th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #e3e2dd}
+  th{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#777}
+  .m{display:flex;gap:28px;margin-top:14px;font-size:13px}
+  .warn{margin-top:14px;padding:10px;border:1px solid #b47216;background:#f6e8cf;border-radius:8px;font-size:12px;color:#7a4d0f}
+  @media print{body{margin:12px}}</style></head><body>
+  <h1>Bathroom plan</h1><div class="sub">${new Date().toLocaleDateString()} · ${shape==='L'?'L-shaped':'Rectangular'} room · Clearances checked to ${ada?'ADA / ANSI A117.1':'IRC minimum'}</div>
+  ${svg}
+  <div class="m"><div><b>${ftin(perim)}</b><br><span style="color:#777;font-size:11px">PERIMETER</span></div>
+  <div><b>${wallSF.toFixed(1)} sf</b><br><span style="color:#777;font-size:11px">WALL SF</span></div>
+  <div><b>${fl.toFixed(1)} sf</b><br><span style="color:#777;font-size:11px">FLOOR SF</span></div>
+  <div><b>${ftin(S.h)}</b><br><span style="color:#777;font-size:11px">CEILING</span></div></div>
+  <table><thead><tr><th>Material</th><th>Quantity</th><th>Notes</th></tr></thead><tbody>
+  <tr><td>Flooring</td><td>${fl.toFixed(1)} sf</td><td>${(fl*1.10).toFixed(1)} sf with 10% waste</td></tr>
+  <tr><td>Baseboard</td><td>${bb.toFixed(1)} lf</td><td>less door opening, vanity and bathing area</td></tr>
+  <tr><td>Wall area (billable)</td><td>${wallSF.toFixed(1)} sf</td><td>bathing-area walls excluded</td></tr>
+  </tbody></table>
+  ${rows.length?`<table><thead><tr><th>Fixture</th><th>Size</th><th>Notes</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td></tr>`).join('')}</tbody></table>`:''}
+  ${CLx.issues.length?`<div class="warn"><b>Clearance notes (${ada?'ADA':'IRC'})</b><br>${CLx.issues.map(i=>'• '+i).join('<br>')}</div>`:''}
+  </body></html>`);
+  w.document.close(); setTimeout(()=>w.print(),400);
+}
+
+document.addEventListener('keydown',ev=>{
+  if((ev.ctrlKey||ev.metaKey)&&ev.key.toLowerCase()==='z'){ ev.preventDefault(); undo(); return; }
+  if(ev.key==='Escape'){ armed=null; sel=null; render(); return; }
+  const o = sel==='door'?door : sel==='toilet'?toilet : sel==='vanity'?vanity : sel==='bath'?bath : null;
+  if(!o||!LAST) return;
+  const step = ev.shiftKey?6:1;   // inches
+  let dir=0;
+  if(ev.key==='ArrowRight'||ev.key==='ArrowDown') dir=1;
+  if(ev.key==='ArrowLeft'||ev.key==='ArrowUp') dir=-1;
+  if(!dir) return;
+  ev.preventDefault();
+  const e=LAST.edges[o.edge]; if(!e) return;
+  o.t = o.t + (dir*step)/edgeVec(e).L;
+  render();
+});
+
+render();
+</script>
+</body>
+</html>
