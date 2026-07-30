@@ -3,9 +3,13 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ArrowLeft, Check, Truck, CheckCircle2, ShieldCheck, Camera } from "lucide-react";
+import { ArrowLeft, Check, Truck, CheckCircle2, ShieldCheck, Camera, Ban, ChevronRight, Settings2 } from "lucide-react";
 import { useLanguage } from "@/components/LanguageContext";
-import { getOrder, updateOrder, type Order, type OrderStatus } from "@/lib/store";
+import { useAuth } from "@/components/AuthContext";
+import {
+  canTransition, getOrder, updateOrder, updateOrderStatus, InvalidStatusTransition,
+  type Order, type OrderStatus, type OrderStatusFields,
+} from "@/lib/store";
 import { OrderStatusChip, WarrantyStatusChip } from "@/components/projects/ui";
 import { RoomPlanSVG, type RoomConfig } from "@/components/room/RoomConfigurator";
 import { ShowerPreviewFromConfig, type ShowerConfig } from "@/components/shower/ShowerConfigurator";
@@ -34,8 +38,23 @@ const STATUS_KEY: Record<OrderStatus, string> = {
   cancelled: "projects.oStatusCancelled",
 };
 
+// The one pipeline step an admin can take from each status. ready_to_ship is the only one
+// that needs input first (carrier / tracking / ETA), so it opens the inline form instead.
+const NEXT_ACTION: Partial<Record<OrderStatus, { to: OrderStatus; labelKey: string; needsForm?: boolean }>> = {
+  submitted: { to: "confirmed", labelKey: "orders.actConfirm" },
+  confirmed: { to: "in_production", labelKey: "orders.actProduction" },
+  in_production: { to: "ready_to_ship", labelKey: "orders.actReadyToShip" },
+  ready_to_ship: { to: "in_transit", labelKey: "orders.actShip", needsForm: true },
+  in_transit: { to: "delivered", labelKey: "orders.actDelivered" },
+};
+
+const ADMIN_BTN = "inline-flex items-center gap-1.5 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50";
+const ADMIN_GHOST = "inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-2 text-sm font-medium text-muted transition hover:text-ink disabled:opacity-50";
+const ADMIN_INPUT = "w-full rounded-lg border border-line bg-card px-3 py-2 text-sm text-ink placeholder:text-muted focus:border-accent focus:outline-none";
+
 export default function OrderDetailPage() {
   const { t } = useLanguage();
+  const { isAdmin } = useAuth();
   const params = useParams<{ id: string }>();
   const id = params.id;
 
@@ -62,6 +81,43 @@ export default function OrderDetailPage() {
       setBusy(null);
     }
   }
+  // ---- admin pipeline actions (rendered only when isAdmin) ----
+  const [adminBusy, setAdminBusy] = useState(false);
+  const [adminError, setAdminError] = useState("");
+  const [shipOpen, setShipOpen] = useState(false);
+  const [ship, setShip] = useState({ carrier: "", tracking: "", eta: "" });
+  const [confirmCancel, setConfirmCancel] = useState(false);
+
+  async function advance(to: OrderStatus, fields?: OrderStatusFields) {
+    setAdminBusy(true);
+    setAdminError("");
+    try {
+      const updated = await updateOrderStatus(id, to, fields);
+      setOrder(updated);
+      setInstallInput(updated.installDate ?? "");
+      setShipOpen(false);
+      setConfirmCancel(false);
+      setShip({ carrier: "", tracking: "", eta: "" });
+    } catch (e) {
+      // A rejected transition means this page is stale, which is worth saying plainly.
+      setAdminError(t(e instanceof InvalidStatusTransition ? "orders.transitionError" : "orders.actionError"));
+    } finally {
+      setAdminBusy(false);
+    }
+  }
+
+  function submitShip() {
+    if (!ship.carrier.trim() || !ship.tracking.trim() || !ship.eta) {
+      setAdminError(t("orders.shipRequired"));
+      return;
+    }
+    advance("in_transit", {
+      carrier: ship.carrier.trim(),
+      trackingNumber: ship.tracking.trim(),
+      estimatedDelivery: ship.eta,
+    });
+  }
+
   const saveInstall = () => run("install", { installDate: installInput || null });
   const markCompleted = () => {
     if (!installInput) { setError(t("orders.installRequired")); return; }
@@ -110,6 +166,11 @@ export default function OrderDetailPage() {
     { status: "completed", ts: order.completedAt },
   ];
   const currentIdx = steps.findIndex((s) => s.status === order.status); // -1 when cancelled
+
+  // Admin pipeline: the single next step, and whether cancelling is still on the table.
+  // Both read from the store's canTransition rule so the UI can't offer an invalid move.
+  const nextAction = NEXT_ACTION[order.status];
+  const cancellable = canTransition(order.status, "cancelled");
 
   return (
     <div className="mx-auto max-w-3xl space-y-5">
@@ -161,6 +222,77 @@ export default function OrderDetailPage() {
         </div>
       </Section>
 
+      {/* Admin pipeline controls — never rendered for a contractor */}
+      {isAdmin && (
+        <Section title={t("orders.adminSection")} icon={<Settings2 className="h-4 w-4 text-muted" />}>
+          {!nextAction && !cancellable ? (
+            <p className="text-sm text-muted">{t("orders.adminNoActions")}</p>
+          ) : (
+            <div className="space-y-3">
+              {/* Shipping capture — the one step that needs input before it can run */}
+              {shipOpen && nextAction?.needsForm ? (
+                <div className="space-y-3 rounded-xl border border-line bg-paper/50 p-4">
+                  <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted">{t("orders.shipFormTitle")}</div>
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <Field label={t("orders.lblCarrier")}>
+                      <input value={ship.carrier} onChange={(e) => setShip((s) => ({ ...s, carrier: e.target.value }))}
+                        className={ADMIN_INPUT} />
+                    </Field>
+                    <Field label={t("orders.lblTracking")}>
+                      <input value={ship.tracking} onChange={(e) => setShip((s) => ({ ...s, tracking: e.target.value }))}
+                        className={ADMIN_INPUT} />
+                    </Field>
+                    <Field label={t("orders.estDelivery")}>
+                      <input type="date" value={ship.eta} onChange={(e) => setShip((s) => ({ ...s, eta: e.target.value }))}
+                        className={ADMIN_INPUT} />
+                    </Field>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button onClick={submitShip} disabled={adminBusy} className={ADMIN_BTN}>
+                      <Truck className="h-4 w-4" /> {adminBusy ? t("orders.saving") : t("orders.actShip")}
+                    </button>
+                    <button onClick={() => { setShipOpen(false); setAdminError(""); }} disabled={adminBusy} className={ADMIN_GHOST}>
+                      {t("orders.actKeep")}
+                    </button>
+                  </div>
+                </div>
+              ) : confirmCancel ? (
+                <div className="space-y-3 rounded-xl border border-amber/40 bg-amber/10 p-4">
+                  <p className="text-sm font-medium text-amber">{t("orders.cancelConfirm")}</p>
+                  <div className="flex flex-wrap gap-2">
+                    <button onClick={() => advance("cancelled")} disabled={adminBusy}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-amber px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-50">
+                      <Ban className="h-4 w-4" /> {adminBusy ? t("orders.saving") : t("orders.cancelConfirmYes")}
+                    </button>
+                    <button onClick={() => { setConfirmCancel(false); setAdminError(""); }} disabled={adminBusy} className={ADMIN_GHOST}>
+                      {t("orders.actKeep")}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-wrap items-center gap-2">
+                  {nextAction && (
+                    <button
+                      onClick={() => (nextAction.needsForm ? (setShipOpen(true), setAdminError("")) : advance(nextAction.to))}
+                      disabled={adminBusy} className={ADMIN_BTN}>
+                      {adminBusy ? t("orders.saving") : t(nextAction.labelKey)} <ChevronRight className="h-4 w-4" />
+                    </button>
+                  )}
+                  {cancellable && (
+                    <button onClick={() => { setConfirmCancel(true); setAdminError(""); }} disabled={adminBusy}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-amber/40 px-3 py-2 text-sm font-medium text-amber transition hover:bg-amber/10 disabled:opacity-50">
+                      <Ban className="h-4 w-4" /> {t("orders.actCancel")}
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {adminError && <p className="rounded-md border border-amber/30 bg-amber/10 px-3 py-2 text-sm text-amber">{adminError}</p>}
+            </div>
+          )}
+        </Section>
+      )}
+
       {/* Timeline */}
       <Section title={t("orders.sectionTimeline")}>
         {order.status === "cancelled" && (
@@ -182,6 +314,12 @@ export default function OrderDetailPage() {
                 <div className={`pb-4 ${reached ? "" : "opacity-40"}`}>
                   <div className={`text-sm font-semibold ${current ? "text-accent" : "text-ink"}`}>{t(STATUS_KEY[step.status])}</div>
                   {step.ts && <div className="text-[11px] text-muted">{fmtDate(step.ts)}</div>}
+                  {/* Carrier + tracking ride along with the shipping step once captured. */}
+                  {step.status === "in_transit" && reached && (order.carrier || order.trackingNumber) && (
+                    <div className="text-[11px] text-muted">
+                      {[order.carrier, order.trackingNumber].filter(Boolean).join(" · ")}
+                    </div>
+                  )}
                 </div>
               </li>
             );
@@ -278,6 +416,15 @@ function Detail({ label, children }: { label: string; children: React.ReactNode 
     <div>
       <div className="mb-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-muted">{label}</div>
       <div className="break-words text-sm text-ink">{children}</div>
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <div className="mb-1 font-mono text-[10px] uppercase tracking-[0.12em] text-muted">{label}</div>
+      {children}
     </div>
   );
 }

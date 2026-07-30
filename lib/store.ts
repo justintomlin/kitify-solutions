@@ -284,7 +284,9 @@ export async function saveProject(p: ProjectInput): Promise<Project> {
       .single();
     if (error) fail("saveProject (update)", error);
     if (!data) fail("saveProject (update)", null);
-    return rowToProject(data);
+    const updated = rowToProject(data);
+    await linkProjectCustomer(updated);
+    return updated;
   }
   // Insert: job registration begins with the project (completed separately later),
   // matching the previous behaviour and the column's own default.
@@ -295,7 +297,36 @@ export async function saveProject(p: ProjectInput): Promise<Project> {
     .single();
   if (error) fail("saveProject (insert)", error);
   if (!data) fail("saveProject (insert)", null);
-  return rowToProject(data);
+  const created = rowToProject(data);
+  await linkProjectCustomer(created);
+  return created;
+}
+
+// Auto-populate the contractor's customer book from their project work: the first time a
+// project is saved carrying a customer email, create the matching contractor_customer.
+// Matching is by email (case-insensitive) within this owner, so re-saving a project — or
+// starting a second project for the same homeowner — never duplicates the row.
+//
+// Deliberately best-effort: a project save must not fail because the customer book is
+// unavailable (e.g. 0011_contractor_customers.sql hasn't been run yet). Errors are logged
+// and swallowed.
+async function linkProjectCustomer(project: Project): Promise<void> {
+  const email = project.customer.email?.trim();
+  if (!email || !project.customer.name) return;
+  try {
+    if (await findCustomerByEmail(project.ownerId, email)) return; // already on the books
+    await saveContractorCustomer({
+      ownerId: project.ownerId,
+      name: project.customer.name,
+      email,
+      phone: project.customer.phone ?? null,
+      address: Object.values(project.address).some(Boolean) ? project.address : null,
+      source: "project",
+      projectId: project.id, // the project that introduced them
+    });
+  } catch (e) {
+    console.error("[store] linkProjectCustomer failed (project saved anyway):", e);
+  }
 }
 
 export async function deleteProject(id: string): Promise<void> {
@@ -571,8 +602,77 @@ async function createOrder(o: OrderCreate): Promise<Order> {
   return rowToOrder(data);
 }
 
-export async function updateOrderStatus(id: string, status: OrderStatus): Promise<Order> {
-  const { data, error } = await supabase.from("orders").update({ status }).eq("id", id).select().single();
+// The fulfilment pipeline, in order. 'cancelled' is deliberately absent: it's reachable
+// from any non-terminal status rather than occupying a position in the sequence.
+const STATUS_SEQUENCE: OrderStatus[] = [
+  "submitted", "confirmed", "in_production", "ready_to_ship", "in_transit", "delivered", "completed",
+];
+// Nothing moves out of these two — the order is done either way.
+const TERMINAL = new Set<OrderStatus>(["completed", "cancelled"]);
+// Cancelling is off the table once the goods are with the customer.
+const NON_CANCELLABLE = new Set<OrderStatus>(["delivered", "completed", "cancelled"]);
+
+// Single source of truth for "may this order move from → to", shared by the store and by
+// the admin controls on the order page (so the UI can't offer a move the store rejects).
+// Forward-only along STATUS_SEQUENCE; cancellation is the one sideways move allowed.
+export function canTransition(from: OrderStatus, to: OrderStatus): boolean {
+  if (from === to) return false;
+  if (TERMINAL.has(from)) return false;
+  if (to === "cancelled") return !NON_CANCELLABLE.has(from);
+  const i = STATUS_SEQUENCE.indexOf(from);
+  const j = STATUS_SEQUENCE.indexOf(to);
+  if (i < 0 || j < 0) return false;
+  return j > i; // never backwards
+}
+
+// Thrown instead of writing when a caller asks for a move canTransition() rejects — in
+// practice a stale page whose buttons no longer match the row's real status.
+export class InvalidStatusTransition extends Error {
+  constructor(public readonly from: OrderStatus, public readonly to: OrderStatus) {
+    super(`store: invalid status transition ${from} → ${to}`);
+    this.name = "InvalidStatusTransition";
+  }
+}
+
+// Shipping details captured at the ready_to_ship → in_transit hand-off.
+export type OrderStatusFields = {
+  carrier?: string | null;
+  trackingNumber?: string | null;
+  estimatedDelivery?: string | null;
+};
+
+// Advance an order along the pipeline, stamping the lifecycle timestamp for whichever
+// status is being entered. Each stamp is written only if it isn't already set, so a
+// re-entry (or a manual correction) never rewrites the original history.
+//
+// NOTE: an admin acting on another contractor's order needs the orders UPDATE policy from
+// 0010_admin_order_updates.sql. Without it RLS matches no row and this throws.
+export async function updateOrderStatus(
+  id: string,
+  status: OrderStatus,
+  fields?: OrderStatusFields,
+): Promise<Order> {
+  const current = await getOrder(id);
+  if (!current) throw new Error("store: updateOrderStatus — order not found");
+  if (!canTransition(current.status, status)) throw new InvalidStatusTransition(current.status, status);
+
+  const now = new Date().toISOString();
+  const row: Record<string, unknown> = { status };
+
+  if (fields && "carrier" in fields) row.carrier = fields.carrier ?? null;
+  if (fields && "trackingNumber" in fields) row.tracking_number = fields.trackingNumber ?? null;
+  if (fields && "estimatedDelivery" in fields) row.estimated_delivery = fields.estimatedDelivery ?? null;
+
+  if (status === "confirmed" && !current.confirmedAt) row.confirmed_at = now;
+  if (status === "in_transit" && !current.shippedAt) row.shipped_at = now;
+  if (status === "delivered") {
+    if (!current.deliveredAt) row.delivered_at = now;
+    // actual_delivery is a date column — store the calendar day, not the instant.
+    if (!current.actualDelivery) row.actual_delivery = now.slice(0, 10);
+  }
+  if (status === "completed" && !current.completedAt) row.completed_at = now;
+
+  const { data, error } = await supabase.from("orders").update(row).eq("id", id).select().single();
   if (error) fail("updateOrderStatus", error);
   if (!data) fail("updateOrderStatus", null);
   return rowToOrder(data);
@@ -668,6 +768,274 @@ export async function createOrderFromProposal(proposalId: string): Promise<Order
   if (upErr) console.error("[store] mark proposal ordered failed:", upErr);
 
   return order;
+}
+
+// -------------------------- contractor customers --------------------------
+// The homeowners a contractor serves (see 0011_contractor_customers.sql). Separate from
+// public.companies, which is the ADMIN CRM's entity — that tracks contractors, this tracks
+// their end customers.
+//
+// listContractorCustomers takes an ownerId rather than leaning on RLS: the SELECT policy
+// lets an admin read every row, and an admin using this page should still see their OWN
+// customers, not the network's.
+
+export type CustomerAddress = { street?: string; city?: string; state?: string; zip?: string };
+
+export type ContractorCustomer = {
+  id: string;
+  ownerId: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  address: CustomerAddress | null;
+  notes: string | null;
+  source: string; // 'manual' | 'project'
+  projectId: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ContractorCustomerInput = {
+  id?: string; // present ⇒ update, absent ⇒ insert
+  ownerId: string;
+  name: string;
+  email?: string | null;
+  phone?: string | null;
+  address?: CustomerAddress | null;
+  notes?: string | null;
+  source?: string;
+  projectId?: string | null;
+};
+
+type ContractorCustomerRow = {
+  id: string;
+  owner_id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  address: CustomerAddress | null;
+  notes: string | null;
+  source: string | null;
+  project_id: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+function rowToCustomer(r: ContractorCustomerRow): ContractorCustomer {
+  return {
+    id: r.id,
+    ownerId: r.owner_id,
+    name: r.name,
+    email: r.email ?? null,
+    phone: r.phone ?? null,
+    address: r.address ?? null,
+    notes: r.notes ?? null,
+    source: r.source ?? "manual",
+    projectId: r.project_id ?? null,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  };
+}
+
+function customerToRow(c: ContractorCustomerInput) {
+  return {
+    owner_id: c.ownerId,
+    name: c.name,
+    email: c.email ?? null,
+    phone: c.phone ?? null,
+    address: c.address ?? null,
+    notes: c.notes ?? null,
+    source: c.source ?? "manual",
+    project_id: c.projectId ?? null,
+  };
+}
+
+export async function listContractorCustomers(ownerId: string): Promise<ContractorCustomer[]> {
+  const { data, error } = await supabase
+    .from("contractor_customers")
+    .select("*")
+    .eq("owner_id", ownerId)
+    .order("updated_at", { ascending: false });
+  if (error) fail("listContractorCustomers", error);
+  return (data ?? []).map(rowToCustomer);
+}
+
+export async function getContractorCustomer(id: string): Promise<ContractorCustomer | null> {
+  const { data, error } = await supabase.from("contractor_customers").select("*").eq("id", id).maybeSingle();
+  if (error) fail("getContractorCustomer", error);
+  return data ? rowToCustomer(data) : null;
+}
+
+export async function saveContractorCustomer(input: ContractorCustomerInput): Promise<ContractorCustomer> {
+  if (input.id) {
+    const { data, error } = await supabase
+      .from("contractor_customers")
+      .update(customerToRow(input))
+      .eq("id", input.id)
+      .select()
+      .single();
+    if (error) fail("saveContractorCustomer (update)", error);
+    if (!data) fail("saveContractorCustomer (update)", null);
+    return rowToCustomer(data);
+  }
+  const { data, error } = await supabase.from("contractor_customers").insert(customerToRow(input)).select().single();
+  if (error) fail("saveContractorCustomer (insert)", error);
+  if (!data) fail("saveContractorCustomer (insert)", null);
+  return rowToCustomer(data);
+}
+
+export async function deleteContractorCustomer(id: string): Promise<void> {
+  const { error } = await supabase.from("contractor_customers").delete().eq("id", id);
+  if (error) fail("deleteContractorCustomer", error);
+}
+
+// Case-insensitive email match within one contractor's book. Compared in JS rather than
+// via ilike so an address containing % or _ can't be read as a wildcard; a contractor's
+// customer list is small enough that fetching the id/email pairs is cheap.
+export async function findCustomerByEmail(ownerId: string, email: string): Promise<string | null> {
+  const target = email.trim().toLowerCase();
+  if (!target) return null;
+  const { data, error } = await supabase
+    .from("contractor_customers")
+    .select("id, email")
+    .eq("owner_id", ownerId);
+  if (error) fail("findCustomerByEmail", error);
+  const hit = (data ?? []).find((r) => (r.email ?? "").trim().toLowerCase() === target);
+  return hit ? hit.id : null;
+}
+
+// --------------------------------- claims ---------------------------------
+// Warranty claims filed against a completed, warranty-registered order (see
+// supabase/migrations/0009_claims.sql). claim_number is CLM-YYYYMM-NNNN and is assigned
+// by a DB trigger — never sent from here.
+//
+// Unlike the tables above, claims has had RLS since its first migration, so these reads
+// need no ownerId filter: a contractor sees only their own rows and an admin sees all.
+
+export type ClaimStatus = "submitted" | "under_review" | "approved" | "denied" | "resolved";
+
+export type Claim = {
+  id: string;
+  orderId: string;
+  ownerId: string;
+  claimNumber: string;
+  status: ClaimStatus;
+  affectedProducts: string[]; // snapshot line-item keys — 'room' | 'shower' | 'vanity' | 'plumbing'
+  description: string;
+  photos: string[]; // storage URLs
+  resolution: string | null;
+  adminNotes: string | null;
+  submittedAt: string | null;
+  reviewedAt: string | null;
+  resolvedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+// What the filing form supplies. status/claim_number/timestamps are server-managed.
+export type ClaimInput = {
+  orderId: string;
+  ownerId: string;
+  affectedProducts: string[];
+  description: string;
+  photos?: string[];
+};
+
+type ClaimRow = {
+  id: string;
+  order_id: string;
+  owner_id: string;
+  claim_number: string;
+  status: ClaimStatus;
+  affected_products: unknown;
+  description: string;
+  photos: unknown;
+  resolution: string | null;
+  admin_notes: string | null;
+  submitted_at: string | null;
+  reviewed_at: string | null;
+  resolved_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+const strArray = (v: unknown): string[] => (Array.isArray(v) ? v.map(String) : []);
+
+function rowToClaim(r: ClaimRow): Claim {
+  return {
+    id: r.id,
+    orderId: r.order_id,
+    ownerId: r.owner_id,
+    claimNumber: r.claim_number,
+    status: r.status,
+    affectedProducts: strArray(r.affected_products),
+    description: r.description,
+    photos: strArray(r.photos),
+    resolution: r.resolution ?? null,
+    adminNotes: r.admin_notes ?? null,
+    submittedAt: r.submitted_at ?? null,
+    reviewedAt: r.reviewed_at ?? null,
+    resolvedAt: r.resolved_at ?? null,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  };
+}
+
+export async function listClaims(orderId?: string): Promise<Claim[]> {
+  let query = supabase.from("claims").select("*");
+  if (orderId != null) query = query.eq("order_id", orderId);
+  const { data, error } = await query.order("created_at", { ascending: false });
+  if (error) fail("listClaims", error);
+  return (data ?? []).map(rowToClaim);
+}
+
+export async function getClaim(id: string): Promise<Claim | null> {
+  const { data, error } = await supabase.from("claims").select("*").eq("id", id).maybeSingle();
+  if (error) fail("getClaim", error);
+  return data ? rowToClaim(data) : null;
+}
+
+export async function createClaim(input: ClaimInput): Promise<Claim> {
+  const { data, error } = await supabase
+    .from("claims")
+    .insert({
+      order_id: input.orderId,
+      owner_id: input.ownerId,
+      affected_products: input.affectedProducts,
+      description: input.description,
+      photos: input.photos ?? [],
+      // claim_number omitted on purpose — the BEFORE INSERT trigger assigns it.
+    })
+    .select()
+    .single();
+  if (error) fail("createClaim", error);
+  if (!data) fail("createClaim", null);
+  return rowToClaim(data);
+}
+
+// Admin review action. The review/resolve timestamps are stamped here (rather than by a
+// trigger) so a status correction doesn't silently rewrite them: each is only set the
+// first time the claim reaches that stage.
+export async function updateClaimStatus(
+  id: string,
+  status: ClaimStatus,
+  fields?: { resolution?: string | null; adminNotes?: string | null },
+): Promise<Claim> {
+  const row: Record<string, unknown> = { status };
+  if (fields && "resolution" in fields) row.resolution = fields.resolution ?? null;
+  if (fields && "adminNotes" in fields) row.admin_notes = fields.adminNotes ?? null;
+
+  const existing = await getClaim(id);
+  const now = new Date().toISOString();
+  if (status !== "submitted" && !existing?.reviewedAt) row.reviewed_at = now;
+  if ((status === "resolved" || status === "approved" || status === "denied") && !existing?.resolvedAt) {
+    row.resolved_at = now;
+  }
+
+  const { data, error } = await supabase.from("claims").update(row).eq("id", id).select().single();
+  if (error) fail("updateClaimStatus", error);
+  if (!data) fail("updateClaimStatus", null);
+  return rowToClaim(data);
 }
 
 // ------------------------------ admin (CRM) -------------------------------

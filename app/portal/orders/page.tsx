@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useLanguage } from "@/components/LanguageContext";
 import { useAuth } from "@/components/AuthContext";
-import { listOrders, type Order, type OrderStatus } from "@/lib/store";
+import { listAllOrders, listAllProfiles, listOrders, type Order, type OrderStatus, type Profile } from "@/lib/store";
 import { OrderStatusChip } from "@/components/projects/ui";
 
 const money = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
@@ -30,14 +30,25 @@ const TABS: { key: Tab; labelKey: string; emptyKey: string }[] = [
 
 export default function OrdersPage() {
   const { t } = useLanguage();
-  const { userId } = useAuth();
+  const { userId, isAdmin } = useAuth();
   const ownerId = userId ?? "anon";
 
   const [orders, setOrders] = useState<Order[] | null>(null);
+  // Admin only: owner_id → contractor, so each card can say whose order it is.
+  const [owners, setOwners] = useState<Map<string, Profile>>(new Map());
   const [tab, setTab] = useState<Tab>("all");
   const [window, setWindow] = useState<DeliveredWindow>(30);
 
-  const load = useCallback(() => { listOrders({ ownerId }).then(setOrders).catch(() => setOrders([])); }, [ownerId]);
+  // An admin sees the whole network (RLS returns every row for them); a contractor sees
+  // only their own. The contractor lookup is admin-only — it'd return just themselves
+  // otherwise, and the card doesn't need it.
+  const load = useCallback(() => {
+    (isAdmin ? listAllOrders() : listOrders({ ownerId })).then(setOrders).catch(() => setOrders([]));
+    if (!isAdmin) { setOwners(new Map()); return; }
+    listAllProfiles()
+      .then((ps) => setOwners(new Map(ps.map((p) => [p.id, p]))))
+      .catch(() => setOwners(new Map()));
+  }, [ownerId, isAdmin]);
   useEffect(() => { load(); }, [load]);
 
   // How many orders sit in each tab (for the tab counts). Delivered uses the "All" count
@@ -74,7 +85,7 @@ export default function OrdersPage() {
     <div className="mx-auto max-w-4xl">
       <div className="mb-6">
         <div className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">{t("orders.title")}</div>
-        <p className="mt-1 text-sm text-muted">{t("orders.subtitle")}</p>
+        <p className="mt-1 text-sm text-muted">{t(isAdmin ? "orders.subtitleAdmin" : "orders.subtitle")}</p>
       </div>
 
       {/* Tabs — horizontal, scrollable on phones */}
@@ -112,12 +123,20 @@ export default function OrdersPage() {
           <div className="space-y-2.5">
             {shown.map((o) => {
               const project = orderProject(o);
+              const owner = owners.get(o.ownerId);
               return (
                 <Link key={o.id} href={`/portal/orders/${o.id}`}
                   className="block rounded-2xl border border-line bg-card p-4 transition hover:border-accent">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <div className="font-mono text-sm font-bold text-ink">{o.orderNumber}</div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-mono text-sm font-bold text-ink">{o.orderNumber}</span>
+                        {isAdmin && (
+                          <span className="max-w-full truncate rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[9px] uppercase tracking-wide text-muted">
+                            {owner?.company || owner?.name || t("orders.unknownContractor")}
+                          </span>
+                        )}
+                      </div>
                       <div className="mt-0.5 truncate text-xs text-muted">
                         {o.customer.name || "—"}{project ? ` · ${project}` : ""}
                       </div>

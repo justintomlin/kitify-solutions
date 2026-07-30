@@ -1,9 +1,7 @@
 import {
   LayoutDashboard,
   GraduationCap,
-  ClipboardCheck,
-  Camera,
-  ShieldAlert,
+  Briefcase,
   Package,
   FolderKanban,
   Wand2,
@@ -26,9 +24,12 @@ export type NavItem = {
 export const primaryNav: NavItem[] = [
   { key: "dashboard", href: "/portal/dashboard", icon: LayoutDashboard },
   { key: "training", href: "/portal/training", icon: GraduationCap },
-  { key: "registerJob", href: "/portal/register-job", icon: ClipboardCheck },
-  { key: "workSamples", href: "/portal/work-samples", icon: Camera },
-  { key: "claims", href: "/portal/claims", icon: ShieldAlert },
+  // My Jobs replaces the old "Register a job" / "Work samples" / "Claims" items — the
+  // install → warranty → claim lifecycle now lives in one tabbed page.
+  { key: "myJobs", href: "/portal/my-jobs", icon: Briefcase },
+  // The contractor's own homeowner book — distinct from the admin CRM (which tracks
+  // contractors) even though both use the Users icon.
+  { key: "myCustomers", href: "/portal/my-customers", icon: Users },
   // Single Orders hub — replaces the old "Order tracking" + "Place an order" items.
   { key: "orders", href: "/portal/orders", icon: Package },
   { key: "projects", href: "/portal/projects", icon: FolderKanban },

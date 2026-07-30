@@ -1,7 +1,7 @@
 "use client";
 
 import { useLanguage } from "@/components/LanguageContext";
-import type { Project, Quote, Proposal, Order, WarrantyStatus, JobRegistrationStatus } from "@/lib/store";
+import type { Project, Quote, Proposal, Order, WarrantyStatus, JobRegistrationStatus, ClaimStatus } from "@/lib/store";
 
 type Tr = (key: string, vars?: Record<string, string>) => string;
 type Tone = "accent" | "amber" | "muted" | "success";
@@ -109,5 +109,18 @@ const WARRANTY_STATUS: Record<WarrantyStatus, { key: string; tone: Tone }> = {
 export function WarrantyStatusChip({ status }: { status: WarrantyStatus }) {
   const { t } = useLanguage();
   const s = WARRANTY_STATUS[status];
+  return <Chip tone={s.tone}>{t(s.key)}</Chip>;
+}
+
+const CLAIM_STATUS: Record<ClaimStatus, { key: string; tone: Tone }> = {
+  submitted: { key: "projects.clStatusSubmitted", tone: "accent" },
+  under_review: { key: "projects.clStatusUnderReview", tone: "amber" },
+  approved: { key: "projects.clStatusApproved", tone: "success" },
+  denied: { key: "projects.clStatusDenied", tone: "muted" },
+  resolved: { key: "projects.clStatusResolved", tone: "success" },
+};
+export function ClaimStatusChip({ status }: { status: ClaimStatus }) {
+  const { t } = useLanguage();
+  const s = CLAIM_STATUS[status];
   return <Chip tone={s.tone}>{t(s.key)}</Chip>;
 }
