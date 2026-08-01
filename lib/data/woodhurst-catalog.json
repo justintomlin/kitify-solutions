@@ -1,0 +1,774 @@
+{
+  "catalog_name": "Delta Woodhurst Bathroom Faucets",
+  "image_url_template": "https://s3.img-b.com/image/private/t_base,c_lpad,f_auto,dpr_auto,w_{W},h_{H}/product/delta/{IMAGE_SLUG}",
+  "families": [
+    {
+      "family_id": "1499436",
+      "brand": "Delta",
+      "collection": "Woodhurst",
+      "base_model": "3532LF-MPU",
+      "title": "Woodhurst 1.2 GPM Widespread Bathroom Faucet with Pop-Up Drain Assembly",
+      "category": "Bathroom Sink Faucets",
+      "specs": {
+        "mounting_type": "Widespread",
+        "faucet_holes": 3,
+        "number_of_handles": 2,
+        "flow_rate_gpm": 1.2,
+        "height_in": 6.0,
+        "spout_height_in": 4.4375,
+        "spout_reach_in": 5.25,
+        "faucet_centers_in": "4.5 - 16",
+        "faucet_hole_size_in": "1.125 - 1.5",
+        "max_deck_thickness_in": 1.875,
+        "water_connection": "1/2\" NPSM",
+        "installation_type": "Deck Mounted",
+        "handle_style": "Lever",
+        "spout_type": "Fixed",
+        "valve_type": "Washerless Cartridge",
+        "valve_technology": null,
+        "material": "Zinc",
+        "theme": "Traditional",
+        "drain_assembly_included": true,
+        "pop_up_included": true,
+        "handles_included": true,
+        "valve_included": true,
+        "escutcheon_included": false,
+        "escutcheon_width_in": null,
+        "ada_compliant": true,
+        "watersense_certified": true,
+        "low_lead_compliant": true,
+        "approved_commercial_use": true,
+        "certifications": "ANSI A117.1; ASME A112.18.1/A112.18.2; CSA B125.1/B125.2",
+        "residential_warranty": "Limited Lifetime",
+        "commercial_warranty": "5 Year Limited",
+        "country_of_origin": "Vietnam",
+        "rating": 4.5,
+        "review_count": 106
+      },
+      "resources": {
+        "installation_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/1499436/delta-3532lf-mpu-installation-sheet.pdf",
+        "exploded_parts": "https://s1.img-b.com/build.com/mediabase/specifications/delta/1499436/delta-3532lf-mpu-exploded-parts.pdf",
+        "spec_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/1499436/delta-3532lf-mpu-specification-sheet.pdf"
+      },
+      "variants": [
+        {
+          "finish": "Chrome",
+          "model": "3532LF-MPU",
+          "variant_id": 3512767,
+          "swatch_hex": "#F2F2F2",
+          "price_usd": 159.96,
+          "image_slug": "delta-3532lf-mpu-7866937.jpg"
+        },
+        {
+          "finish": "Brilliance Stainless",
+          "model": "3532LF-SSMPU",
+          "variant_id": 3512769,
+          "swatch_hex": "#CFD4D9",
+          "price_usd": 201.18,
+          "image_slug": "delta-3532lf-ssmpu-7866937.jpg"
+        },
+        {
+          "finish": "Matte Black",
+          "model": "3532LF-BLMPU",
+          "variant_id": 4341767,
+          "swatch_hex": "#000000",
+          "price_usd": 201.39,
+          "image_slug": "delta-3532lf-blmpu-8867303.jpg"
+        },
+        {
+          "finish": "Venetian Bronze",
+          "model": "3532LF-RBMPU",
+          "variant_id": 3512768,
+          "swatch_hex": "#766440",
+          "price_usd": 232.38,
+          "image_slug": "delta-3532lf-rbmpu-7866937.jpg"
+        }
+      ]
+    },
+    {
+      "family_id": "1836673",
+      "brand": "Delta",
+      "collection": "Woodhurst",
+      "base_model": "532-MPU-DST",
+      "title": "Woodhurst 1.2 GPM Single Hole Bathroom Faucet with Push Pop-Up Drain Assembly",
+      "category": "Bathroom Sink Faucets",
+      "specs": {
+        "mounting_type": "Single Hole",
+        "faucet_holes": 1,
+        "number_of_handles": 1,
+        "flow_rate_gpm": 1.2,
+        "height_in": 9.19,
+        "spout_height_in": 5.375,
+        "spout_reach_in": 5.375,
+        "faucet_centers_in": "0",
+        "faucet_hole_size_in": "1.25 - 1.5",
+        "max_deck_thickness_in": 3.0,
+        "water_connection": "3/8\" Compression",
+        "installation_type": "Deck Mounted",
+        "handle_style": "Lever",
+        "spout_type": "Fixed",
+        "valve_type": "Ceramic Disc",
+        "valve_technology": "Diamond Seal",
+        "material": "Zinc",
+        "theme": "Traditional",
+        "drain_assembly_included": true,
+        "pop_up_included": true,
+        "handles_included": true,
+        "valve_included": true,
+        "escutcheon_included": true,
+        "escutcheon_width_in": 6.0,
+        "ada_compliant": true,
+        "watersense_certified": true,
+        "low_lead_compliant": true,
+        "approved_commercial_use": null,
+        "certifications": "ANSI A117.1; ASME A112.18.1/A112.18.2; CSA B125.1/B125.2",
+        "residential_warranty": "Limited Lifetime",
+        "commercial_warranty": null,
+        "country_of_origin": "China",
+        "rating": 4.6,
+        "review_count": 39
+      },
+      "resources": {
+        "installation_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/1836673/delta-532-mpu-dst-installation-sheet.pdf",
+        "exploded_parts": "https://s1.img-b.com/build.com/mediabase/specifications/delta/1836673/delta-532-mpu-dst-exploded-parts.pdf",
+        "spec_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/1836673/delta-532-mpu-dst-specification-sheet.pdf"
+      },
+      "variants": [
+        {
+          "finish": "Chrome",
+          "model": "532-MPU-DST",
+          "variant_id": 4365585,
+          "swatch_hex": "#F2F2F2",
+          "price_usd": 108.06,
+          "image_slug": "delta-532-mpu-dst-8867303.jpg"
+        },
+        {
+          "finish": "Brilliance Stainless",
+          "model": "532-SSMPU-DST",
+          "variant_id": 4378553,
+          "swatch_hex": "#CFD4D9",
+          "price_usd": 138.96,
+          "image_slug": "delta-532-ssmpu-dst-8867303.jpg"
+        },
+        {
+          "finish": "Matte Black",
+          "model": "532-BLMPU-DST",
+          "variant_id": 4355659,
+          "swatch_hex": "#000000",
+          "price_usd": 139.23,
+          "image_slug": "delta-532-blmpu-dst-8867303.jpg"
+        },
+        {
+          "finish": "Venetian Bronze",
+          "model": "532-RBMPU-DST",
+          "variant_id": 4378554,
+          "swatch_hex": "#766440",
+          "price_usd": 159.66,
+          "image_slug": "delta-532-rbmpu-dst-8867303.jpg"
+        }
+      ],
+      "alternate_images": [
+        "delta-532-mpu-dst-alternate-image-16.jpg",
+        "delta-532-mpu-dst-alternate-image-17.jpg",
+        "delta-532-mpu-dst-alternate-image-18.jpg",
+        "delta-532-mpu-dst-alternate-image-19.jpg",
+        "delta-532-mpu-dst-alternate-image-20.jpg",
+        "delta-532-mpu-dst-alternate-image-21.jpg",
+        "delta-532-mpu-dst-alternate-image-22.jpg",
+        "delta-532-mpu-dst-alternate-image-23.jpg",
+        "delta-532-mpu-dst-alternate-image-24.jpg",
+        "delta-532-mpu-dst-alternate-image-25.jpg",
+        "delta-532-mpu-dst-alternate-image-26.jpg",
+        "delta-532-mpu-dst-alternate-image-27.jpg",
+        "delta-532-mpu-dst-alternate-image-28.jpg"
+      ],
+      "retail_urls": {
+        "ferguson_home": "https://www.fergusonhome.com/delta-532-mpu-dst/s1836673",
+        "build": "https://www.build.com/delta-532-mpu-dst/s1836673"
+      },
+      "verified": "Full page source verified 2026-07-31 - all variant IDs, prices, image slugs confirmed"
+    },
+    {
+      "family_id": "1499444",
+      "brand": "Delta",
+      "collection": "Woodhurst",
+      "base_model": "T14232",
+      "title": "Woodhurst Shower Only Trim Package with 1.75 GPM Single Function Shower Head",
+      "category": "Shower Trim",
+      "specs": {
+        "mounting_type": "Wall Mounted",
+        "faucet_holes": null,
+        "number_of_handles": 1,
+        "flow_rate_gpm": 1.75,
+        "height_in": null,
+        "valve_trim_dimensions_in": "6.5 H x 6.5 W",
+        "installation_type": "Wall Mounted",
+        "handle_style": "Lever",
+        "valve_type": "Pressure Balanced (Monitor 14 Series)",
+        "valve_technology": "Monitor Pressure-Balance",
+        "shower_head": "Single function, Touch-Clean spray face",
+        "safety_stop": "Pre-set with override",
+        "rough_in_valve_included": false,
+        "rough_in_note": "Trim kit only - requires Delta MultiChoice Universal rough-in valve (R10000 series), sold separately",
+        "material": "Metal",
+        "theme": "Traditional",
+        "ada_compliant": true,
+        "watersense_certified": true,
+        "residential_warranty": "Limited Lifetime",
+        "rating": 4.0,
+        "review_count": 22
+      },
+      "resources": {
+        "installation_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/1499444/delta-t14232-installation-sheet.pdf",
+        "exploded_parts": "https://s1.img-b.com/build.com/mediabase/specifications/delta/1499444/delta-t14232-exploded-parts.pdf",
+        "spec_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/1499444/delta-t14232-specification-sheet.pdf"
+      },
+      "variants": [
+        {
+          "finish": "Chrome",
+          "model": "T14232",
+          "variant_id": 3512793,
+          "swatch_hex": "#F2F2F2",
+          "price_usd": 92.28,
+          "image_slug": "delta-t14232-7866937.jpg"
+        },
+        {
+          "finish": "Brilliance Stainless",
+          "model": "T14232-SS",
+          "variant_id": 3512795,
+          "swatch_hex": "#CFD4D9",
+          "price_usd": 138.93,
+          "image_slug": "delta-t14232-ss-7866937.jpg"
+        },
+        {
+          "finish": "Matte Black",
+          "model": "T14232-BL",
+          "variant_id": 4375533,
+          "swatch_hex": "#000000",
+          "price_usd": 139.08,
+          "image_slug": "delta-t14232-bl-8867303.jpg"
+        },
+        {
+          "finish": "Venetian Bronze",
+          "model": "T14232-RB",
+          "variant_id": 3512794,
+          "swatch_hex": "#766440",
+          "price_usd": 144.18,
+          "image_slug": "delta-t14232-rb-7866937.jpg"
+        }
+      ],
+      "related_configurations": {
+        "tub_and_shower_trim": "T14432 series",
+        "valve_trim_only": "Available - see family page configurations"
+      },
+      "gallery_images": [
+        "delta-t14232-alternate-image-199.jpg",
+        "delta-t14232-alternate-image-200.jpg",
+        "delta-t14232-alternate-image-201.jpg",
+        "delta-t14232-alternate-image-202.jpg",
+        "delta-t14232-alternate-image-203.jpg",
+        "delta-t14232-alternate-image-204.jpg",
+        "delta-t14232-lifestyle-view-36.jpg",
+        "delta-t14232-lifestyle-view-37.jpg",
+        "delta-t14232-technology-view-38.jpg",
+        "delta-t14232-dimensions-view-39.jpg"
+      ],
+      "retail_urls": {
+        "ferguson_home": "https://www.fergusonhome.com/delta-t14232/s1499444",
+        "build": "https://www.build.com/delta-t14232/s1499444"
+      },
+      "verified": "Full page source verified 2026-07-31 - variant IDs, prices, image slugs confirmed"
+    },
+    {
+      "family_id": "1499432",
+      "brand": "Delta",
+      "collection": "Woodhurst",
+      "base_model": "T14432",
+      "title": "Woodhurst Tub and Shower Trim Package with 1.75 GPM Single Function Shower Head",
+      "category": "Tub & Shower Trim",
+      "specs": {
+        "mounting_type": "Wall Mounted",
+        "faucet_holes": null,
+        "number_of_handles": 1,
+        "flow_rate_gpm": 1.75,
+        "height_in": null,
+        "valve_trim_dimensions_in": "6.5 H x 6.5 W",
+        "installation_type": "Wall Mounted",
+        "handle_style": "Lever",
+        "valve_type": "Pressure Balanced (Monitor 14 Series)",
+        "valve_technology": "Monitor Pressure-Balance (+/- 3 deg F)",
+        "shower_head": "Single function, Touch-Clean spray face",
+        "diverter": "Integrated - switches between tub spout and shower head",
+        "water_connection": "1/2 in IPS x Slip x Sweat",
+        "safety_stop": "Pre-set with override",
+        "rough_in_valve_included": false,
+        "rough_in_note": "Trim kit only - requires Delta MultiChoice Universal rough-in valve (recommended R10000-UNBX), sold separately",
+        "material": "Metal",
+        "theme": "Traditional",
+        "ada_compliant": true,
+        "watersense_certified": true,
+        "residential_warranty": "Limited Lifetime",
+        "rating": null,
+        "review_count": 28
+      },
+      "resources": {
+        "installation_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/1499432/delta-t14432-installation-sheet.pdf",
+        "exploded_parts": "https://s1.img-b.com/build.com/mediabase/specifications/delta/1499432/delta-t14432-exploded-parts.pdf",
+        "spec_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/1499432/delta-t14432-specification-sheet.pdf"
+      },
+      "variants": [
+        {
+          "finish": "Chrome",
+          "model": "T14432",
+          "variant_id": 3512753,
+          "swatch_hex": "#F2F2F2",
+          "price_usd": 107.88,
+          "image_slug": "delta-t14432-7866937.jpg"
+        },
+        {
+          "finish": "Brilliance Stainless",
+          "model": "T14432-SS",
+          "variant_id": 3512755,
+          "swatch_hex": "#CFD4D9",
+          "price_usd": 159.75,
+          "image_slug": "delta-t14432-ss-7866937.jpg"
+        },
+        {
+          "finish": "Matte Black",
+          "model": "T14432-BL",
+          "variant_id": 4375850,
+          "swatch_hex": "#000000",
+          "price_usd": 159.93,
+          "image_slug": "delta-t14432-bl-8867303.jpg"
+        },
+        {
+          "finish": "Venetian Bronze",
+          "model": "T14432-RB",
+          "variant_id": 3512754,
+          "swatch_hex": "#766440",
+          "price_usd": 175.02,
+          "image_slug": "delta-t14432-rb-7866937.jpg"
+        }
+      ],
+      "related_configurations": {
+        "shower_only_trim": "T14232 (family 1499444, already in catalog)",
+        "recommended_rough_in": "R10000-UNBX"
+      },
+      "gallery_images": [
+        "delta-t14432-alternate-image-205.jpg",
+        "delta-t14432-alternate-image-206.jpg",
+        "delta-t14432-alternate-image-207.jpg",
+        "delta-t14432-alternate-image-208.jpg",
+        "delta-t14432-alternate-image-209.jpg",
+        "delta-t14432-alternate-image-210.jpg",
+        "delta-t14432-lifestyle-view-40.jpg",
+        "delta-t14432-lifestyle-view-41.jpg",
+        "delta-t14432-technology-view-42.jpg",
+        "delta-t14432-dimensions-view-43.jpg"
+      ],
+      "retail_urls": {
+        "ferguson_home": "https://www.fergusonhome.com/delta-t14432/s1499432",
+        "build": "https://www.build.com/delta-t14432/s1499432"
+      },
+      "verified": "Full page source verified 2026-07-31 - variant IDs, prices, image slugs confirmed",
+      "price_note": "Prices from verified page source; earlier FaucetDirect quotes were lower (Chrome 99.18 / SS 147.12 / BL 151.68 / RB 154.05) - pricing varies by retailer"
+    },
+    {
+      "family_id": "1499441",
+      "brand": "Delta",
+      "collection": "Woodhurst",
+      "base_model": "73246",
+      "title": "Woodhurst 6-5/16\" Wall Mounted Towel Ring",
+      "category": "Bath Accessories",
+      "specs": {
+        "mounting_type": "Wall Mounted",
+        "installation_type": "Wall Mounted",
+        "height_in": 7.8125,
+        "width_in": 6.31,
+        "depth_projection_in": 2.875,
+        "nominal_width_in": 7.0,
+        "ring_diameter_in": 6.875,
+        "escutcheon_included": true,
+        "escutcheon_shape": "Round",
+        "escutcheon_height_in": 1.875,
+        "escutcheon_width_in": 1.875,
+        "installation_hardware_included": true,
+        "concealed_screws": true,
+        "shape": "Round",
+        "product_variation": "Closed Towel Ring",
+        "material": "Metal",
+        "theme": "Traditional",
+        "ada_compliant": false,
+        "approved_commercial_use": true,
+        "residential_warranty": "Limited Lifetime",
+        "commercial_warranty": "5 Year Limited",
+        "country_of_origin": "China",
+        "finish_note_ss": "Brilliance Stainless reads as brushed nickel per Delta",
+        "finish_note_rb": "Venetian Bronze has a wire-brushed look on accessories",
+        "rating": null,
+        "review_count": 24
+      },
+      "resources": {
+        "installation_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/1499441/delta-73246-installation-sheet.pdf",
+        "spec_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/1499441/delta-73246-specification-sheet.pdf",
+        "manufacturer_warranty": "https://s1.img-b.com/build.com/mediabase/specifications/delta/1499441/delta-73246-manufacturer-warranty.pdf"
+      },
+      "variants": [
+        {
+          "finish": "Chrome",
+          "model": "73246",
+          "variant_id": 3512783,
+          "swatch_hex": "#F2F2F2",
+          "price_usd": 22.86,
+          "image_slug": "delta-73246-7866937.jpg"
+        },
+        {
+          "finish": "Brilliance Stainless",
+          "model": "73246-SS",
+          "variant_id": 3512785,
+          "swatch_hex": "#CFD4D9",
+          "price_usd": 33.11,
+          "image_slug": "delta-73246-ss-7866937.jpg"
+        },
+        {
+          "finish": "Matte Black",
+          "model": "73246-BL",
+          "variant_id": 4341771,
+          "swatch_hex": "#000000",
+          "price_usd": 29.71,
+          "image_slug": "delta-73246-bl-8867303.jpg"
+        },
+        {
+          "finish": "Venetian Bronze",
+          "model": "73246-RB",
+          "variant_id": 3512784,
+          "swatch_hex": "#766440",
+          "price_usd": 30.3,
+          "image_slug": "delta-73246-rb-7866937.jpg"
+        }
+      ],
+      "related_configurations": {
+        "coordinating_accessories": "73224 (24in towel bar), 73250 (tissue holder), 73235 (robe hook)"
+      },
+      "gallery_images": [
+        "delta-73246-alternate-image-71.jpg"
+      ],
+      "retail_urls": {
+        "ferguson_home": "https://www.fergusonhome.com/delta-73246/s1499441",
+        "build": "https://www.build.com/delta-73246/s1499441"
+      },
+      "verified": "Full page source verified 2026-07-31 - variant IDs, prices, image slugs confirmed",
+      "price_note": "Prices from verified page source; earlier FaucetDirect quotes were lower (Chrome 21.11 / SS 27.44 / BL 26.83 / RB 25.36)"
+    },
+    {
+      "family_id": "1499447",
+      "brand": "Delta",
+      "collection": "Woodhurst",
+      "base_model": "73235",
+      "title": "Woodhurst Single Robe Hook",
+      "category": "Bath Accessories",
+      "specs": {
+        "mounting_type": "Wall Mounted",
+        "installation_type": "Wall Mounted",
+        "height_in": 2.3125,
+        "width_in": 1.875,
+        "depth_projection_in": 2.5,
+        "hanging_capacity": 1,
+        "installation_hardware_included": true,
+        "concealed_screws": true,
+        "material": "Zinc",
+        "theme": "Traditional",
+        "weight_lb": 0.43,
+        "residential_warranty": "Limited Lifetime",
+        "country_of_origin": "China",
+        "install_note": "Best mounted into a wall stud; not intended for inside shower surrounds (silicone bead recommended if moisture exposure)",
+        "rating": 4.7,
+        "review_count": 21
+      },
+      "resources": {
+        "installation_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/1499447/delta-73235-installation-sheet.pdf",
+        "spec_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/1499447/delta-73235-specification-sheet.pdf",
+        "manufacturer_warranty": "https://s1.img-b.com/build.com/mediabase/specifications/delta/1499447/delta-73235-manufacturer-warranty.pdf"
+      },
+      "variants": [
+        {
+          "finish": "Chrome",
+          "model": "73235",
+          "variant_id": 3512802,
+          "swatch_hex": "#F2F2F2",
+          "price_usd": 16.63,
+          "image_slug": "delta-73235-7866937.jpg"
+        },
+        {
+          "finish": "Brilliance Stainless",
+          "model": "73235-SS",
+          "variant_id": 3512804,
+          "swatch_hex": "#CFD4D9",
+          "price_usd": 22.75,
+          "image_slug": "delta-73235-ss-7866937.jpg"
+        },
+        {
+          "finish": "Matte Black",
+          "model": "73235-BL",
+          "variant_id": 4341769,
+          "swatch_hex": "#000000",
+          "price_usd": 19.65,
+          "image_slug": "delta-73235-bl-8867303.jpg"
+        },
+        {
+          "finish": "Venetian Bronze",
+          "model": "73235-RB",
+          "variant_id": 3512803,
+          "swatch_hex": "#766440",
+          "price_usd": 21.42,
+          "image_slug": "delta-73235-rb-7866937.jpg"
+        }
+      ],
+      "related_configurations": {
+        "coordinating_accessories": "73246 (towel ring, in catalog), 73224 (24in towel bar), 73250 (tissue holder)"
+      },
+      "retail_urls": {
+        "ferguson_home": "https://www.fergusonhome.com/delta-73235/s1499447",
+        "build": "https://www.build.com/delta-73235/s1499447"
+      },
+      "verified": "Full page source verified 2026-07-31 - variant IDs, prices, image slugs confirmed",
+      "price_note": "Prices from verified page source; earlier FaucetDirect quotes were lower (Chrome 15.61 / SS 19.50 / BL 18.41 / RB 19.37)"
+    },
+    {
+      "family_id": "1499446",
+      "brand": "Delta",
+      "collection": "Woodhurst",
+      "base_model": "73250",
+      "title": "Woodhurst Wall Mounted Pivoting Toilet Paper Holder",
+      "category": "Bath Accessories",
+      "specs": {
+        "mounting_type": "Wall Mounted",
+        "installation_type": "Wall Mounted",
+        "height_in": 1.88,
+        "width_in": 6.5,
+        "depth_projection_in": 3.375,
+        "nominal_width_in": 7.0,
+        "product_variation": "Traditional Paper Holder (pivoting)",
+        "escutcheon_included": true,
+        "escutcheon_shape": "Round",
+        "escutcheon_height_in": 1.875,
+        "escutcheon_width_in": 1.875,
+        "installation_hardware_included": true,
+        "concealed_screws": true,
+        "material": "Metal",
+        "theme": "Traditional",
+        "ada_compliant": false,
+        "approved_commercial_use": true,
+        "residential_warranty": "Limited Lifetime",
+        "commercial_warranty": "5 Year Limited",
+        "country_of_origin": "China",
+        "rating": 4.8,
+        "review_count": 55
+      },
+      "resources": {
+        "installation_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/1499446/delta-73250-installation-sheet.pdf",
+        "spec_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/1499446/delta-73250-specification-sheet.pdf",
+        "manufacturer_warranty": "https://s1.img-b.com/build.com/mediabase/specifications/delta/1499446/delta-73250-manufacturer-warranty.pdf"
+      },
+      "variants": [
+        {
+          "finish": "Chrome",
+          "model": "73250",
+          "variant_id": 3512799,
+          "swatch_hex": "#F2F2F2",
+          "price_usd": 33.18,
+          "image_slug": "delta-73250-7866937.jpg"
+        },
+        {
+          "finish": "Brilliance Stainless",
+          "model": "73250-SS",
+          "variant_id": 3512801,
+          "swatch_hex": "#CFD4D9",
+          "price_usd": 38.75,
+          "image_slug": "delta-73250-ss-7866937.jpg"
+        },
+        {
+          "finish": "Matte Black",
+          "model": "73250-BL",
+          "variant_id": 4378595,
+          "swatch_hex": "#000000",
+          "price_usd": 39.35,
+          "image_slug": "delta-73250-bl-8867303.jpg"
+        },
+        {
+          "finish": "Venetian Bronze",
+          "model": "73250-RB",
+          "variant_id": 3512800,
+          "swatch_hex": "#766440",
+          "price_usd": 41.02,
+          "image_slug": "delta-73250-rb-7866937.jpg"
+        }
+      ],
+      "retail_urls": {
+        "ferguson_home": "https://www.fergusonhome.com/delta-73250/s1499446",
+        "build": "https://www.build.com/delta-73250/s1499446"
+      },
+      "verified": "Full page source verified 2026-07-31 - variant IDs, prices, image slugs confirmed",
+      "related_configurations": {
+        "coordinating_accessories": "73246 (towel ring, in catalog), 73235 (robe hook, in catalog), 73224 (towel bar)"
+      }
+    },
+    {
+      "family_id": "1499439",
+      "brand": "Delta",
+      "collection": "Woodhurst",
+      "base_model": "73218",
+      "title": "Woodhurst 18\" Towel Bar",
+      "category": "Bath Accessories",
+      "specs": {
+        "mounting_type": "Wall Mounted",
+        "installation_type": "Wall Mounted",
+        "bar_length_in": 18,
+        "height_in": 1.88,
+        "width_in": 18.0,
+        "depth_projection_in": 3.375,
+        "nominal_width_in": 18.0,
+        "escutcheon_included": true,
+        "escutcheon_shape": "Round",
+        "installation_hardware_included": true,
+        "concealed_screws": true,
+        "material": "Metal",
+        "theme": "Traditional",
+        "ada_compliant": false,
+        "approved_commercial_use": true,
+        "residential_warranty": "Limited Lifetime",
+        "commercial_warranty": "5 Year Limited",
+        "country_of_origin": "China",
+        "rating": 4.6,
+        "review_count": 29
+      },
+      "resources": {
+        "installation_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/1499439/delta-73218-installation-sheet.pdf",
+        "spec_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/1499439/delta-73218-specification-sheet.pdf",
+        "manufacturer_warranty": "https://s1.img-b.com/build.com/mediabase/specifications/delta/1499439/delta-73218-manufacturer-warranty.pdf"
+      },
+      "variants": [
+        {
+          "finish": "Chrome",
+          "model": "73218",
+          "variant_id": 3512777,
+          "swatch_hex": "#F2F2F2",
+          "price_usd": 33.18,
+          "image_slug": "delta-73218-7866937.jpg"
+        },
+        {
+          "finish": "Matte Black",
+          "model": "73218-BL",
+          "variant_id": 4378591,
+          "swatch_hex": "#000000",
+          "price_usd": 41.06,
+          "image_slug": "delta-73218-bl-8867303.jpg"
+        },
+        {
+          "finish": "Brilliance Stainless",
+          "model": "73218-SS",
+          "variant_id": 3512779,
+          "swatch_hex": "#CFD4D9",
+          "price_usd": 45.57,
+          "image_slug": "delta-73218-ss-7866937.jpg"
+        },
+        {
+          "finish": "Venetian Bronze",
+          "model": "73218-RB",
+          "variant_id": 3512778,
+          "swatch_hex": "#766440",
+          "price_usd": 49.67,
+          "image_slug": "delta-73218-rb-7866937.jpg"
+        }
+      ],
+      "retail_urls": {
+        "ferguson_home": "https://www.fergusonhome.com/delta-73218/s1499439",
+        "build": "https://www.build.com/delta-73218/s1499439"
+      },
+      "verified": "Full page source verified 2026-07-31 - variant IDs, prices, image slugs confirmed",
+      "related_configurations": {
+        "size_sibling": "73224 (24in towel bar, separate family)",
+        "coordinating_accessories": "73246 (towel ring), 73235 (robe hook), 73250 (tissue holder) - all in catalog"
+      }
+    },
+    {
+      "family_id": "1499434",
+      "brand": "Delta",
+      "collection": "Woodhurst",
+      "base_model": "73224",
+      "title": "Woodhurst 24\" Towel Bar",
+      "category": "Bath Accessories",
+      "specs": {
+        "mounting_type": "Wall Mounted",
+        "installation_type": "Wall Mounted",
+        "bar_length_in": 24,
+        "height_in": 1.88,
+        "width_in": 24.0,
+        "depth_projection_in": 3.375,
+        "nominal_width_in": 24.0,
+        "escutcheon_included": true,
+        "escutcheon_shape": "Round",
+        "installation_hardware_included": true,
+        "concealed_screws": true,
+        "material": "Metal",
+        "theme": "Traditional",
+        "ada_compliant": false,
+        "approved_commercial_use": true,
+        "residential_warranty": "Limited Lifetime",
+        "commercial_warranty": "5 Year Limited",
+        "country_of_origin": "China",
+        "rating": 4.8,
+        "review_count": 28
+      },
+      "resources": {
+        "installation_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/1499434/delta-73224-installation-sheet.pdf",
+        "spec_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/1499434/delta-73224-specification-sheet.pdf",
+        "manufacturer_warranty": "https://s1.img-b.com/build.com/mediabase/specifications/delta/1499434/delta-73224-manufacturer-warranty.pdf"
+      },
+      "variants": [
+        {
+          "finish": "Chrome",
+          "model": "73224",
+          "variant_id": 3512760,
+          "swatch_hex": "#F2F2F2",
+          "price_usd": 35.28,
+          "image_slug": "delta-73224-7866937.jpg"
+        },
+        {
+          "finish": "Matte Black",
+          "model": "73224-BL",
+          "variant_id": 4378592,
+          "swatch_hex": "#000000",
+          "price_usd": 42.9,
+          "image_slug": "delta-73224-bl-8867303.jpg"
+        },
+        {
+          "finish": "Venetian Bronze",
+          "model": "73224-RB",
+          "variant_id": 3512761,
+          "swatch_hex": "#766440",
+          "price_usd": 44.63,
+          "image_slug": "delta-73224-rb-7866937.jpg"
+        },
+        {
+          "finish": "Brilliance Stainless",
+          "model": "73224-SS",
+          "variant_id": 3512762,
+          "swatch_hex": "#CFD4D9",
+          "price_usd": 47.67,
+          "image_slug": "delta-73224-ss-7866937.jpg"
+        }
+      ],
+      "retail_urls": {
+        "ferguson_home": "https://www.fergusonhome.com/delta-73224/s1499434",
+        "build": "https://www.build.com/delta-73224/s1499434"
+      },
+      "verified": "Full page source verified 2026-07-31 - variant IDs, prices, image slugs confirmed",
+      "related_configurations": {
+        "size_sibling": "73218 (18in towel bar, in catalog)",
+        "coordinating_accessories": "73246 (towel ring), 73235 (robe hook), 73250 (tissue holder) - all in catalog"
+      }
+    }
+  ],
+  "catalog_status": "All 9 families fully verified from page source as of 2026-07-31"
+}

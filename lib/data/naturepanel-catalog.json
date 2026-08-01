@@ -1,0 +1,255 @@
+{
+  "brand": "Nature Panel",
+  "manufacturer": "Grant Westfield",
+  "material": "HPL",
+  "panel_specs": {
+    "width_in": 22.75,
+    "height_in": 94.5,
+    "thickness_in": 0.375,
+    "joint": "Hydrolock",
+    "waterproof": true,
+    "warranty_years": 30,
+    "certifications": [
+      "FSC C128180",
+      "ISO 9001:2015",
+      "ISO 14001"
+    ]
+  },
+  "image_sources": {
+    "naturepanel": "https://www.naturepanel.co.uk/media/{HASH}/{SLUG}.jpg?anchor=center&mode=crop&width={W}&height={H}",
+    "multipanel": "https://www.multipanel.co.uk/media/{HASH}/{SLUG}.jpg?anchor=center&mode=crop&width={W}&height={H}"
+  },
+  "collections": [
+    {
+      "id": "wood",
+      "name": "Wood Decors",
+      "description": "Beautiful wood effect with warmth and texture, featuring delicate integrated sapwood elements",
+      "panels": [
+        {
+          "id": "bleached-cuneo-oak-slat",
+          "name": "Bleached Cuneo Oak",
+          "style": "Wood Slat",
+          "shadow_line": "Graphite Grey",
+          "image_source": "naturepanel",
+          "image_hash": "u0en1znm",
+          "image_slug": "bleached-cuneo-oak-swatch",
+          "swatch_asset": true
+        },
+        {
+          "id": "brown-cuneo-oak-slat",
+          "name": "Brown Cuneo Oak",
+          "style": "Wood Slat",
+          "shadow_line": "Graphite Grey",
+          "image_source": "naturepanel",
+          "image_hash": "e4nnemc0",
+          "image_slug": "brown-cuneo-oak-swatch",
+          "swatch_asset": true
+        },
+        {
+          "id": "bleached-cuneo-oak-shiplap",
+          "name": "Bleached Cuneo Oak",
+          "style": "Shiplap",
+          "shadow_line": "Graphite Grey",
+          "image_source": "naturepanel",
+          "image_hash": "u0en1znm",
+          "image_slug": "bleached-cuneo-oak-swatch",
+          "swatch_asset": true
+        },
+        {
+          "id": "brown-cuneo-oak-shiplap",
+          "name": "Brown Cuneo Oak",
+          "style": "Shiplap",
+          "shadow_line": "Graphite Grey",
+          "image_source": "naturepanel",
+          "image_hash": "e4nnemc0",
+          "image_slug": "brown-cuneo-oak-swatch",
+          "swatch_asset": true
+        },
+        {
+          "id": "grained-alpine-white",
+          "name": "Grained Alpine White",
+          "style": "Shiplap",
+          "shadow_line": "Color Matched",
+          "image_source": "naturepanel",
+          "image_hash": "ioahdfdr",
+          "image_slug": "grained-alpine-white-swatch",
+          "swatch_asset": true
+        },
+        {
+          "id": "grained-angora-grey",
+          "name": "Grained Angora Grey",
+          "style": "Shiplap",
+          "shadow_line": "Color Matched",
+          "image_source": "naturepanel",
+          "image_hash": "jhvf0jhg",
+          "image_slug": "grained-angora-grey-swatch",
+          "swatch_asset": true
+        },
+        {
+          "id": "grained-stone-green",
+          "name": "Grained Stone Green",
+          "style": "Shiplap",
+          "shadow_line": "Color Matched",
+          "image_source": "naturepanel",
+          "image_hash": "xvqjmvub",
+          "image_slug": "grained-stone-green-swatch",
+          "swatch_asset": true
+        }
+      ]
+    },
+    {
+      "id": "tile",
+      "name": "Tile Decors",
+      "description": "Beautifully curated tile effect decors creating depth and looks stunning in both large and compact bathrooms",
+      "panels": [
+        {
+          "id": "sage-green-subway",
+          "name": "Sage Green",
+          "style": "Subway",
+          "sku_ref": "MP638",
+          "image_source": "multipanel",
+          "image_hash": "xk0nbzzj",
+          "image_slug": "9487_08_m1_sagegreen",
+          "swatch_asset": false
+        },
+        {
+          "id": "white-grey-subway",
+          "name": "White Grey",
+          "style": "Subway",
+          "sku_ref": "MP775",
+          "image_source": "multipanel",
+          "image_hash": "nvebrc1e",
+          "image_slug": "monumentgrey_800x800",
+          "swatch_asset": false
+        },
+        {
+          "id": "crystal-marble-large",
+          "name": "Crystal Marble",
+          "style": "Large Tile",
+          "sku_ref": "MP0800",
+          "image_source": "multipanel",
+          "image_hash": "ntwn1a4c",
+          "image_slug": "levanto-marble-plain-gallery",
+          "swatch_asset": false
+        },
+        {
+          "id": "white-terrazzo-large",
+          "name": "White Terrazzo",
+          "style": "Large Tile",
+          "sku_ref": "MP020",
+          "image_source": "multipanel",
+          "image_hash": "vsugx3df",
+          "image_slug": "white-terrazzo-plain-gallery",
+          "swatch_asset": false
+        },
+        {
+          "id": "cremona-marble-large",
+          "name": "Cremona Marble",
+          "style": "Large Tile",
+          "sku_ref": "MP0229",
+          "image_source": "multipanel",
+          "image_hash": "padjd2yk",
+          "image_slug": "monumentgreyplainandlevantomarbletile800x800",
+          "swatch_asset": false
+        },
+        {
+          "id": "white-gypsum-large",
+          "name": "White Gypsum",
+          "style": "Large Tile",
+          "sku_ref": "MP637",
+          "image_source": "multipanel",
+          "image_hash": "jydoejox",
+          "image_slug": "whitemineral800x800",
+          "swatch_asset": false
+        },
+        {
+          "id": "valmasino-marble-large",
+          "name": "Valmasino Marble",
+          "style": "Large Tile",
+          "sku_ref": "MP074",
+          "image_source": "multipanel",
+          "image_hash": "v4nisno0",
+          "image_slug": "9478_10_m1_valmasinomarbleandtaupegrey",
+          "swatch_asset": false
+        }
+      ]
+    },
+    {
+      "id": "pure",
+      "name": "Pure Decors",
+      "description": "Simplicity, texture, and timeless design with a harmonious palette of natural tones",
+      "panels": [
+        {
+          "id": "sage-green-pure",
+          "name": "Sage Green",
+          "style": "Pure",
+          "sku_ref": "MP638",
+          "image_source": "multipanel",
+          "image_hash": "xk0nbzzj",
+          "image_slug": "9487_08_m1_sagegreen",
+          "swatch_asset": false
+        },
+        {
+          "id": "white-grey-pure",
+          "name": "White Grey",
+          "style": "Pure",
+          "sku_ref": "MP775",
+          "image_source": "multipanel",
+          "image_hash": "nvebrc1e",
+          "image_slug": "monumentgrey_800x800",
+          "swatch_asset": false
+        },
+        {
+          "id": "crystal-marble-pure",
+          "name": "Crystal Marble",
+          "style": "Pure",
+          "sku_ref": "MP0800",
+          "image_source": "multipanel",
+          "image_hash": "ntwn1a4c",
+          "image_slug": "levanto-marble-plain-gallery",
+          "swatch_asset": false
+        },
+        {
+          "id": "white-terrazzo-pure",
+          "name": "White Terrazzo",
+          "style": "Pure",
+          "sku_ref": "MP020",
+          "image_source": "multipanel",
+          "image_hash": "vsugx3df",
+          "image_slug": "white-terrazzo-plain-gallery",
+          "swatch_asset": false
+        },
+        {
+          "id": "cremona-marble-pure",
+          "name": "Cremona Marble",
+          "style": "Pure",
+          "sku_ref": "MP0229",
+          "image_source": "multipanel",
+          "image_hash": "padjd2yk",
+          "image_slug": "monumentgreyplainandlevantomarbletile800x800",
+          "swatch_asset": false
+        },
+        {
+          "id": "white-gypsum-pure",
+          "name": "White Gypsum",
+          "style": "Pure",
+          "sku_ref": "MP637",
+          "image_source": "multipanel",
+          "image_hash": "jydoejox",
+          "image_slug": "whitemineral800x800",
+          "swatch_asset": false
+        },
+        {
+          "id": "valmasino-marble-pure",
+          "name": "Valmasino Marble",
+          "style": "Pure",
+          "sku_ref": "MP074",
+          "image_source": "multipanel",
+          "image_hash": "v4nisno0",
+          "image_slug": "9478_10_m1_valmasinomarbleandtaupegrey",
+          "swatch_asset": false
+        }
+      ]
+    }
+  ]
+}

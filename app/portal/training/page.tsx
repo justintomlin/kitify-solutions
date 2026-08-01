@@ -18,6 +18,15 @@ import { useLanguage } from "@/components/LanguageContext";
 import { useAuth } from "@/components/AuthContext";
 import { useToast, ToastView } from "@/components/Toast";
 import { PLUMBING_PACKAGES } from "@/lib/plumbing-catalog";
+import { getCollectionFamilies, getLoadedCollections, type DeltaFamily } from "@/lib/delta-catalog";
+
+// Delta collections with manufacturer documentation loaded (lib/data/*.json) — Woodhurst and
+// Lahara today. Read from the catalog rather than listed here, so Ashlyn and Trinsic appear
+// on their own once their JSON is registered, with no edit to this page.
+const DELTA_COLLECTIONS = getLoadedCollections().map((name) => ({
+  name,
+  families: getCollectionFamilies(name),
+}));
 
 // Every package × component × finish that resolves to a real SKU. 4 × 9 × 6 = 216 today.
 const PLUMBING_SKU_COUNT = PLUMBING_PACKAGES.reduce(
@@ -113,6 +122,8 @@ export default function TrainingPage() {
             <Accordion key={pl.key} title={t(pl.labelKey)}>
               {/* CMS injection point: installation videos + guides for this product line. */}
               <Soon>{t("training.installPlaceholder", { product: t(pl.labelKey) })}</Soon>
+              {/* Delta already has real manufacturer PDFs behind it. */}
+              {pl.key === "delta" && <DeltaResources />}
               <SampleLink onClick={sampleSoon} />
             </Accordion>
           ))}
@@ -125,9 +136,12 @@ export default function TrainingPage() {
               <Soon>{t("training.specsPlaceholder", { product: t(pl.labelKey) })}</Soon>
               {/* Delta is the one line with real data behind it today. */}
               {pl.key === "delta" && (
-                <p className="mt-2 rounded-lg border border-accent/30 bg-accent-soft/30 px-3 py-2 text-xs text-accent">
-                  {t("training.specsDeltaNote", { n: String(PLUMBING_SKU_COUNT) })}
-                </p>
+                <>
+                  <p className="mt-2 rounded-lg border border-accent/30 bg-accent-soft/30 px-3 py-2 text-xs text-accent">
+                    {t("training.specsDeltaNote", { n: String(PLUMBING_SKU_COUNT) })}
+                  </p>
+                  <DeltaResources />
+                </>
               )}
               <SampleLink onClick={sampleSoon} />
             </Accordion>
@@ -207,6 +221,64 @@ function Accordion({ title, children }: { title: string; children: React.ReactNo
         {open ? <ChevronUp className="h-4 w-4 shrink-0 text-muted" /> : <ChevronDown className="h-4 w-4 shrink-0 text-muted" />}
       </button>
       {open && <div className="pb-3">{children}</div>}
+    </div>
+  );
+}
+
+// Real manufacturer PDFs, straight from the loaded catalogs — one sub-section per Delta
+// collection (Woodhurst, Lahara, …). Collection and product titles are Delta's own and stay
+// in English in both languages, like every other model name in the portal; the document
+// labels around them are translated. Renders nothing when no catalog data is loaded at all,
+// so the accordion degrades to its placeholder.
+function DeltaResources() {
+  if (DELTA_COLLECTIONS.length === 0) return null;
+  return (
+    <>
+      {DELTA_COLLECTIONS.map((c) => (
+        <CollectionResources key={c.name} name={c.name} families={c.families} />
+      ))}
+    </>
+  );
+}
+
+function CollectionResources({ name, families }: { name: string; families: DeltaFamily[] }) {
+  const { t } = useLanguage();
+  if (families.length === 0) return null;
+  return (
+    <div className="mt-2 rounded-xl border border-line bg-paper/50 p-3">
+      <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted">
+        {t("training.collectionTitle", { collection: name })}
+      </div>
+      <p className="mt-1 text-xs text-muted">{t("training.collectionNote")}</p>
+      <ul className="mt-2.5 space-y-2.5">
+        {families.map((f) => {
+          const docs = [
+            { key: "install", href: f.resources?.installation_sheet, label: t("training.docInstall") },
+            { key: "spec", href: f.resources?.spec_sheet, label: t("training.docSpec") },
+            { key: "parts", href: f.resources?.exploded_parts, label: t("training.docParts") },
+          ].filter((d): d is { key: string; href: string; label: string } => !!d.href);
+          if (docs.length === 0) return null;
+          return (
+            <li key={f.family_id} className="border-t border-line/60 pt-2.5 first:border-t-0 first:pt-0">
+              <div className="text-xs font-medium text-ink">{f.title}</div>
+              <div className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">{f.base_model}</div>
+              <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+                {docs.map((d) => (
+                  <a
+                    key={d.key}
+                    href={d.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-accent transition hover:underline"
+                  >
+                    <FileText className="h-3 w-3" /> {d.label}
+                  </a>
+                ))}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }

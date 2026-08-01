@@ -9,14 +9,17 @@
  * Contract mirrors the vanity module: catalog in, ShowerConfig out via onComplete.
  *
  * Real data (ThermaGlass/NuVo): bases, tubs, doors, accessories + dealer (KD) prices.
- * PLACEHOLDER (flagged): SPC/HPL/Solid-Surface wall palettes (seeded with the 6 real
- * NuVo composite colors as a stand-in) and wall-kit pricing.
+ * Real data (Nature Panel): the HPL wall palette — 21 catalogued decors with swatch
+ * photography, via lib/naturepanel-catalog.ts. Carries no pricing.
+ * PLACEHOLDER (flagged): SPC and Solid-Surface wall palettes (seeded with the 6 real
+ * NuVo composite colors as a stand-in) and wall-kit pricing for every tier.
  * Drain options are data-driven per size (L/R/Center aren't offered on every size).
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Check, RotateCcw, Plus, Minus, DoorOpen, Square } from "lucide-react";
 import { SHOWER_BASES, TUBS as CATALOG_TUBS, SHOWER_BASE_COLORS, type BaseSku } from "@/lib/catalog";
+import { getPanelCollections, getPanelImage, getPanelSpecs, getPanel } from "@/lib/naturepanel-catalog";
 import { useLanguage } from "@/components/LanguageContext";
 
 // Price-line display text is resolved at render (never stored) so a quote saved in
@@ -31,7 +34,18 @@ function priceLineText(t: Tr, l: PriceLine): string {
 // ------------------------------ Types -------------------------------------
 export type Path = "shower" | "tub";
 export type Drain = "left" | "right" | "center" | "end";
-export type Swatch = { id: string; name: string; hex: string };
+// `hex` is the flat colour every palette has had. A catalogued wall panel adds the real
+// swatch photo plus its decor metadata; the hex stays as the fallback tint for when the
+// CDN image can't load, so nothing downstream has to branch on which kind of swatch it holds.
+export type Swatch = {
+  id: string; name: string; hex: string;
+  imageUrl?: string;      // real product image (Nature Panel HPL only, today)
+  style?: string;         // decor style — "Wood Slat", "Shiplap", "Subway", "Large Tile", "Pure"
+  collection?: string;    // collection id — "wood" | "tile" | "pure"
+  // True only when imageUrl is a flat material crop. The Tile/Pure decors currently point
+  // at room photography, which is usable as a thumbnail but not as a wall texture.
+  isSwatch?: boolean;
+};
 
 export type BaseItem = {
   id: string; label: string; w: number; d: number; drains: Drain[];
@@ -52,6 +66,10 @@ export type ShowerCatalog = {
   };
 };
 
+export type WallMode = "all" | "perWall";
+export const WALL_INDEX = [0, 1, 2] as const;   // back, left, right
+const WALL_KEYS = ["configurator.shower.wallBack", "configurator.shower.wallLeft", "configurator.shower.wallRight"];
+
 export type AccessoryState = {
   cornerShelf: { finish: string; qty: number };
   niche: { finish: string; qty: number };
@@ -65,6 +83,10 @@ export type ShowerSelections = {
   baseColor?: string; // pan/base color id — see SHOWER_BASE_COLORS; defaults to "white"
   materialId?: string;
   wallColors: (string | undefined)[]; // [back, left, right]
+  // How the wall picker behaves. Optional so quotes saved before it existed still load:
+  // wallMode() infers it from whether the three wallColors agree, which is exactly what an
+  // older quote's array already encodes.
+  wallMode?: WallMode;
   door: { seriesId: string; finish: string } | null;
   accessories: AccessoryState;
 };
@@ -100,6 +122,68 @@ const NUVO_COLORS: Swatch[] = [
   { id: "slate-grey", name: "Slate Grey", hex: "#7c8083" },
   { id: "winter-white", name: "Winter White", hex: "#eeeee9" },
 ];
+
+// HPL is the one tier with a real catalogue behind it: the 21-panel Nature Panel lineup,
+// swatch photography served from Grant Westfield's CDNs (see lib/naturepanel-catalog.ts).
+// SPC and Solid Surface stay on the NuVo stand-in above until their palettes arrive.
+//
+// `hex` is a single neutral for every panel rather than a guessed per-decor colour — the
+// real appearance comes from the swatch image, and inventing hex values for products whose
+// colours aren't published would put made-up data in front of dealers. It shows only as the
+// wall tint if the CDN image fails.
+const HPL_PANEL_FALLBACK_HEX = "#dad6cd";
+const HPL_PANELS: Swatch[] = getPanelCollections().flatMap((c) =>
+  c.panels.map((p) => ({
+    id: p.id, name: p.name, hex: HPL_PANEL_FALLBACK_HEX,
+    imageUrl: p.imageUrl, style: p.style, collection: p.collection, isSwatch: p.isSwatch,
+  })),
+);
+
+// Style label → dictionary key. Keyed off the catalogue's own style strings so a new decor
+// style surfaces as a missing key rather than silently rendering English.
+const STYLE_KEY: Record<string, string> = {
+  "Wood Slat": "configurator.shower.panel.style.woodSlat",
+  "Shiplap": "configurator.shower.panel.style.shiplap",
+  "Subway": "configurator.shower.panel.style.subway",
+  "Large Tile": "configurator.shower.panel.style.largeTile",
+  "Pure": "configurator.shower.panel.style.pure",
+};
+const styleLabel = (t: Tr, style?: string) => (style && STYLE_KEY[style] ? t(STYLE_KEY[style]) : style ?? "");
+
+// ---------------------- Shower box geometry (preview) ----------------------
+// One-point perspective inside a 320×240 viewBox. The front opening is the back wall
+// scaled about the view centre (160,120); every wall, the floor and the door derive from
+// these two rectangles, so nothing can drift out of alignment.
+//
+// Width and height use the SAME scale factor. The previous geometry splayed the width by
+// 1.78× while the height only grew 1.34×, which is what produced the fisheye look — the
+// side walls raced out to the viewBox edges while the opening barely got taller.
+const BACK = { x0: 70, x1: 250, y0: 44, y1: 196 };
+const FRONT = { x0: 38, x1: 282, y0: 17, y1: 223 };   // 1.356× on both axes
+
+const LEFT_WALL = `${FRONT.x0},${FRONT.y0} ${BACK.x0},${BACK.y0} ${BACK.x0},${BACK.y1} ${FRONT.x0},${FRONT.y1}`;
+const RIGHT_WALL = `${BACK.x1},${BACK.y0} ${FRONT.x1},${FRONT.y0} ${FRONT.x1},${FRONT.y1} ${BACK.x1},${BACK.y1}`;
+// The floor quad the three walls enclose — shared by the pan and the tub so the panels
+// always land flush on whatever is underneath them.
+const FLOOR_PLANE = `${BACK.x0},${BACK.y1} ${BACK.x1},${BACK.y1} ${FRONT.x1},${FRONT.y1} ${FRONT.x0},${FRONT.y1}`;
+const TUB_SKIRT = `${FRONT.x0},${FRONT.y1} ${FRONT.x1},${FRONT.y1} ${FRONT.x1},${FRONT.y1 + 13} ${FRONT.x0},${FRONT.y1 + 13}`;
+
+// Door series names carry their own type — "Pacific Frameless Slider", "Trillium Slider +
+// Panel". Panel is checked first because those names contain "Slider" too.
+export type DoorKind = "slider" | "frameless" | "panel";
+function doorKind(series?: string): DoorKind {
+  if (!series) return "frameless";
+  if (/panel/i.test(series)) return "panel";
+  if (/slider/i.test(series)) return "slider";
+  return "frameless";
+}
+// Door hardware finishes are their own set (chrome / brushed-nickel / matte-black) and
+// don't overlap the wall or accessory palettes.
+const DOOR_FINISH_HEX: Record<string, string> = {
+  "chrome": "#bfc5cc",
+  "brushed-nickel": "#a49e93",
+  "matte-black": "#2a2c2f",
+};
 
 const BASE_COLORS: Swatch[] = [
   { id: "white", name: "White", hex: "#eeeeea" },
@@ -146,7 +230,7 @@ export const SAMPLE_SHOWER_CATALOG: ShowerCatalog = {
   tubs: CATALOG_TUBS.map((s) => toBaseItem(s, TUB_META[s.id], WHITE_ONLY)),
   materials: [
     { id: "spc", name: "SPC", tier: "Good", kitPrice: 1, colors: NUVO_COLORS },
-    { id: "hpl", name: "HPL", tier: "Better", kitPrice: 1, colors: NUVO_COLORS },
+    { id: "hpl", name: "HPL", tier: "Better", kitPrice: 1, colors: HPL_PANELS },
     { id: "ss", name: "Solid Surface", tier: "Best", kitPrice: 1, colors: NUVO_COLORS },
   ],
   doors: [
@@ -211,6 +295,18 @@ export function computeShowerPrice(catalog: ShowerCatalog, s: ShowerSelections):
   return { total, lines };
 }
 
+/**
+ * The wall picker's mode. Explicit once the user touches the toggle; otherwise inferred
+ * from the selections themselves, so a quote saved before `wallMode` existed reopens in
+ * the mode its own wall array implies — three matching walls read as "all", a mix as
+ * "perWall" — instead of silently collapsing a mixed set onto one decor.
+ */
+export function wallMode(s: ShowerSelections): WallMode {
+  if (s.wallMode) return s.wallMode;
+  const [a, b, c] = s.wallColors;
+  return a === b && b === c ? "all" : "perWall";
+}
+
 export function isComplete(s: ShowerSelections): boolean {
   return !!(s.path && s.baseId && s.drain && s.materialId && s.wallColors.every((c) => !!c));
 }
@@ -222,7 +318,15 @@ function buildLabel(catalog: ShowerCatalog, s: ShowerSelections, t: Tr): string 
   const kind = t(s.path === "tub" ? "configurator.label.tub" : "configurator.label.shower");
   const drain = s.drain ? t("configurator.label.drain" + s.drain.charAt(0).toUpperCase() + s.drain.slice(1)) : "";
   const walls = mat ? t("configurator.label.walls", { material: mat.name }) : "";
-  return `${item.label} ${kind}${drain ? " · " + drain : ""}${walls ? " · " + walls : ""}`.trim();
+  // The chosen decor is more use to a dealer than the tier name alone. With three matching
+  // walls that's one name; with a mix, all three, so a quote can't hide that the side walls
+  // differ from the back.
+  const named = (i: number) => mat?.colors.find((c) => c.id === s.wallColors[i]);
+  const one = named(0);
+  const decor = wallMode(s) === "all"
+    ? (one?.imageUrl ? `${one.name} (${styleLabel(t, one.style)})` : "")
+    : WALL_INDEX.map((i) => named(i)?.name ?? "—").join(" / ");
+  return `${item.label} ${kind}${drain ? " · " + drain : ""}${walls ? " · " + walls : ""}${decor ? " · " + decor : ""}`.trim();
 }
 // Self-reported imagery. This module ships no product image files yet — only colour
 // swatches — so image fields stay undefined and swatchHex carries the wall (or base)
@@ -230,10 +334,12 @@ function buildLabel(catalog: ShowerCatalog, s: ShowerSelections, t: Tr): string 
 function buildShowerMedia(catalog: ShowerCatalog, s: ShowerSelections): ShowerMedia {
   const material = catalog.materials.find((m) => m.id === s.materialId);
   const palette = material?.colors ?? NUVO_COLORS;
-  const wallHex = palette.find((c) => c.id === s.wallColors[0])?.hex;
+  const wall = palette.find((c) => c.id === s.wallColors[0]);
   const item = itemsForPath(catalog, s.path).find((b) => b.id === s.baseId);
   const baseHex = item?.colors.find((c) => c.id === s.baseColorId)?.hex;
-  return { wallImage: undefined, baseImage: undefined, doorImage: undefined, swatchHex: wallHex ?? baseHex };
+  // wallImage is now a real CDN swatch when a catalogued panel is picked — the field was
+  // reserved for exactly this and stays undefined for the flat-colour tiers.
+  return { wallImage: wall?.imageUrl, baseImage: undefined, doorImage: undefined, swatchHex: wall?.hex ?? baseHex };
 }
 
 // ---------------------------- Component -----------------------------------
@@ -329,6 +435,26 @@ export function ShowerConfigurator({
   const availDoors = doorsForItem(catalog, s.path, item);
   const baseColor = SHOWER_BASE_COLORS.find((c) => c.id === (s.baseColor ?? "white"))?.hex ?? SHOWER_BASE_COLORS[0].hex;
   const wallHex = (i: number) => palette.find((c) => c.id === s.wallColors[i])?.hex ?? "#dad6cd";
+  const isHpl = s.materialId === "hpl";
+  const wMode = wallMode(s);
+  // Which wall the per-wall picker is editing. Local UI state — never part of the quote.
+  const [activeWall, setActiveWall] = useState(0);
+  const activeSelection = wMode === "all" ? s.wallColors[0] : s.wallColors[activeWall];
+  // Resolve the door once for the preview: its series decides the schematic, its finish the
+  // hardware colour. Undefined whenever no door is on the quote, which is what hides it.
+  const doorViz = useMemo(() => {
+    if (!s.door) return undefined;
+    const series = (s.path === "tub" ? catalog.tubDoors : catalog.doors).find((d) => d.id === s.door!.seriesId);
+    return { kind: doorKind(series?.series), finishHex: DOOR_FINISH_HEX[s.door.finish] ?? "#9aa0a6" };
+  }, [s.door, s.path, catalog]);
+  // Wall imagery for the preview: the real panel photo tiles the walls when one is picked.
+  // Only a true swatch may tile the walls — a room photograph repeated across a shower
+  // reads as a rendering bug, so those fall back to the flat tint.
+  const wallImage = (i: number) => {
+    const sw = palette.find((c) => c.id === s.wallColors[i]);
+    return sw?.isSwatch ? sw.imageUrl : undefined;
+  };
+  const selectedPanel = isHpl ? palette.find((c) => c.id === s.wallColors[0]) : undefined;
 
   function choosePath(p: Path) { setS({ ...initial, path: p }); }
   function chooseBase(id: string) {
@@ -336,8 +462,31 @@ export function ShowerConfigurator({
     const drain = it && it.drains.length === 1 ? it.drains[0] : undefined;
     set({ baseId: id, drain, baseColorId: it?.colors[0]?.id, door: null });
   }
+  // Palettes no longer share ids across tiers (HPL is the Nature Panel catalogue, the others
+  // are the NuVo stand-in), so carrying a wall selection across a material change would leave
+  // an id that resolves to nothing while still counting the build as complete. Clear it.
+  function chooseMaterial(id: string) {
+    if (id === s.materialId) return;
+    set({ materialId: id, wallColors: [undefined, undefined, undefined] });
+  }
   function setWall(i: number, colorId: string) {
     const next = [...s.wallColors]; next[i] = colorId; set({ wallColors: next });
+  }
+  // Switching back to "all" collapses onto the wall being edited rather than always the back
+  // wall, so the decor the user is looking at is the one that survives.
+  function setWallMode(m: WallMode) {
+    if (m === wMode) return;
+    if (m === "all") {
+      const keep = s.wallColors[activeWall] ?? s.wallColors.find(Boolean);
+      set({ wallMode: "all", wallColors: [keep, keep, keep] });
+    } else {
+      set({ wallMode: "perWall" });
+    }
+  }
+  // One assignment path for both pickers: all three walls, or just the active one.
+  function assignWall(id: string) {
+    if (wMode === "all") setAllWalls(id);
+    else setWall(activeWall, id);
   }
   function setAllWalls(colorId: string) { set({ wallColors: [colorId, colorId, colorId] }); }
   function startOver() { setS(initial); }
@@ -353,7 +502,10 @@ export function ShowerConfigurator({
       <div className="lg:sticky lg:top-5 lg:self-start">
         <div className="overflow-hidden rounded-2xl border border-line bg-card">
           <ShowerPreview path={s.path} back={wallHex(0)} left={wallHex(1)} right={wallHex(2)} baseColor={baseColor}
-            hasDoor={!!s.door} niche={s.accessories.niche.qty > 0} shelf={s.accessories.cornerShelf.qty > 0} bar={s.accessories.grabBar.qty > 0} />
+            wallImages={[wallImage(0), wallImage(1), wallImage(2)]}
+            door={doorViz} niche={s.accessories.niche.qty > 0} shelf={s.accessories.cornerShelf.qty > 0} bar={s.accessories.grabBar.qty > 0} />
+          {/* Selected decor, at a size a dealer can actually judge the pattern from. */}
+          {selectedPanel && <SelectedPanelCard swatch={selectedPanel} />}
           <div className="border-t border-line p-4">
             <div className="mb-2 flex items-center justify-between">
               <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">{mode === "dealer" ? t("configurator.dealerPrice") : t("configurator.estimate")}</span>
@@ -434,7 +586,7 @@ export function ShowerConfigurator({
           <Step n={4} title={t("configurator.shower.stepWallMaterial")} hint={t("configurator.shower.onePerShower")}>
             <div className="grid grid-cols-3 gap-2">
               {catalog.materials.map((m) => (
-                <button key={m.id} onClick={() => set({ materialId: m.id })}
+                <button key={m.id} onClick={() => chooseMaterial(m.id)}
                   className={`rounded-xl border px-3 py-3 text-center transition ${s.materialId === m.id ? "border-accent bg-accent-soft/50" : "border-line hover:bg-ink/5"}`}>
                   <div className="text-sm font-semibold">{m.name}</div>
                   <div className="font-mono text-[9px] uppercase tracking-wide text-muted">{t(m.tier === "Good" ? "configurator.shower.tierGood" : m.tier === "Better" ? "configurator.shower.tierBetter" : "configurator.shower.tierBest")}</div>
@@ -446,31 +598,53 @@ export function ShowerConfigurator({
         )}
 
         {material && (
-          <Step n={5} title={t("configurator.shower.stepWallColors")}>
-            <div className="mb-3 flex items-center gap-2">
-              <span className="text-xs text-muted">{t("configurator.shower.quickFill")}</span>
-              {palette.map((c) => (
-                <button key={c.id} onClick={() => setAllWalls(c.id)} title={t("configurator.shower.allWalls", { name: c.name })}
-                  className="h-6 w-6 rounded-full border border-line hover:border-ink/40" style={{ background: c.hex }} />
+          <Step n={5} title={t(isHpl ? "configurator.shower.stepWallPanel" : "configurator.shower.stepWallColors")}>
+            {/* Mode toggle + (when per-wall) the wall being edited. Both are material-agnostic:
+                the picker underneath swaps between catalogued panels and flat swatches, but
+                the assignment rules are identical. */}
+            <div className="mb-3 flex flex-wrap gap-1.5">
+              {([["all", "configurator.shower.wallModeAll"], ["perWall", "configurator.shower.wallModePer"]] as [WallMode, string][]).map(([m, lk]) => (
+                <button key={m} type="button" onClick={() => setWallMode(m)}
+                  className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${wMode === m ? "border-accent bg-accent-soft/50 text-ink" : "border-line text-muted hover:bg-ink/5"}`}>
+                  {t(lk)}
+                </button>
               ))}
             </div>
-            <div className="space-y-3">
-              {[0, 1, 2].map((i) => (
-                <div key={i}>
-                  <div className="mb-1.5 flex items-center gap-2">
-                    <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">{t(["configurator.shower.wallBack", "configurator.shower.wallLeft", "configurator.shower.wallRight"][i])}</span>
-                    <span className="text-xs">{palette.find((c) => c.id === s.wallColors[i])?.name ?? "—"}</span>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {palette.map((c) => (
-                      <button key={c.id} onClick={() => setWall(i, c.id)} title={c.name}
-                        className={`h-8 w-8 rounded-full border-2 transition ${s.wallColors[i] === c.id ? "border-accent ring-2 ring-accent/30" : "border-line hover:border-ink/30"}`}
-                        style={{ background: c.hex }} />
-                    ))}
-                  </div>
+
+            {wMode === "perWall" && (
+              <div className="mb-3">
+                <div className="flex flex-wrap gap-1.5">
+                  {WALL_INDEX.map((i) => {
+                    const picked = palette.find((c) => c.id === s.wallColors[i]);
+                    return (
+                      <button key={i} type="button" onClick={() => setActiveWall(i)}
+                        className={`flex min-w-0 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 transition ${activeWall === i ? "border-accent bg-accent-soft/50" : "border-line hover:bg-ink/5"}`}>
+                        <span className="h-4 w-4 shrink-0 overflow-hidden rounded-full border border-line" style={{ background: picked?.hex ?? "#dad6cd" }}>
+                          {picked?.imageUrl && <img src={picked.imageUrl} alt="" className="h-full w-full object-cover" />}
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block font-mono text-[9px] uppercase tracking-wide text-muted">{t(WALL_KEYS[i])}</span>
+                          <span className="block truncate text-[11px] font-medium text-ink">{picked?.name ?? "—"}</span>
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
-              ))}
-            </div>
+                <p className="mt-1.5 text-[11px] text-muted">{t("configurator.shower.perWallHint", { wall: t(WALL_KEYS[activeWall]) })}</p>
+              </div>
+            )}
+
+            {isHpl ? (
+              <PanelPicker selectedId={activeSelection} onSelect={assignWall} />
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {palette.map((c) => (
+                  <button key={c.id} onClick={() => assignWall(c.id)} title={c.name}
+                    className={`h-8 w-8 rounded-full border-2 transition ${activeSelection === c.id ? "border-accent ring-2 ring-accent/30" : "border-line hover:border-ink/30"}`}
+                    style={{ background: c.hex }} />
+                ))}
+              </div>
+            )}
           </Step>
         )}
 
@@ -598,32 +772,211 @@ function AccRow({ label, price, finishes, finish, qty, onFinish, onStep }: {
   );
 }
 
+// ----------------------- Nature Panel decor picker -------------------------
+// The 21-panel HPL lineup, grouped by collection behind tabs. Two columns on a phone,
+// widening from sm up, so the grid stays usable on the smallest screen a dealer carries.
+function PanelPicker({ selectedId, onSelect }: { selectedId?: string; onSelect: (panelId: string) => void }) {
+  const { t } = useLanguage();
+  const collections = getPanelCollections();
+  // Open on the collection holding the current pick, so reopening the step doesn't hide it.
+  const [openId, setOpenId] = useState(() => getPanel(selectedId)?.collection ?? collections[0]?.id);
+  const active = collections.find((c) => c.id === openId) ?? collections[0];
+  const specs = getPanelSpecs();
+
+  return (
+    <div>
+      <div className="mb-2 flex flex-wrap gap-1.5">
+        {collections.map((c) => (
+          <button key={c.id} type="button" onClick={() => setOpenId(c.id)}
+            className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${c.id === active?.id ? "border-accent bg-accent-soft/50 text-ink" : "border-line text-muted hover:bg-ink/5"}`}>
+            {t(`configurator.shower.panel.collection.${c.id}`)}
+          </button>
+        ))}
+      </div>
+      {active && <p className="mb-3 text-xs text-muted">{t(`configurator.shower.panel.collectionDesc.${active.id}`)}</p>}
+
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+        {active?.panels.map((p) => {
+          const chosen = p.id === selectedId;
+          return (
+            <button key={p.id} type="button" onClick={() => onSelect(p.id)} title={`${p.name} · ${styleLabel(t, p.style)}`}
+              className={`overflow-hidden rounded-xl border text-left transition ${chosen ? "border-accent ring-2 ring-accent/30" : "border-line hover:border-ink/30"}`}>
+              <PanelSwatchImage panelId={p.id} name={p.name} />
+              <div className="p-1.5">
+                <div className="truncate text-[11px] font-medium leading-tight text-ink">{p.name}</div>
+                <div className="truncate font-mono text-[9px] uppercase tracking-wide text-muted">{styleLabel(t, p.style)}</div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      <p className="mt-3 text-[11px] text-muted">
+        {t("configurator.shower.panel.specNote", { w: "22¾", h: "94½", joint: specs.joint, years: String(specs.warranty_years) })}
+      </p>
+    </div>
+  );
+}
+
+// A swatch tile. Falls back to the neutral tint if the CDN can't serve the image, so the
+// grid keeps its shape rather than collapsing to broken-image icons.
+function PanelSwatchImage({ panelId, name }: { panelId: string; name: string }) {
+  const src = getPanelImage(panelId, 200, 200);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => { setFailed(false); }, [src]);
+  return (
+    <div className="aspect-square w-full overflow-hidden bg-ink/5">
+      {src && !failed && (
+        <img src={src} alt={name} loading="lazy" onError={() => setFailed(true)} className="h-full w-full object-cover" />
+      )}
+    </div>
+  );
+}
+
+// The chosen decor at a size the pattern actually reads at, under the shower preview.
+function SelectedPanelCard({ swatch }: { swatch: Swatch }) {
+  const { t } = useLanguage();
+  const panel = getPanel(swatch.id);
+  const src = getPanelImage(swatch.id, 200, 200);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => { setFailed(false); }, [src]);
+  return (
+    <div className="flex items-center gap-3 border-t border-line bg-paper/40 p-3">
+      <div className="h-[76px] w-[76px] shrink-0 overflow-hidden rounded-lg border border-line bg-ink/5">
+        {src && !failed && (
+          <img src={src} alt={swatch.name} loading="lazy" onError={() => setFailed(true)} className="h-full w-full object-cover" />
+        )}
+      </div>
+      <div className="min-w-0">
+        <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-muted">{t("configurator.shower.panel.brand")}</div>
+        <div className="truncate text-sm font-semibold text-ink">{swatch.name}</div>
+        <div className="truncate text-xs text-muted">{styleLabel(t, swatch.style)}</div>
+        {panel?.shadowLine && (
+          <div className="truncate text-[11px] text-muted">{t("configurator.shower.panel.shadowLine")}: {panel.shadowLine}</div>
+        )}
+        {panel?.skuRef && <div className="font-mono text-[10px] uppercase tracking-wide text-muted">{panel.skuRef}</div>}
+      </div>
+    </div>
+  );
+}
+
 // --------------------------- Live preview ---------------------------------
-function ShowerPreview({ path, back, left, right, baseColor, hasDoor, niche, shelf, bar }: {
-  path?: Path; back: string; left: string; right: string; baseColor: string; hasDoor: boolean; niche: boolean; shelf: boolean; bar: boolean;
+// Walls take a flat colour, or — when a catalogued panel is selected — the real swatch
+// tiled through an SVG pattern, so the preview shows the actual decor rather than a tint.
+// Pattern ids are namespaced with useId(): the hub mounts a second copy of this preview
+// alongside the configurator's, and duplicate ids make url(#…) resolve to the wrong element.
+function ShowerPreview({ path, back, left, right, baseColor, wallImages, door, niche, shelf, bar }: {
+  path?: Path; back: string; left: string; right: string; baseColor: string;
+  wallImages?: (string | undefined)[];   // [back, left, right]
+  // Absent when no door is on the quote. Carries the resolved series type and hardware
+  // colour so the preview never has to reach back into the catalog.
+  door?: { kind: DoorKind; finishHex: string };
+  niche: boolean; shelf: boolean; bar: boolean;
 }) {
+  const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
+  // One pattern per distinct image, so three walls in the same decor share a single fill.
+  const distinct = Array.from(new Set((wallImages ?? []).filter((u): u is string => !!u)));
+  const patternId = (url: string) => `shWall-${uid}-${distinct.indexOf(url)}`;
+  const fillFor = (i: number, hex: string) => {
+    const url = wallImages?.[i];
+    return url ? `url(#${patternId(url)})` : hex;
+  };
+
   return (
     <svg viewBox="0 0 320 240" className="block w-full bg-paper/40">
+      {distinct.length > 0 && (
+        <defs>
+          {distinct.map((url) => (
+            <pattern key={url} id={patternId(url)} patternUnits="userSpaceOnUse" width="90" height="90">
+              <image href={url} width="90" height="90" preserveAspectRatio="xMidYMid slice" />
+            </pattern>
+          ))}
+        </defs>
+      )}
       {/* left side wall */}
-      <polygon points="0,18 70,44 70,196 0,222" fill={left} />
+      <polygon points={LEFT_WALL} fill={fillFor(1, left)} />
       {/* back wall */}
-      <rect x="70" y="44" width="180" height="152" fill={back} />
-      {/* right side wall */}
-      <polygon points="250,44 320,18 320,222 250,196" fill={right} />
-      <polygon points="250,44 320,18 320,222 250,196" fill="#000" opacity="0.08" />
+      <rect x={BACK.x0} y={BACK.y0} width={BACK.x1 - BACK.x0} height={BACK.y1 - BACK.y0} fill={fillFor(0, back)} />
+      {/* right side wall, with a shading pass so the two sides read as different planes */}
+      <polygon points={RIGHT_WALL} fill={fillFor(2, right)} />
+      <polygon points={RIGHT_WALL} fill="#000" opacity="0.08" />
       {/* niche on back wall */}
       {niche && <rect x="150" y="80" width="46" height="34" rx="2" fill="#00000022" stroke="#0000002a" />}
       {/* grab bar on back wall */}
       {bar && <rect x="95" y="150" width="70" height="6" rx="3" fill="#9a9ea1" />}
       {/* corner shelf (left-back corner) */}
       {shelf && <polygon points="70,120 92,124 70,136" fill="#c7c9c9" stroke="#00000022" />}
-      {/* base or tub */}
+      {/* Base or tub. FLOOR_PLANE is the quad the three walls actually enclose — its side
+          edges ARE the side walls' bottom edges — so the panels always land flush on it. */}
       {path === "tub"
-        ? <><rect x="60" y="196" width="200" height="30" rx="8" fill={baseColor} stroke="#00000022" /><rect x="60" y="196" width="200" height="8" fill="#00000010" /></>
-        : <polygon points="70,196 250,196 264,224 56,224" fill={baseColor} stroke="#00000022" />}
-      {/* door glass */}
-      {hasDoor && <><rect x="52" y="120" width="216" height="104" rx="3" fill="#cdd8dd" opacity="0.35" stroke="#8fa0a8" strokeWidth="2" /><line x1="160" y1="120" x2="160" y2="224" stroke="#8fa0a8" strokeWidth="2" opacity="0.6" /></>}
+        ? <>
+            <polygon points={FLOOR_PLANE} fill={baseColor} stroke="#00000022" />
+            {/* rim shadow along the back wall, then the skirt face below the front edge */}
+            <polygon points={FLOOR_PLANE} fill="#00000010" />
+            <polygon points={TUB_SKIRT} fill={baseColor} stroke="#00000022" />
+          </>
+        : <polygon points={FLOOR_PLANE} fill={baseColor} stroke="#00000022" />}
+      {/* Door last, so the glass tints everything behind it. */}
+      {door && <ShowerDoorSVG kind={door.kind} finishHex={door.finishHex} path={path} />}
     </svg>
+  );
+}
+
+/**
+ * The door, drawn in the front-opening plane so it spans exactly the gap between the two
+ * side walls' front edges. A schematic, not a render: tinted glass, a frame in the chosen
+ * hardware finish, and enough of a division/handle to tell the three series types apart.
+ */
+function ShowerDoorSVG({ kind, finishHex, path }: { kind: DoorKind; finishHex: string; path?: Path }) {
+  const x0 = FRONT.x0, x1 = FRONT.x1, w = x1 - x0;
+  // A tub door is a half-height screen sitting on the tub rim; a shower door runs most of
+  // the wall height but stops short of the top.
+  const yTop = path === "tub" ? 120 : 54;
+  const yBot = FRONT.y1;
+  const mid = x0 + w / 2;
+  const frame = kind === "frameless" ? 1.2 : 2;
+
+  return (
+    <g>
+      {/* glass */}
+      <rect x={x0} y={yTop} width={w} height={yBot - yTop} fill="#cdd8dd" opacity="0.2" />
+      {/* a soft highlight so the glass reads as a surface rather than a flat wash */}
+      <polygon points={`${x0},${yBot} ${x0 + w * 0.34},${yTop} ${x0 + w * 0.52},${yTop} ${x0 + w * 0.18},${yBot}`}
+        fill="#ffffff" opacity="0.12" />
+
+      {kind === "slider" && (
+        <>
+          {/* header track + the overlap where the two panels pass each other */}
+          <rect x={x0} y={yTop} width={w} height="5" fill={finishHex} opacity="0.9" />
+          <line x1={mid} y1={yTop} x2={mid} y2={yBot} stroke={finishHex} strokeWidth={frame} opacity="0.75" />
+          <line x1={mid - 7} y1={yTop} x2={mid - 7} y2={yBot} stroke={finishHex} strokeWidth="1" opacity="0.45" />
+          {/* handle on the leading panel */}
+          <rect x={mid - 17} y={(yTop + yBot) / 2 - 14} width="4" height="28" rx="2" fill={finishHex} />
+        </>
+      )}
+
+      {kind === "panel" && (
+        <>
+          {/* fixed panel on the left, swinging panel on the right */}
+          <line x1={x0 + w * 0.42} y1={yTop} x2={x0 + w * 0.42} y2={yBot} stroke={finishHex} strokeWidth={frame} opacity="0.8" />
+          <rect x={x0 + w * 0.42} y={yTop} width={w * 0.58} height="4" fill={finishHex} opacity="0.85" />
+          <rect x={x0 + w * 0.47} y={(yTop + yBot) / 2 - 15} width="4" height="30" rx="2" fill={finishHex} />
+        </>
+      )}
+
+      {kind === "frameless" && (
+        // Minimal hardware: two clamps and a bar handle, no header rail.
+        <>
+          <rect x={x1 - 26} y={yTop + 10} width="5" height="12" rx="1.5" fill={finishHex} opacity="0.85" />
+          <rect x={x1 - 26} y={yBot - 24} width="5" height="12" rx="1.5" fill={finishHex} opacity="0.85" />
+          <rect x={x1 - 24} y={(yTop + yBot) / 2 - 16} width="4" height="32" rx="2" fill={finishHex} />
+        </>
+      )}
+
+      {/* outer frame — thin for frameless, full for the others */}
+      <rect x={x0} y={yTop} width={w} height={yBot - yTop} fill="none" stroke={finishHex}
+        strokeWidth={frame} opacity={kind === "frameless" ? 0.55 : 0.85} />
+    </g>
   );
 }
 
@@ -639,11 +992,34 @@ export function ShowerPreviewFromConfig({ config, className }: { config: ShowerC
   const material = catalog.materials.find((m) => m.id === s.materialId);
   const palette = material?.colors ?? NUVO_COLORS;
   const wallHex = (i: number) => palette.find((c) => c.id === s.wallColors[i])?.hex ?? "#dad6cd";
+  // Only a true swatch may tile the walls — a room photograph repeated across a shower
+  // reads as a rendering bug, so those fall back to the flat tint.
+  const wallImage = (i: number) => {
+    const sw = palette.find((c) => c.id === s.wallColors[i]);
+    return sw?.isSwatch ? sw.imageUrl : undefined;
+  };
   const baseColor = SHOWER_BASE_COLORS.find((c) => c.id === (s.baseColor ?? "white"))?.hex ?? SHOWER_BASE_COLORS[0].hex;
+  // Same door resolution the configurator does, so a read-only preview shows the identical
+  // schematic rather than a generic pane.
+  const doorSeries = s.door ? (s.path === "tub" ? catalog.tubDoors : catalog.doors).find((d) => d.id === s.door!.seriesId) : undefined;
+  const doorViz = s.door ? { kind: doorKind(doorSeries?.series), finishHex: DOOR_FINISH_HEX[s.door.finish] ?? "#9aa0a6" } : undefined;
   return (
     <div className={className} style={{ pointerEvents: "none" }}>
       <ShowerPreview path={s.path} back={wallHex(0)} left={wallHex(1)} right={wallHex(2)} baseColor={baseColor}
-        hasDoor={!!s.door} niche={s.accessories.niche.qty > 0} shelf={s.accessories.cornerShelf.qty > 0} bar={s.accessories.grabBar.qty > 0} />
+        wallImages={[wallImage(0), wallImage(1), wallImage(2)]}
+        door={doorViz} niche={s.accessories.niche.qty > 0} shelf={s.accessories.cornerShelf.qty > 0} bar={s.accessories.grabBar.qty > 0} />
     </div>
   );
+}
+
+/**
+ * The wall decor an emitted shower config resolves to, or null for the flat-colour tiers.
+ * Lets the hub show the real swatch without knowing how the palettes are wired.
+ */
+export function showerWallPanel(config: ShowerConfig): { id: string; name: string; style?: string; imageUrl: string } | null {
+  const s = config.selections;
+  const material = SAMPLE_SHOWER_CATALOG.materials.find((m) => m.id === s.materialId);
+  const swatch = material?.colors.find((c) => c.id === s.wallColors[0]);
+  if (!swatch?.imageUrl) return null;
+  return { id: swatch.id, name: swatch.name, style: swatch.style, imageUrl: swatch.imageUrl };
 }

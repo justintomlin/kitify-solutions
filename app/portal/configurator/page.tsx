@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useLanguage } from "@/components/LanguageContext";
 import { useAuth } from "@/components/AuthContext";
@@ -8,13 +9,17 @@ import { loadCurrentQuote, saveCurrentQuote, clearCurrentQuote } from "@/lib/quo
 import { getQuote, getProject, saveQuote, type Quote } from "@/lib/store";
 import { SaveQuotePanel } from "@/components/configurator/SaveQuotePanel";
 import { VanityConfigurator, VanityPreviewFromConfig, type VanityConfig } from "@/components/vanity/VanityConfigurator";
-import { ShowerConfigurator, ShowerPreviewFromConfig, type ShowerConfig } from "@/components/shower/ShowerConfigurator";
+import { ShowerConfigurator, ShowerPreviewFromConfig, showerWallPanel, type ShowerConfig } from "@/components/shower/ShowerConfigurator";
 import { RoomConfigurator, RoomPlanSVG, type RoomConfig } from "@/components/room/RoomConfigurator";
-import { PlumbingConfigurator, PlumbingPreviewFromConfig, type PlumbingConfig } from "@/components/plumbing/PlumbingConfigurator";
+import { PlumbingConfigurator, PlumbingPreviewFromConfig, plumbingCatalogItems, type PlumbingConfig, type PlumbingCatalogItem } from "@/components/plumbing/PlumbingConfigurator";
+import { getProductImage, getProductPrice } from "@/lib/delta-catalog";
+import { getPanelImage } from "@/lib/naturepanel-catalog";
 import { FLOORING_COLORS, FLOORING_LINE } from "@/lib/catalog";
 
+// Whole dollars for the nominal $1 placeholders; cents once a real catalog price lands, so
+// a Woodhurst line reads $201.39 rather than a rounded $201.
 const money = (n: number) =>
-  n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+  n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: Number.isInteger(n) ? 0 : 2 });
 
 // Relative "saved N ago" label, translated. Returns null for an unparseable timestamp.
 function relativeSaved(t: (k: string, v?: Record<string, string>) => string, savedAtIso: string, nowMs: number): string | null {
@@ -400,7 +405,7 @@ export default function Page() {
                       )}
                       {shower && (
                         <ProductTile category={t("configurator.showerTitle")} label={shower.label} onClick={() => open("shower")}>
-                          <ShowerPreviewFromConfig config={shower} />
+                          <ShowerWallPreview config={shower} />
                         </ProductTile>
                       )}
                       {vanity && (
@@ -410,7 +415,7 @@ export default function Page() {
                       )}
                       {plumbing && (
                         <ProductTile category={t("configurator.plumbingTitle")} label={plumbing.label} onClick={() => open("plumbing")}>
-                          <PlumbingPreviewFromConfig config={plumbing} />
+                          <PlumbingProductStrip config={plumbing} />
                         </ProductTile>
                       )}
                     </div>
@@ -601,6 +606,173 @@ function ProductTile({ category, label, onClick, children }: {
       <div className="mt-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-muted">{category}</div>
       <div className="truncate text-xs text-ink">{label}</div>
     </button>
+  );
+}
+
+// Shower tile body: the live SVG preview (which already tiles the walls with the real decor
+// when one is picked), plus a swatch chip naming it. The chip is skipped entirely for the
+// flat-colour tiers, where the preview's wall tint already says everything there is to say.
+function ShowerWallPreview({ config }: { config: ShowerConfig }) {
+  const panel = showerWallPanel(config);
+  return (
+    <>
+      <ShowerPreviewFromConfig config={config} />
+      {panel && <ShowerWallChip panel={panel} />}
+    </>
+  );
+}
+
+function ShowerWallChip({ panel }: { panel: { id: string; name: string; style?: string; imageUrl: string } }) {
+  const { t } = useLanguage();
+  const [err, setErr] = useState(false);
+  const src = getPanelImage(panel.id, 160, 160) ?? panel.imageUrl;
+  return (
+    <div className="mt-1.5 flex items-center gap-2">
+      <span className="block h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-line bg-ink/5">
+        {!err && <img src={src} alt={panel.name} loading="lazy" onError={() => setErr(true)} className="h-full w-full object-cover" />}
+      </span>
+      <span className="min-w-0">
+        <span className="block truncate text-[11px] font-medium text-ink">{panel.name}</span>
+        <span className="block truncate font-mono text-[9px] uppercase tracking-wide text-muted">{t("configurator.shower.panel.brand")}</span>
+      </span>
+    </div>
+  );
+}
+
+// Plumbing tile body: the faucet as a full-width hero photo, then a thumbnail grid of the
+// remaining components — trim and accessories. The faucet is deliberately absent from the
+// grid; it is the hero, and showing it in both read as a duplicate.
+//
+// Everything degrades together for a package/finish with no catalog data (Lahara, Ashlyn,
+// Trinsic, and the two finishes Delta doesn't publish): the hero falls back to the schematic
+// drawing and the grid empties, at which point the preview re-enables its own accessory row
+// so the selected accessories still show as glyphs rather than vanishing.
+function PlumbingProductStrip({ config }: { config: PlumbingConfig }) {
+  // The faucet is the hero above, so it's dropped from the grid rather than shown twice.
+  const thumbs = plumbingCatalogItems(config).filter((it) => it.key !== "faucet1cc" && it.key !== "faucet8cc");
+  return (
+    <>
+      <PlumbingPreviewFromConfig config={config} showHeroPhoto showAccessories={thumbs.length === 0} />
+      {thumbs.length > 0 && (
+        <div className="mt-1.5 flex flex-wrap gap-1.5">
+          {thumbs.map((it) => (
+            <ProductHoverCard key={it.key} item={it} />
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
+const HOVER_CARD_W = 232;
+
+/**
+ * A 64px product thumbnail that reveals a larger card — 200px photo, title, SKU and
+ * Internet price — on hover, or on tap for touch.
+ *
+ * The card is portalled to <body> with fixed positioning: the tile it sits in is
+ * `overflow-hidden`, so an absolutely-positioned popup would simply be clipped. Fixed
+ * coordinates go stale on scroll, so the card closes rather than chases the anchor.
+ */
+function ProductHoverCard({ item }: { item: PlumbingCatalogItem }) {
+  const { t } = useLanguage();
+  const anchorRef = useRef<HTMLSpanElement>(null);
+  const [open, setOpen] = useState(false);
+  const [shown, setShown] = useState(false);   // drives the 150ms fade
+  const [box, setBox] = useState<{ left: number; top?: number; bottom?: number } | null>(null);
+  const [imgErr, setImgErr] = useState(false);
+  const fromTouch = useRef(false);   // set on pointerdown, read by the click swallower
+
+  useEffect(() => {
+    if (!open) { setShown(false); setBox(null); return; }
+    const el = anchorRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const left = Math.max(8, Math.min(r.left + r.width / 2 - HOVER_CARD_W / 2, window.innerWidth - HOVER_CARD_W - 8));
+    // Prefer above. Anchoring by `bottom` there lets the card grow upward however far the
+    // title wraps, instead of needing its height measured first.
+    const above = r.top >= 300;
+    setBox(above ? { left, bottom: window.innerHeight - r.top + 8 } : { left, top: r.bottom + 8 });
+    // Fade in on the next frame so the transition has a starting opacity to animate from.
+    const raf = requestAnimationFrame(() => setShown(true));
+
+    const close = () => setOpen(false);
+    // A tap anywhere else dismisses — the touch counterpart of mouseleave.
+    const onDocDown = (e: PointerEvent) => { if (!anchorRef.current?.contains(e.target as Node)) setOpen(false); };
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    document.addEventListener("pointerdown", onDocDown);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+      document.removeEventListener("pointerdown", onDocDown);
+    };
+  }, [open]);
+
+  // Hover and tap are split by pointer type rather than by mouse-vs-pointer events. A tap
+  // also emits compatibility mouse events, so an onMouseEnter here would fire in the same
+  // batch as the tap's toggle and immediately cancel it — the card would never open on
+  // touch. Gating on pointerType keeps the two paths from ever fighting.
+  const onPointerEnter = (e: React.PointerEvent) => { if (e.pointerType === "mouse") setOpen(true); };
+  const onPointerLeave = (e: React.PointerEvent) => { if (e.pointerType === "mouse") setOpen(false); };
+  // Touch taps toggle the card instead of opening the configurator underneath.
+  const onPointerDown = (e: React.PointerEvent) => {
+    fromTouch.current = e.pointerType === "touch";
+    if (!fromTouch.current) return;   // mouse: leave click-to-open alone
+    e.stopPropagation();
+    setOpen((o) => !o);
+  };
+  // The click has to be swallowed separately: preventDefault() on pointerdown suppresses
+  // the compatibility mouse events but NOT the click, so without this the tap would still
+  // reach the tile and open the configurator — unmounting the card it just opened.
+  const onClick = (e: React.MouseEvent) => {
+    if (!fromTouch.current) return;
+    e.preventDefault();
+    e.stopPropagation();
+    fromTouch.current = false;
+  };
+
+  const large = getProductImage(item.sku, 200, 200);
+  const price = getProductPrice(item.sku);
+  const tip = item.qty > 1 ? `${item.title} ×${item.qty}` : item.title;
+
+  return (
+    <span
+      ref={anchorRef}
+      onPointerEnter={onPointerEnter}
+      onPointerLeave={onPointerLeave}
+      onPointerDown={onPointerDown}
+      onClick={onClick}
+      title={tip}
+      className="relative block h-16 w-16 overflow-hidden rounded-lg border border-line bg-white"
+    >
+      {!imgErr && (
+        <img src={item.image} alt={item.title} loading="lazy" onError={() => setImgErr(true)} className="h-full w-full object-contain" />
+      )}
+      {item.qty > 1 && (
+        <span className="absolute bottom-0 right-0 rounded-tl-md bg-ink/80 px-1 font-mono text-[9px] leading-4 text-white">×{item.qty}</span>
+      )}
+      {open && box && typeof document !== "undefined" && createPortal(
+        <div
+          role="tooltip"
+          style={{ position: "fixed", left: box.left, top: box.top, bottom: box.bottom, width: HOVER_CARD_W, zIndex: 60 }}
+          // pointer-events-none: the card must never steal the hover that keeps it open.
+          className={`pointer-events-none rounded-xl border border-line bg-white p-2 shadow-lg transition-opacity duration-150 ${shown ? "opacity-100" : "opacity-0"}`}
+        >
+          {large && <img src={large} alt={item.title} className="mx-auto block h-[200px] w-[200px] object-contain" />}
+          <div className="mt-1.5 text-xs font-medium leading-snug text-ink">{item.title}</div>
+          <div className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-muted">{item.sku}</div>
+          {price != null && (
+            <div className="mt-1 text-xs font-semibold text-ink">
+              {money(price)}{" "}
+              <span className="font-mono text-[9px] font-normal uppercase tracking-wide text-accent">{t("configurator.plumbing.msrpTag")}</span>
+            </div>
+          )}
+        </div>,
+        document.body,
+      )}
+    </span>
   );
 }
 

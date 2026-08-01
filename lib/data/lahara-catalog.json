@@ -1,0 +1,793 @@
+{
+  "catalog_name": "Delta Lahara Boheme Collection",
+  "image_url_template": "https://s3.img-b.com/image/private/t_base,c_lpad,f_auto,dpr_auto,w_{W},h_{H}/product/delta/{IMAGE_SLUG}",
+  "finish_dimension_note": "Boheme program finishes (locked): Chrome, Brilliance Stainless (SS), Champagne Bronze (CZ), Venetian Bronze (RB). Aged Pewter excluded from program.",
+  "families": [
+    {
+      "family_id": "180971",
+      "brand": "Delta",
+      "collection": "Lahara",
+      "base_model": "3538-MPU-DST",
+      "title": "Lahara Widespread Bathroom Faucet with Pop-Up Drain Assembly",
+      "category": "Bathroom Sink Faucets",
+      "specs": {
+        "mounting_type": "Widespread",
+        "faucet_holes": 3,
+        "number_of_handles": 2,
+        "flow_rate_gpm": 1.2,
+        "height_in": 5.875,
+        "spout_height_in": 3.625,
+        "spout_reach_in": 5.0,
+        "faucet_centers_in": "4 - 16",
+        "max_deck_thickness_in": 2.25,
+        "installation_type": "Deck Mounted",
+        "handle_style": "Lever",
+        "handle_material": "Metal",
+        "spout_type": "Fixed",
+        "spout_style": "Conventional",
+        "valve_type": "Ceramic Disc",
+        "valve_technology": "Diamond Seal",
+        "material": "Zinc",
+        "theme": "Transitional",
+        "drain_assembly_included": true,
+        "handles_included": true,
+        "valve_included": true,
+        "escutcheon_included": false,
+        "ada_compliant": true,
+        "watersense_certified": true,
+        "ca_drought_compliant": true,
+        "approved_commercial_use": true,
+        "water_efficient": true,
+        "residential_warranty": "Limited Lifetime",
+        "country_of_origin": "USA",
+        "made_in_america": true,
+        "rating": 4.6,
+        "review_count": 252
+      },
+      "resources": {
+        "installation_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/180971/delta-3538-mpu-dst-installation-sheet.pdf",
+        "exploded_parts": "https://s1.img-b.com/build.com/mediabase/specifications/delta/180971/delta-3538-mpu-dst-exploded-parts.pdf",
+        "spec_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/180971/delta-3538-mpu-dst-specification-sheet.pdf",
+        "manufacturer_warranty": "https://s1.img-b.com/build.com/mediabase/specifications/delta/180971/delta-3538-mpu-dst-warranty.pdf"
+      },
+      "variants": [
+        {
+          "finish": "Chrome",
+          "model": "3538-MPU-DST",
+          "variant_id": 1880944,
+          "swatch_hex": "#F2F2F2",
+          "price_usd": 248.5,
+          "image_slug": "delta-3538-mpu-dst-830805.jpg"
+        },
+        {
+          "finish": "Brilliance Stainless",
+          "model": "3538-SSMPU-DST",
+          "variant_id": 2417608,
+          "swatch_hex": "#CFD4D9",
+          "price_usd": 328.9,
+          "image_slug": "delta-3538-ssmpu-dst-830805.jpg"
+        },
+        {
+          "finish": "Champagne Bronze",
+          "model": "3538-CZMPU-DST",
+          "variant_id": 1907278,
+          "swatch_hex": "#D5B98C",
+          "price_usd": 344.64,
+          "image_slug": "delta-3538-czmpu-dst-830805.jpg"
+        },
+        {
+          "finish": "Venetian Bronze",
+          "model": "3538-RBMPU-DST",
+          "variant_id": 1907279,
+          "swatch_hex": "#766440",
+          "price_usd": 449.4,
+          "image_slug": "delta-3538-rbmpu-dst-830805.jpg"
+        }
+      ],
+      "gallery_images": [
+        "delta-3538-mpu-dst-info-18.jpg",
+        "delta-3538-mpu-dst-dimensions-19.jpg",
+        "delta-3538-mpu-dst-sink-installation-in-champagne-bronze-22.jpg"
+      ],
+      "retail_urls": {
+        "ferguson_home": "https://www.fergusonhome.com/delta-3538-mpu-dst/s180971",
+        "build": "https://www.build.com/delta-3538-mpu-dst/s180971"
+      },
+      "verified": "Full page source verified 2026-08-01 - variant IDs, prices, image slugs confirmed",
+      "related_configurations": {
+        "centerset_sibling": "2538-MPU-DST (4in centerset - slugs spotted in page)",
+        "single_hole_sibling": "538-MPU-DST (single hole - slugs spotted in page)"
+      }
+    },
+    {
+      "family_id": "247321",
+      "brand": "Delta",
+      "collection": "Lahara",
+      "base_model": "538-MPU-DST",
+      "title": "Lahara Single Hole Bathroom Faucet with Optional Base Plate and Push Pop-Up Drain Assembly",
+      "category": "Bathroom Sink Faucets",
+      "specs": {
+        "mounting_type": "Single Hole",
+        "faucet_holes": 1,
+        "number_of_handles": 1,
+        "flow_rate_gpm": 1.2,
+        "height_in": 8.906,
+        "spout_height_in": 3.937,
+        "spout_reach_in": 5.5,
+        "faucet_centers_in": "0",
+        "max_deck_thickness_in": 2.125,
+        "water_connection": "1/4\" OD",
+        "installation_type": "Deck Mounted",
+        "handle_style": "Lever",
+        "handle_material": "Metal",
+        "spout_type": "Fixed",
+        "valve_type": "Ceramic Disc",
+        "valve_technology": "Diamond Seal",
+        "material": "Zinc",
+        "theme": "Transitional",
+        "drain_assembly_included": true,
+        "handles_included": true,
+        "valve_included": true,
+        "escutcheon_included": true,
+        "escutcheon_width_in": 6.5,
+        "escutcheon_note": "Optional base plate included - covers 3-hole sinks",
+        "ada_compliant": true,
+        "watersense_certified": true,
+        "ca_drought_compliant": true,
+        "approved_commercial_use": true,
+        "water_efficient": true,
+        "residential_warranty": "Limited Lifetime",
+        "commercial_warranty": "5 Year Limited",
+        "country_of_origin": "USA",
+        "made_in_america": true,
+        "rating": 4.3,
+        "review_count": 193
+      },
+      "resources": {
+        "installation_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/247321/delta-538-mpu-dst-installation-sheet.pdf",
+        "exploded_parts": "https://s1.img-b.com/build.com/mediabase/specifications/delta/247321/delta-538-mpu-dst-exploded-parts.pdf",
+        "spec_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/247321/delta-538-mpu-dst-specification-sheet.pdf",
+        "manufacturer_warranty": "https://s1.img-b.com/build.com/mediabase/specifications/delta/247321/delta-538-mpu-dst-warranty.pdf"
+      },
+      "variants": [
+        {
+          "finish": "Chrome",
+          "model": "538-MPU-DST",
+          "variant_id": 1334267,
+          "swatch_hex": "#F2F2F2",
+          "price_usd": 239.93,
+          "image_slug": "delta-538-mpu-dst-4005701.jpg"
+        },
+        {
+          "finish": "Brilliance Stainless",
+          "model": "538-SSMPU-DST",
+          "variant_id": 2417725,
+          "swatch_hex": "#CFD4D9",
+          "price_usd": 309.4,
+          "image_slug": "delta-538-ssmpu-dst-4005701.jpg"
+        },
+        {
+          "finish": "Venetian Bronze",
+          "model": "538-RBMPU-DST",
+          "variant_id": 1334268,
+          "swatch_hex": "#766440",
+          "price_usd": 339.5,
+          "image_slug": "delta-538-rbmpu-dst-4005701.jpg"
+        },
+        {
+          "finish": "Champagne Bronze",
+          "model": "538-CZMPU-DST",
+          "variant_id": 1828946,
+          "swatch_hex": "#D5B98C",
+          "price_usd": 349.3,
+          "image_slug": "delta-538-czmpu-dst-4005701.jpg"
+        }
+      ],
+      "gallery_images": [
+        "delta-538-mpu-dst-alternate-view-2.jpg",
+        "delta-538-mpu-dst-alternate-view-3.jpg",
+        "delta-538-mpu-dst-alternate-view-4.jpg",
+        "delta-538-mpu-dst-alternate-view-5.jpg",
+        "delta-538-mpu-dst-alternate-view-6.jpg",
+        "delta-538-mpu-dst-alternate-view-7.jpg",
+        "delta-538-mpu-dst-alternate-view-8.jpg",
+        "delta-538-mpu-dst-alternate-view-9.jpg",
+        "delta-538-mpu-dst-alternate-view-10.jpg",
+        "delta-538-mpu-dst-alternate-view-11.jpg",
+        "delta-538-mpu-dst-alternate-view-12.jpg",
+        "delta-538-mpu-dst-alternate-view-13.jpg",
+        "delta-538-mpu-dst-alternate-view-14.jpg",
+        "delta-538-mpu-dst-alternate-view-15.jpg",
+        "delta-538-mpu-dst-alternate-view-16.jpg",
+        "delta-538-mpu-dst-alternate-view-17.jpg",
+        "delta-538-mpu-dst-alternate-view-18.jpg",
+        "delta-538-mpu-dst-alternate-view-19.jpg"
+      ],
+      "retail_urls": {
+        "ferguson_home": "https://www.fergusonhome.com/delta-538-mpu-dst/s247321",
+        "build": "https://www.build.com/delta-538-mpu-dst/s247321"
+      },
+      "verified": "Full page source verified 2026-08-01 - variant IDs, prices, image slugs confirmed",
+      "related_configurations": {
+        "widespread_sibling": "3538-MPU-DST (family 180971, in catalog)",
+        "centerset_sibling": "2538-MPU-DST (4in centerset)"
+      }
+    },
+    {
+      "family_id": "719698",
+      "brand": "Delta",
+      "collection": "Lahara",
+      "base_model": "T14238",
+      "title": "Lahara Monitor 14 Series Single Function Pressure Balanced Shower Only Trim - Less Rough-In Valve",
+      "category": "Shower Trim",
+      "specs": {
+        "mounting_type": "Wall Mounted",
+        "installation_type": "Wall Mounted",
+        "number_of_handles": 1,
+        "flow_rate_gpm": 1.75,
+        "showerhead": "Multi function, 5 spray settings, round, Touch-Clean",
+        "showerhead_width_in": 4.9375,
+        "showerhead_material": "Plastic",
+        "valve_trim_width_in": 7.0,
+        "handle_style": "Lever",
+        "handle_material": "Metal",
+        "valve_type": "Pressure Balanced (Monitor 14 Series)",
+        "valve_technology": "Delta Monitor Pressure-Balance",
+        "diverter_included": false,
+        "handshower_included": false,
+        "volume_control": false,
+        "rough_in_valve_included": false,
+        "rough_in_note": "Trim kit only - requires Delta MultiChoice Universal rough-in valve (R10000 series), sold separately",
+        "theme": "Transitional",
+        "ada_compliant": true,
+        "watersense_certified": true,
+        "ca_drought_compliant": true,
+        "water_efficient": true,
+        "country_of_origin": "USA",
+        "made_in_america": true,
+        "rating": 4.5,
+        "review_count": 75
+      },
+      "resources": {
+        "installation_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/719698/delta-t14238-installation-sheet.pdf",
+        "exploded_parts": "https://s1.img-b.com/build.com/mediabase/specifications/delta/719698/delta-t14238-exploded-parts.pdf",
+        "spec_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/719698/delta-t14238-specification-sheet.pdf"
+      },
+      "variants": [
+        {
+          "finish": "Chrome",
+          "model": "T14238",
+          "variant_id": 446222,
+          "swatch_hex": "#F2F2F2",
+          "price_usd": 154.91,
+          "image_slug": "t14238_web.jpg"
+        },
+        {
+          "finish": "Brilliance Stainless",
+          "model": "T14238-SS",
+          "variant_id": 2419548,
+          "swatch_hex": "#CFD4D9",
+          "price_usd": 204.04,
+          "image_slug": "t14238-ss_web.jpg"
+        },
+        {
+          "finish": "Champagne Bronze",
+          "model": "T14238-CZ",
+          "variant_id": 1833300,
+          "swatch_hex": "#D5B98C",
+          "price_usd": 228.32,
+          "image_slug": "t14238-cz_web.jpg"
+        },
+        {
+          "finish": "Venetian Bronze",
+          "model": "T14238-RB",
+          "variant_id": 1551634,
+          "swatch_hex": "#766440",
+          "price_usd": 259.0,
+          "image_slug": "t14238-rb_web.jpg"
+        }
+      ],
+      "gallery_images": [
+        "t14238-b1.jpg",
+        "t14238-ss-b1.jpg",
+        "t14238-cz-b1.jpg",
+        "t14238-rb-b1.jpg",
+        "t14238-cz_water_01_web.jpg",
+        "t14238-cz_water_02_web.jpg",
+        "t14238-cz_water_03_web.jpg",
+        "t14238-cz_water_04_web.jpg",
+        "t14238-cz_water_05_web.jpg",
+        "t14238_touchcleanshowers_infographic_web.jpg"
+      ],
+      "image_naming_note": "This family uses legacy Delta asset naming (no 'delta-' prefix, no numeric batch): t14238[-finish]_web.jpg primary, -b1 secondary, _water_ spray shots.",
+      "retail_urls": {
+        "ferguson_home": "https://www.fergusonhome.com/delta-t14238/s719698",
+        "build": "https://www.build.com/delta-t14238/s719698"
+      },
+      "verified": "Full page source verified 2026-08-01 - variant IDs, prices, image slugs confirmed",
+      "related_configurations": {
+        "tub_shower_sibling": "T14438 (slugs spotted: t14438-b1 etc.)",
+        "valve_trim_only_sibling": "T14038 (slugs spotted: delta-t14038-368 etc.)",
+        "recommended_rough_in": "R10000-UNBX (image cross-linked on page)"
+      }
+    },
+    {
+      "family_id": "719722",
+      "brand": "Delta",
+      "collection": "Lahara",
+      "base_model": "T14438",
+      "title": "Lahara Monitor 14 Series Tub and Shower Trim Package with 1.75 GPM Multi Function Shower Head",
+      "category": "Tub & Shower Trim",
+      "specs": {
+        "mounting_type": "Wall Mounted",
+        "installation_type": "Wall Mounted",
+        "number_of_handles": 1,
+        "flow_rate_gpm": 1.75,
+        "showerhead": "Multi function, 5 spray settings, round, Touch-Clean",
+        "showerhead_width_in": 4.9375,
+        "showerhead_material": "Plastic",
+        "valve_trim_width_in": 7.0,
+        "handle_style": "Lever",
+        "handle_material": "Metal",
+        "valve_type": "Pressure Balanced (Monitor 14 Series)",
+        "valve_technology": "Delta Monitor Pressure-Balance",
+        "diverter_included": true,
+        "diverter_location": "Tub Spout",
+        "handshower_included": false,
+        "volume_control": false,
+        "rough_in_valve_included": false,
+        "rough_in_note": "Trim kit only - requires Delta MultiChoice Universal rough-in valve (R10000 series), sold separately",
+        "theme": "Transitional",
+        "ada_compliant": true,
+        "watersense_certified": true,
+        "ca_drought_compliant": true,
+        "water_efficient": true,
+        "country_of_origin": "USA",
+        "made_in_america": true,
+        "rating": 4.6,
+        "review_count": 54
+      },
+      "resources": {
+        "installation_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/719722/delta-t14438-installation-sheet.pdf",
+        "exploded_parts": "https://s1.img-b.com/build.com/mediabase/specifications/delta/719722/delta-t14438-exploded-parts.pdf",
+        "spec_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/719722/delta-t14438-specification-sheet.pdf"
+      },
+      "variants": [
+        {
+          "finish": "Chrome",
+          "model": "T14438",
+          "variant_id": 446237,
+          "swatch_hex": "#F2F2F2",
+          "price_usd": 189.91,
+          "image_slug": "t14438_web.jpg"
+        },
+        {
+          "finish": "Champagne Bronze",
+          "model": "T14438-CZ",
+          "variant_id": 1833309,
+          "swatch_hex": "#D5B98C",
+          "price_usd": 272.74,
+          "image_slug": "t14438-cz_web.jpg"
+        },
+        {
+          "finish": "Brilliance Stainless",
+          "model": "T14438-SS",
+          "variant_id": 2419567,
+          "swatch_hex": "#CFD4D9",
+          "price_usd": 289.1,
+          "image_slug": "t14438-ss_web.jpg"
+        },
+        {
+          "finish": "Venetian Bronze",
+          "model": "T14438-RB",
+          "variant_id": 1551638,
+          "swatch_hex": "#766440",
+          "price_usd": 319.2,
+          "image_slug": "t14438-rb_web.jpg"
+        }
+      ],
+      "gallery_images": [
+        "t14438-b1.jpg",
+        "t14438-ss-b1.jpg",
+        "t14438-cz-b1.jpg",
+        "t14438-rb-b1.jpg",
+        "t14438-cz_water_01_web.jpg",
+        "t14438-cz_water_02_web.jpg",
+        "t14438-cz_water_03_web.jpg",
+        "t14438-cz_water_04_web.jpg",
+        "t14438-cz_water_05_web.jpg",
+        "t14438-rb_water_web.jpg",
+        "t14438-ss_water_web.jpg",
+        "t14438_touchcleanshowers_infographic_web.jpg"
+      ],
+      "image_naming_note": "Legacy Delta asset naming (no prefix/batch): t14438[-finish]_web.jpg primary, -b1 secondary, _water_ spray shots.",
+      "retail_urls": {
+        "ferguson_home": "https://www.fergusonhome.com/delta-t14438/s719722",
+        "build": "https://www.build.com/delta-t14438/s719722"
+      },
+      "verified": "Full page source verified 2026-08-01 - variant IDs, prices, image slugs confirmed",
+      "related_configurations": {
+        "shower_only_sibling": "T14238 (family 719698, in catalog)",
+        "valve_trim_only_sibling": "T14038",
+        "recommended_rough_in": "R10000-UNBX"
+      }
+    },
+    {
+      "family_id": "321503",
+      "brand": "Delta",
+      "collection": "Lahara",
+      "base_model": "73824",
+      "title": "Lahara 24\" Towel Bar",
+      "category": "Bath Accessories",
+      "specs": {
+        "mounting_type": "Wall Mounted",
+        "installation_type": "Wall Mounted",
+        "bar_length_in": 24,
+        "nominal_width_in": 24.0,
+        "overall_width_in": 26.0,
+        "height_in": 2.0,
+        "depth_projection_in": 3.75,
+        "configuration": "Single Bar",
+        "number_of_bars": 1,
+        "material": "Brass",
+        "theme": "Transitional",
+        "residential_warranty": "Limited Lifetime",
+        "rating": 4.7,
+        "review_count": 81
+      },
+      "resources": {
+        "installation_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/321503/delta-73824-installation-sheet.pdf",
+        "spec_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/321503/delta-73824-specification-sheet.pdf",
+        "manufacturer_warranty": "https://s1.img-b.com/build.com/mediabase/specifications/delta/321503/delta-73824-warranty.pdf"
+      },
+      "variants": [
+        {
+          "finish": "Chrome",
+          "model": "73824",
+          "variant_id": 451346,
+          "swatch_hex": "#F2F2F2",
+          "price_usd": 59.92,
+          "image_slug": "delta-73824-477.jpg"
+        },
+        {
+          "finish": "Champagne Bronze",
+          "model": "73824-CZ",
+          "variant_id": 1833104,
+          "swatch_hex": "#D5B98C",
+          "price_usd": 70.52,
+          "image_slug": "delta-73824-cz-476.jpg"
+        },
+        {
+          "finish": "Venetian Bronze",
+          "model": "73824-RB",
+          "variant_id": 1551828,
+          "swatch_hex": "#766440",
+          "price_usd": 71.36,
+          "image_slug": "delta-73824-rb-479.jpg"
+        },
+        {
+          "finish": "Brilliance Stainless",
+          "model": "73824-SS",
+          "variant_id": 451343,
+          "swatch_hex": "#CFD4D9",
+          "price_usd": 72.91,
+          "image_slug": "delta-73824-ss-478.jpg"
+        }
+      ],
+      "gallery_images": [
+        "delta-73824-overall-room-view-1688.jpg",
+        "delta-73824-overall-room-view-in-chrome-1279.jpg",
+        "delta-73824-overall-room-view-in-brilliance-stainless-1281.jpg"
+      ],
+      "image_naming_note": "Fourth naming convention observed: delta-73824-<finish>-<seq>.jpg for most finishes, but PT uses underscores (delta_73824pt_102010.jpg).",
+      "retail_urls": {
+        "ferguson_home": "https://www.fergusonhome.com/delta-73824/s321503",
+        "build": "https://www.build.com/delta-73824/s321503"
+      },
+      "verified": "Full page source verified 2026-08-01 - variant IDs, prices, image slugs confirmed",
+      "related_configurations": {
+        "size_sibling": "73818 (18in towel bar - slugs spotted: delta-73818-443 etc.)"
+      }
+    },
+    {
+      "family_id": "323193",
+      "brand": "Delta",
+      "collection": "Lahara",
+      "base_model": "73818",
+      "title": "Lahara 18\" Towel Bar",
+      "category": "Bath Accessories",
+      "specs": {
+        "mounting_type": "Wall Mounted",
+        "installation_type": "Wall Mounted",
+        "bar_length_in": 18,
+        "nominal_width_in": 18.0,
+        "overall_width_in": 20.0,
+        "height_in": 2.0,
+        "depth_projection_in": 3.75,
+        "configuration": "Single Bar",
+        "number_of_bars": 1,
+        "material": "Zinc",
+        "theme": "Transitional",
+        "material_note": "Ferguson lists 18in as Zinc but 24in sibling as Brass - flag for verification with Delta spec sheets if material matters to spec",
+        "residential_warranty": "Limited Lifetime",
+        "rating": 4.5,
+        "review_count": 50
+      },
+      "resources": {
+        "installation_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/323193/delta-73818-installation-sheet.pdf",
+        "spec_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/323193/delta-73818-specification-sheet.pdf",
+        "manufacturer_warranty": "https://s1.img-b.com/build.com/mediabase/specifications/delta/323193/delta-73818-warranty.pdf"
+      },
+      "variants": [
+        {
+          "finish": "Chrome",
+          "model": "73818",
+          "variant_id": 480821,
+          "swatch_hex": "#F2F2F2",
+          "price_usd": 54.92,
+          "image_slug": "delta-73818-443.jpg"
+        },
+        {
+          "finish": "Brilliance Stainless",
+          "model": "73818-SS",
+          "variant_id": 2417820,
+          "swatch_hex": "#CFD4D9",
+          "price_usd": 55.21,
+          "image_slug": "delta-73818-ss-441.jpg"
+        },
+        {
+          "finish": "Champagne Bronze",
+          "model": "73818-CZ",
+          "variant_id": 1833103,
+          "swatch_hex": "#D5B98C",
+          "price_usd": 77.91,
+          "image_slug": "delta-73818-cz-442.jpg"
+        },
+        {
+          "finish": "Venetian Bronze",
+          "model": "73818-RB",
+          "variant_id": 1551827,
+          "swatch_hex": "#766440",
+          "price_usd": 77.91,
+          "image_slug": "delta-73818-rb-444.jpg"
+        }
+      ],
+      "gallery_images": [
+        "delta-73818-overall-room-view-in-brilliance-stainless-484.jpg"
+      ],
+      "retail_urls": {
+        "ferguson_home": "https://www.fergusonhome.com/delta-73818/s323193",
+        "build": "https://www.build.com/delta-73818/s323193"
+      },
+      "verified": "Full page source verified 2026-08-01 - variant IDs, prices, image slugs confirmed",
+      "related_configurations": {
+        "size_sibling": "73824 (24in towel bar, family 321503, in catalog)"
+      }
+    },
+    {
+      "family_id": "321517",
+      "brand": "Delta",
+      "collection": "Lahara",
+      "base_model": "73846",
+      "title": "Lahara Towel Ring",
+      "category": "Bath Accessories",
+      "specs": {
+        "mounting_type": "Wall Mounted",
+        "installation_type": "Wall Mounted",
+        "height_in": 8.188,
+        "width_in": 7.438,
+        "depth_projection_in": 2.281,
+        "nominal_width_in": 8.0,
+        "escutcheon_width_in": 2.0,
+        "material": "Zinc",
+        "theme": "Transitional",
+        "residential_warranty": "Limited Lifetime",
+        "rating": 4.7,
+        "review_count": 89
+      },
+      "resources": {
+        "installation_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/321517/delta-73846-installation-sheet.pdf",
+        "spec_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/321517/delta-73846-specification-sheet.pdf",
+        "manufacturer_warranty": "https://s1.img-b.com/build.com/mediabase/specifications/delta/321517/delta-73846-warranty.pdf"
+      },
+      "variants": [
+        {
+          "finish": "Chrome",
+          "model": "73846",
+          "variant_id": 480830,
+          "swatch_hex": "#F2F2F2",
+          "price_usd": 37.52,
+          "image_slug": "delta-73846-599.jpg"
+        },
+        {
+          "finish": "Brilliance Stainless",
+          "model": "73846-SS",
+          "variant_id": 1551554,
+          "swatch_hex": "#CFD4D9",
+          "price_usd": 38.69,
+          "image_slug": "delta-73846-ss-598.jpg"
+        },
+        {
+          "finish": "Champagne Bronze",
+          "model": "73846-CZ",
+          "variant_id": 1833106,
+          "swatch_hex": "#D5B98C",
+          "price_usd": 45.01,
+          "image_slug": "delta-73846-cz-597.jpg"
+        },
+        {
+          "finish": "Venetian Bronze",
+          "model": "73846-RB",
+          "variant_id": 544449,
+          "swatch_hex": "#766440",
+          "price_usd": 52.92,
+          "image_slug": "delta-73846-rb-600.jpg"
+        }
+      ],
+      "gallery_images": [
+        "delta-73846-overall-room-view-1698.jpg",
+        "delta-73846-overall-room-view-in-chrome-1293.jpg",
+        "delta-73846-overall-room-view-in-brilliance-stainless-1294.jpg",
+        "delta-73846-faucet-in-use-in-chrome-1295.jpg"
+      ],
+      "retail_urls": {
+        "ferguson_home": "https://www.fergusonhome.com/delta-73846/s321517",
+        "build": "https://www.build.com/delta-73846/s321517"
+      },
+      "verified": "Full page source verified 2026-08-01 - variant IDs, prices, image slugs confirmed",
+      "related_configurations": {
+        "coordinating_accessories": "73818 (18in bar), 73824 (24in bar) - in catalog"
+      }
+    },
+    {
+      "family_id": "321525",
+      "brand": "Delta",
+      "collection": "Lahara",
+      "base_model": "73850",
+      "title": "Lahara Pivoting Tissue Holder",
+      "category": "Bath Accessories",
+      "specs": {
+        "mounting_type": "Wall Mounted",
+        "installation_type": "Wall Mounted",
+        "height_in": 2.0,
+        "width_in": 6.25,
+        "overall_width_in": 8.75,
+        "nominal_width_in": 7.0,
+        "depth_projection_in": 3.75,
+        "orientation": "Horizontal",
+        "product_variation": "Pivoting Paper Holder",
+        "installation_hardware_included": true,
+        "material": "Zinc",
+        "theme": "Modern",
+        "approved_commercial_use": true,
+        "residential_warranty": "Limited Lifetime",
+        "commercial_warranty": "5 Year Limited",
+        "rating": 4.3,
+        "review_count": 98
+      },
+      "resources": {
+        "installation_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/321525/delta-73850-installation-sheet.pdf",
+        "spec_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/321525/delta-73850-specification-sheet.pdf",
+        "manufacturer_warranty": "https://s1.img-b.com/build.com/mediabase/specifications/delta/321525/delta-73850-warranty.pdf"
+      },
+      "variants": [
+        {
+          "finish": "Chrome",
+          "model": "73850",
+          "variant_id": 480834,
+          "swatch_hex": "#F2F2F2",
+          "price_usd": 54.92,
+          "image_slug": "delta-73850-707.jpg"
+        },
+        {
+          "finish": "Brilliance Stainless",
+          "model": "73850-SS",
+          "variant_id": 1551555,
+          "swatch_hex": "#CFD4D9",
+          "price_usd": 64.93,
+          "image_slug": "delta-73850-ss-709.jpg"
+        },
+        {
+          "finish": "Champagne Bronze",
+          "model": "73850-CZ",
+          "variant_id": 1833107,
+          "swatch_hex": "#D5B98C",
+          "price_usd": 66.26,
+          "image_slug": "delta-73850-cz-706.jpg"
+        },
+        {
+          "finish": "Venetian Bronze",
+          "model": "73850-RB",
+          "variant_id": 1551818,
+          "swatch_hex": "#766440",
+          "price_usd": 74.9,
+          "image_slug": "delta-73850-rb-708.jpg"
+        }
+      ],
+      "gallery_images": [
+        "delta-73850-overall-room-view-1711.jpg",
+        "delta-73850-overall-room-view-in-chrome-534.jpg",
+        "delta-73850-overall-room-view-in-brilliance-stainless-1312.jpg"
+      ],
+      "retail_urls": {
+        "ferguson_home": "https://www.fergusonhome.com/delta-73850/s321525",
+        "build": "https://www.build.com/delta-73850/s321525"
+      },
+      "verified": "Full page source verified 2026-08-01 - variant IDs, prices, image slugs confirmed",
+      "related_configurations": {
+        "coordinating_accessories": "73818/73824 (bars), 73846 (ring) - in catalog"
+      }
+    },
+    {
+      "family_id": "321112",
+      "brand": "Delta",
+      "collection": "Lahara",
+      "base_model": "73835",
+      "title": "Lahara Single Robe Hook",
+      "category": "Bath Accessories",
+      "specs": {
+        "mounting_type": "Wall Mounted",
+        "installation_type": "Wall Mounted",
+        "height_in": 2.88,
+        "width_in": 2.0,
+        "length_in": 2.0,
+        "depth_projection_in": 2.38,
+        "hanging_capacity": 1,
+        "product_variation": "Single Hook",
+        "material": "Brass",
+        "theme": "Transitional",
+        "residential_warranty": "Limited Lifetime",
+        "rating": 4.7,
+        "review_count": 76
+      },
+      "resources": {
+        "installation_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/321112/delta-73835-installation-sheet.pdf",
+        "spec_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/321112/delta-73835-specification-sheet.pdf",
+        "manufacturer_warranty": "https://s1.img-b.com/build.com/mediabase/specifications/delta/321112/delta-73835-warranty.pdf"
+      },
+      "variants": [
+        {
+          "finish": "Chrome",
+          "model": "73835",
+          "variant_id": 480827,
+          "swatch_hex": "#F2F2F2",
+          "price_usd": 27.51,
+          "image_slug": "delta-73835-568.jpg"
+        },
+        {
+          "finish": "Brilliance Stainless",
+          "model": "73835-SS",
+          "variant_id": 1551553,
+          "swatch_hex": "#CFD4D9",
+          "price_usd": 34.51,
+          "image_slug": "delta-73835-ss-569.jpg"
+        },
+        {
+          "finish": "Champagne Bronze",
+          "model": "73835-CZ",
+          "variant_id": 1833105,
+          "swatch_hex": "#D5B98C",
+          "price_usd": 36.51,
+          "image_slug": "delta-73835-cz-570.jpg"
+        },
+        {
+          "finish": "Venetian Bronze",
+          "model": "73835-RB",
+          "variant_id": 1551810,
+          "swatch_hex": "#766440",
+          "price_usd": 36.51,
+          "image_slug": "delta-73835-rb-571.jpg"
+        }
+      ],
+      "retail_urls": {
+        "ferguson_home": "https://www.fergusonhome.com/delta-73835/s321112",
+        "build": "https://www.build.com/delta-73835/s321112"
+      },
+      "verified": "Full page source verified 2026-08-01 - variant IDs, prices, image slugs confirmed",
+      "related_configurations": {
+        "coordinating_accessories": "73818/73824 (bars), 73846 (ring), 73850 (tissue holder) - all in catalog"
+      }
+    }
+  ],
+  "catalog_status": "All 9 families fully verified. Program finish set locked to 4 finishes (Aged Pewter removed) as of 2026-08-01."
+}
