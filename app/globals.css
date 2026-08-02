@@ -30,6 +30,104 @@ body {
   color: var(--color-ink);
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
+  /* Contractors tap through this portal on tablets. `manipulation` keeps pan and pinch-zoom
+     but drops double-tap-to-zoom, which is what causes the ~300ms delay before a tap
+     registers. Applied at every width — a mouse never double-taps, so nothing is lost. */
+  touch-action: manipulation;
+}
+
+/* ===========================================================================
+   TABLET AND BELOW — touch-first sizing
+   ===========================================================================
+   Primary users are contractors holding a tablet, most often portrait (768x1024).
+   The desktop treatment is deliberately dense — 9-11px mono labels, 30-36px controls —
+   which reads fine on a monitor at arm's length and badly on a tablet in one hand.
+
+   This block raises the floor for the whole portal in one place instead of threading
+   responsive prefixes through ~220 label sites and every button. Two reasons it is safe:
+     - It is keyed on WIDTH, not `pointer: coarse`, so a desktop window narrowed to tablet
+       size previews exactly what a tablet gets, and a touchscreen laptop at full width keeps
+       the dense desktop look.
+     - The bound is INCLUSIVE of 1024px, deliberately one pixel wider than
+       lib/sidebar-mode.ts's `min-width: 1024px`. A 9.7"/10.2" iPad in landscape is exactly
+       1024x768 — a primary device — and it would otherwise fall straight through to the
+       desktop treatment. The one-pixel overlap means that device gets the fixed nav column
+       (there is room for it at 1024) together with touch-sized controls, which is the right
+       pairing for a tablet that wide.
+
+   LAYERING MATTERS HERE, and it is not about specificity. Layer precedence outranks
+   specificity outright: unlayered CSS beats anything in `@layer utilities`, however specific.
+   So the two halves of this pass sit in different places on purpose:
+
+     - The type floor must OVERRIDE the utility it targets (`.text-[10px]`), so it stays
+       unlayered and wins.
+     - The tap-target floor must be OVERRIDABLE, so a component can ask for something bigger
+       (`min-h-[60px]` on the photo-upload buttons). It lives in `@layer base`, which
+       `@layer utilities` outranks. Unlayered — or even `:where()`, which lowers specificity
+       but not layer rank — silently capped that 60px button at 44px.
+
+   Desktop is untouched: every rule is inside the media query.
+   =========================================================================== */
+@media (max-width: 1024px) {
+  /* --- Type floor: nothing below 12px ---
+     These are the exact utilities Tailwind emits for the arbitrary sizes the portal uses
+     (118x 10px, 69x 11px, 32x 9px at last count). Line-height comes along or 12px text
+     clips inside a box that was sized for 9px. */
+  .text-\[9px\],
+  .text-\[10px\],
+  .text-\[11px\] {
+    font-size: 12px;
+    line-height: 1.35;
+  }
+}
+
+@layer base {
+  @media (max-width: 1024px) {
+    /* --- Tap targets: 44px FLOOR (Apple HIG, WCAG 2.5.5 Target Size) ---
+       min-height rather than height, so nothing already comfortable shrinks, and in `base` so
+       any explicit `min-h-*` utility on a component wins. */
+    button,
+    select,
+    summary,
+    textarea,
+    [role="button"],
+    [role="tab"],
+    a[href],
+    /* A checkbox's own box stays small; it's the label row around it that must be tappable. */
+    label:has(input[type="checkbox"]),
+    label:has(input[type="radio"]),
+    input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) {
+      min-height: 44px;
+    }
+
+    /* Square controls — icon buttons, finish swatches, qty steppers — need the cross-axis too,
+       or min-height alone turns a 36px circle into an oval. Inline links are exempt: they wrap
+       text mid-sentence, where a 44px min-width would force odd gaps (and min-height already
+       does nothing to a non-replaced inline box). */
+    button,
+    [role="button"],
+    select {
+      min-width: 44px;
+    }
+
+    /* Bigger hit area for the checkbox itself, inside its now-44px label row. */
+    input[type="checkbox"],
+    input[type="radio"] {
+      width: 20px;
+      height: 20px;
+    }
+
+    /* --- Keyboard clearance ---
+       A tablet keyboard covers roughly the bottom 40% of the screen, and the configurator adds
+       a sticky quote bar on top of that. When the browser scrolls a focused field into view,
+       these margins keep it clear of both instead of flush against the keyboard. */
+    input,
+    select,
+    textarea {
+      scroll-margin-bottom: 140px;
+      scroll-margin-top: 72px;
+    }
+  }
 }
 
 /* Lightweight fade used when switching proposal tiers (public page). */

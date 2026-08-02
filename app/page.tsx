@@ -167,7 +167,7 @@ export default function LoginPage() {
 
             <div>
               <label className={FIELD_LABEL}>{t("login.email")}</label>
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className={FIELD} autoComplete="email" />
+              <input type="email" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} required className={FIELD} autoComplete="email" />
             </div>
 
             <div>

@@ -92,6 +92,7 @@ export function ProposalForm({ ownerId, projectId, quotes, initial, onSaved, onC
             <div className="relative">
               <input
                 type="number"
+                inputMode="decimal"
                 min={0}
                 step="1"
                 value={markup}

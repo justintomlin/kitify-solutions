@@ -1,0 +1,991 @@
+{
+  "catalog_name": "Delta Trinsic Lumen Collection",
+  "image_url_template": "https://s3.img-b.com/image/private/t_base,c_lpad,f_auto,dpr_auto,w_{W},h_{H}/product/delta/{IMAGE_SLUG}",
+  "finish_dimension_note": "Trinsic widespread offers 6 finishes: Chrome, Brilliance Stainless (SS), Brilliance Polished Nickel (PN), Matte Black (BL), Venetian Bronze (RB), Champagne Bronze (CZ). Lumen program finish set not yet locked.",
+  "model_alias_note": "Several variants carry `model_aliases`. Ferguson's retail model strings and the wholesale ordering SKUs in lib/plumbing-catalog.ts disagree on form for the same physical product — Trinsic accessories are mid-migration from five-digit to six-digit models (75918 -> 759180), and the single-hole faucet is listed without the -DST suffix. The aliases let the image/price lookup resolve from either string WITHOUT touching the ordering SKUs, which come from the supplier spreadsheet and must not be guessed at.",
+  "families": [
+    {
+      "family_id": "799260",
+      "brand": "Delta",
+      "collection": "Trinsic",
+      "base_model": "3559-MPU-DST",
+      "title": "Trinsic Widespread Bathroom Faucet with Metal Pop-Up Drain Assembly",
+      "category": "Bathroom Sink Faucets",
+      "specs": {
+        "mounting_type": "Widespread",
+        "faucet_holes": 3,
+        "number_of_handles": 2,
+        "flow_rate_gpm": 1.2,
+        "height_in": 7.75,
+        "spout_height_in": 4.937,
+        "spout_reach_in": 5.0,
+        "faucet_centers_in": "4 - 16",
+        "max_deck_thickness_in": 2.25,
+        "installation_type": "Deck Mounted",
+        "handle_style": "Lever",
+        "handle_material": "Metal",
+        "spout_type": "Fixed",
+        "spout_style": "High Arc",
+        "valve_type": "Ceramic Disc",
+        "valve_technology": "Diamond Seal",
+        "material": "Brass",
+        "theme": "Modern",
+        "drain_assembly_included": true,
+        "handles_included": true,
+        "valve_included": true,
+        "escutcheon_included": false,
+        "ada_compliant": true,
+        "watersense_certified": true,
+        "ca_drought_compliant": true,
+        "approved_commercial_use": true,
+        "water_efficient": true,
+        "residential_warranty": "Limited Lifetime",
+        "commercial_warranty": "5 Year Limited",
+        "country_of_origin": "USA",
+        "made_in_america": true,
+        "rating": 4.5,
+        "review_count": 248
+      },
+      "resources": {
+        "manufacturer_warranty": "https://s1.img-b.com/build.com/mediabase/specifications/delta/799260/delta-3559-mpu-warranty.pdf",
+        "spec_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/799260/dsp-l-3559-mpu-dst.pdf"
+      },
+      "variants": [
+        {
+          "finish": "Chrome",
+          "model": "3559-MPU-DST",
+          "variant_id": 2060409,
+          "swatch_hex": "#F2F2F2",
+          "price_usd": 349.0,
+          "image_slug": "delta-3559-mpu-dst-830805.jpg"
+        },
+        {
+          "finish": "Brilliance Stainless",
+          "model": "3559-SSMPU-DST",
+          "variant_id": 2417610,
+          "swatch_hex": "#CFD4D9",
+          "price_usd": 469.0,
+          "image_slug": "delta-3559-ssmpu-dst-830805.jpg"
+        },
+        {
+          "finish": "Brilliance Polished Nickel",
+          "model": "3559-PNMPU-DST",
+          "variant_id": 4928268,
+          "swatch_hex": "#DADFE3",
+          "price_usd": 469.0,
+          "image_slug": "delta-3559-pnmpu-dst-830805.jpg"
+        },
+        {
+          "finish": "Matte Black",
+          "model": "3559-BLMPU-DST",
+          "variant_id": 3107588,
+          "swatch_hex": "#000000",
+          "price_usd": 499.0,
+          "image_slug": "delta-3559-blmpu-dst-830805.jpg"
+        },
+        {
+          "finish": "Venetian Bronze",
+          "model": "3559-RBMPU-DST",
+          "variant_id": 2060408,
+          "swatch_hex": "#766440",
+          "price_usd": 509.0,
+          "image_slug": "delta-3559-rbmpu-dst-830805.jpg"
+        },
+        {
+          "finish": "Champagne Bronze",
+          "model": "3559-CZMPU-DST",
+          "variant_id": 2060410,
+          "swatch_hex": "#D5B98C",
+          "price_usd": 509.0,
+          "image_slug": "delta-3559-czmpu-dst-830805.jpg"
+        }
+      ],
+      "gallery_images": [
+        "delta-3559-mpu-alternative-view-2.jpg",
+        "delta-3559-mpu-alternative-view-5.jpg",
+        "delta-3559-mpu-alternate-image-8.jpg",
+        "delta-3559-mpu-alternate-image-9.jpg",
+        "delta-3559-mpu-alternate-image-128.jpg",
+        "delta-3559-mpu-alternate-image-129.jpg",
+        "delta-3559-mpu-alternate-image-130.jpg",
+        "delta-3559-mpu-alternate-image-131.jpg",
+        "delta-3559-mpu-g1.jpg",
+        "delta-3559-mpu-g2.jpg",
+        "delta-3559-mpu-overall-room-view-in-chrome-264.jpg",
+        "delta-3559-mpu-overall-room-view-in-brilliance-stainless-265.jpg",
+        "delta-3559-mpu-overall-room-view-in-venetian-bronze-1143.jpg",
+        "delta-3559-mpu-running-faucet-in-venetian-bronze-267.jpg",
+        "3559-czmpu-dst_02.jpg",
+        "3559-czmpu-dst_03.jpg",
+        "3559-czmpu-dst_04.jpg"
+      ],
+      "image_naming_note": "All 6 finishes on single batch 830805 (same batch as Lahara widespread). Deep gallery with room views and CZ detail shots.",
+      "retail_urls": {
+        "ferguson_home": "https://www.fergusonhome.com/delta-3559-mpu-dst/s799260",
+        "build": "https://www.build.com/delta-3559-mpu-dst/s799260"
+      },
+      "verified": "Full page source verified 2026-08-02 - variant IDs, prices, image slugs confirmed"
+    },
+    {
+      "family_id": "799215",
+      "brand": "Delta",
+      "collection": "Trinsic",
+      "base_model": "559LF-MPU",
+      "title": "Trinsic 1.2 GPM Single Hole Bathroom Faucet with Metal Push Pop-Up Drain Assembly",
+      "category": "Bathroom Sink Faucets",
+      "specs": {
+        "mounting_type": "Single Hole",
+        "faucet_holes": 1,
+        "number_of_handles": 1,
+        "flow_rate_gpm": 1.2,
+        "height_in": 6.25,
+        "spout_height_in": 2.375,
+        "spout_reach_in": 5.0,
+        "faucet_centers_in": "0",
+        "max_deck_thickness_in": 2.25,
+        "water_connection": "3/8\" OD",
+        "installation_type": "Deck Mounted",
+        "handle_style": "Lever",
+        "handle_material": "Metal",
+        "spout_type": "Fixed",
+        "spout_style": "Conventional",
+        "valve_type": "Ceramic Disc",
+        "valve_technology": "Diamond Seal",
+        "material": "Brass",
+        "theme": "Modern",
+        "drain_assembly_included": true,
+        "handles_included": true,
+        "valve_included": true,
+        "escutcheon_included": true,
+        "escutcheon_width_in": 6.0,
+        "ada_compliant": true,
+        "watersense_certified": true,
+        "ca_drought_compliant": true,
+        "approved_commercial_use": true,
+        "water_efficient": true,
+        "low_lead_compliant": true,
+        "residential_warranty": "Limited Lifetime",
+        "commercial_warranty": "5 Year Limited",
+        "country_of_origin": "China",
+        "origin_note": "Ferguson lists China for this family (widespread 3559 is USA) - Trinsic origin varies by family",
+        "rating": 4.4,
+        "review_count": 157
+      },
+      "resources": {
+        "exploded_parts": "https://s1.img-b.com/build.com/mediabase/specifications/delta/799215/delta-559lf-mpu-exploded-parts.pdf",
+        "owners_manual": "https://s1.img-b.com/build.com/mediabase/specifications/delta/799215/delta-559lf-mpu-owners-manual.pdf",
+        "spec_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/799215/delta-559lf-mpu-specification-sheet.pdf"
+      },
+      "variants": [
+        {
+          "finish": "Chrome",
+          "model": "559LF-MPU",
+          "model_aliases": ["559LF-MPU-DST"],
+          "variant_id": 2060415,
+          "swatch_hex": "#F2F2F2",
+          "price_usd": 244.9,
+          "image_slug": "559LF-MPU-B1.jpg"
+        },
+        {
+          "finish": "Brilliance Stainless",
+          "model": "559LF-SSMPU",
+          "model_aliases": ["559LF-SSMPU-DST"],
+          "variant_id": 2417752,
+          "swatch_hex": "#CFD4D9",
+          "price_usd": 339.0,
+          "image_slug": "delta-559lf-ssmpu-4005701.jpg"
+        },
+        {
+          "finish": "Brilliance Polished Nickel",
+          "model": "559LF-PNMPU",
+          "model_aliases": ["559LF-PNMPU-DST"],
+          "variant_id": 4922863,
+          "swatch_hex": "#DADFE3",
+          "price_usd": 339.0,
+          "image_slug": "delta-559lf-pnmpu-8212396.jpg"
+        },
+        {
+          "finish": "Matte Black",
+          "model": "559LF-BLMPU",
+          "model_aliases": ["559LF-BLMPU-DST"],
+          "variant_id": 3100599,
+          "swatch_hex": "#000000",
+          "price_usd": 369.0,
+          "image_slug": "559LF-BLMPU-B1.jpg"
+        },
+        {
+          "finish": "Champagne Bronze",
+          "model": "559LF-CZMPU",
+          "model_aliases": ["559LF-CZMPU-DST"],
+          "variant_id": 2060416,
+          "swatch_hex": "#D5B98C",
+          "price_usd": 379.0,
+          "image_slug": "delta-559lf-czmpu-4005701.jpg"
+        },
+        {
+          "finish": "Venetian Bronze",
+          "model": "559LF-RBMPU",
+          "model_aliases": ["559LF-RBMPU-DST"],
+          "variant_id": 2060417,
+          "swatch_hex": "#766440",
+          "price_usd": 379.0,
+          "image_slug": "delta-559lf-rbmpu-4005701.jpg"
+        }
+      ],
+      "gallery_images": [
+        "delta-559lf-mpu-alternate-image-244.jpg",
+        "delta-559lf-mpu-alternate-image-245.jpg",
+        "delta-559lf-mpu-alternate-image-246.jpg",
+        "delta-559lf-mpu-alternate-image-247.jpg",
+        "delta-559lf-mpu-alternate-image-248.jpg",
+        "delta-559lf-mpu-alternate-image-249.jpg",
+        "delta-559lf-mpu-alternate-image-250.jpg",
+        "delta-559lf-mpu-alternate-image-251.jpg",
+        "delta-559lf-mpu-alternate-image-252.jpg",
+        "delta-559lf-mpu-alternate-image-253.jpg",
+        "delta-559lf-mpu-alternate-image-254.jpg",
+        "delta-559lf-mpu-alternate-image-255.jpg",
+        "delta-559lf-mpu-alternate-image-256.jpg",
+        "delta-559lf-mpu-alternate-image-257.jpg",
+        "delta-559lf-mpu-alternate-image-258.jpg",
+        "delta-559lf-mpu-alternate-image-259.jpg",
+        "delta-559lf-mpu-alternate-image-260.jpg",
+        "delta-559lf-mpu-alternate-image-261.jpg",
+        "delta-559lf-mpu-alternate-image-262.jpg",
+        "delta-559lf-mpu-alternate-image-263.jpg",
+        "delta-559lf-mpu-alternate-image-264.jpg",
+        "delta-559lf-mpu-alternate-image-265.jpg",
+        "delta-559lf-mpu-alternate-image-266.jpg"
+      ],
+      "image_naming_note": "Sixth naming convention observed: Chrome and BL use UPPERCASE model-B1 slugs (559LF-MPU-B1.jpg); SS/CZ/RB on standard batch 4005701; PN alone on batch 8212396 (newest finish addition). Four naming styles within one family.",
+      "retail_urls": {
+        "ferguson_home": "https://www.fergusonhome.com/delta-559lf-mpu/s799215",
+        "build": "https://www.build.com/delta-559lf-mpu/s799215"
+      },
+      "verified": "Full page source verified 2026-08-02 - variant IDs, prices, image slugs confirmed",
+      "related_configurations": {
+        "widespread_sibling": "3559-MPU-DST (family 799260, in catalog)"
+      }
+    },
+    {
+      "family_id": "799211",
+      "brand": "Delta",
+      "collection": "Trinsic",
+      "base_model": "T14259",
+      "title": "Trinsic Monitor 14 Series Single Function Pressure Balanced Shower Only Trim - Less Rough-In Valve",
+      "category": "Shower Trim",
+      "specs": {
+        "mounting_type": "Wall Mounted",
+        "installation_type": "Wall Mounted",
+        "number_of_handles": 1,
+        "flow_rate_gpm": 1.75,
+        "showerhead": "Single function, H2Okinetic",
+        "showerhead_width_in": 5.4,
+        "showerhead_height_in": 2.6,
+        "shower_arm_reach_in": 5.5,
+        "valve_trim_width_in": 6.5,
+        "handle_style": "Lever",
+        "handle_material": "Metal",
+        "material": "Brass",
+        "shower_head_included": true,
+        "diverter_included": false,
+        "handshower_included": false,
+        "volume_control": false,
+        "rough_in_valve_included": false,
+        "rough_in_note": "Trim kit only - requires Delta MultiChoice Universal rough-in valve (R10000 series), sold separately",
+        "valve_type": "Pressure Balanced (Monitor 14 Series)",
+        "valve_technology": "Delta Monitor / H2Okinetic showerhead",
+        "theme": "Modern",
+        "ada_compliant": true,
+        "watersense_certified": true,
+        "ca_drought_compliant": true,
+        "water_efficient": true,
+        "country_of_origin": "USA",
+        "made_in_america": true,
+        "rating": 4.5,
+        "review_count": 120
+      },
+      "resources": {
+        "installation_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/799211/delta-t14259-installation-sheet.pdf",
+        "exploded_parts": "https://s1.img-b.com/build.com/mediabase/specifications/delta/799211/delta-t14259-exploded-parts.pdf",
+        "owners_manual": "https://s1.img-b.com/build.com/mediabase/specifications/delta/799211/delta-t14259-owners-manual.pdf",
+        "spec_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/799211/delta-t14259-specification-sheet.pdf"
+      },
+      "variants": [
+        {
+          "finish": "Chrome",
+          "model": "T14259",
+          "variant_id": 2060437,
+          "swatch_hex": "#F2F2F2",
+          "price_usd": 189.9,
+          "image_slug": "delta-t14259-9130060.jpg"
+        },
+        {
+          "finish": "Brilliance Stainless",
+          "model": "T14259-SS",
+          "variant_id": 2419554,
+          "swatch_hex": "#CFD4D9",
+          "price_usd": 259.0,
+          "image_slug": "delta-t14259-ss-9130060.jpg"
+        },
+        {
+          "finish": "Brilliance Polished Nickel",
+          "model": "T14259-PN",
+          "variant_id": 4922857,
+          "swatch_hex": "#DADFE3",
+          "price_usd": 259.0,
+          "image_slug": "delta-t14259-pn-9130060.jpg"
+        },
+        {
+          "finish": "Matte Black",
+          "model": "T14259-BL",
+          "variant_id": 3100572,
+          "swatch_hex": "#000000",
+          "price_usd": 279.0,
+          "image_slug": "delta-t14259-bl-9130060.jpg"
+        },
+        {
+          "finish": "Champagne Bronze",
+          "model": "T14259-CZ",
+          "variant_id": 2060434,
+          "swatch_hex": "#D5B98C",
+          "price_usd": 289.0,
+          "image_slug": "delta-t14259-cz-9130060.jpg"
+        },
+        {
+          "finish": "Venetian Bronze",
+          "model": "T14259-RB",
+          "variant_id": 2060435,
+          "swatch_hex": "#766440",
+          "price_usd": 289.0,
+          "image_slug": "delta-t14259-rb-9130060.jpg"
+        }
+      ],
+      "gallery_images": [
+        "delta-t14259-alternate-image-19.jpg",
+        "delta-t14259-alternate-image-20.jpg",
+        "delta-t14259-alternate-image-21.jpg",
+        "delta-t14259-alternate-image-22.jpg",
+        "delta-t14259-alternate-image-23.jpg",
+        "delta-t14259-alternate-image-24.jpg",
+        "delta-t14259-alternate-image-25.jpg",
+        "delta-dss-trinsic-1401-369.jpg",
+        "delta-dss-trinsic-1402-373.jpg",
+        "delta-dss-trinsic-1403-377.jpg",
+        "delta-dss-trinsic-1404-84.jpg"
+      ],
+      "image_naming_note": "All 6 finishes on single unified batch 9130060 - cleanest image set of any family across all five collections. Page also exposed dss-trinsic-14xx suite lifestyle shots in 4 finishes.",
+      "retail_urls": {
+        "ferguson_home": "https://www.fergusonhome.com/delta-t14259/s799211",
+        "build": "https://www.build.com/delta-t14259/s799211"
+      },
+      "verified": "Full page source verified 2026-08-02 - variant IDs, prices, image slugs confirmed",
+      "related_configurations": {
+        "tub_shower_sibling": "T14459 (expected)",
+        "valve_trim_only_sibling": "T14059 (full 6-finish slug set leaked, batch 9130060)",
+        "additional_sibling": "T14159 (5-finish slug set leaked, batch 9130060)",
+        "recommended_rough_in": "R10000-UNBX"
+      }
+    },
+    {
+      "family_id": "882299",
+      "brand": "Delta",
+      "collection": "Trinsic",
+      "base_model": "T14459",
+      "title": "Trinsic Monitor 14 Series Single Function Pressure Balanced Tub and Shower Trim - Less Rough-In Valve",
+      "category": "Tub & Shower Trim",
+      "specs": {
+        "mounting_type": "Wall Mounted",
+        "installation_type": "Wall Mounted",
+        "number_of_handles": 1,
+        "flow_rate_gpm": 1.75,
+        "showerhead": "Single function, round, full spray",
+        "showerhead_width_in": 5.406,
+        "showerhead_height_in": 2.609,
+        "shower_arm_reach_in": 5.5,
+        "tub_spout_reach_in": 5.25,
+        "valve_trim_width_in": 6.5,
+        "handle_style": "Lever",
+        "handle_material": "Metal",
+        "material": "Zinc",
+        "shower_head_included": true,
+        "tub_spout_included": true,
+        "diverter_included": true,
+        "diverter_location": "Tub Spout",
+        "integrated_diverter": true,
+        "handshower_included": false,
+        "volume_control": false,
+        "scald_guard": true,
+        "rough_in_valve_included": false,
+        "rough_in_note": "Trim kit only - requires Delta MultiChoice Universal rough-in valve (R10000 series), sold separately",
+        "valve_type": "Pressure Balanced (Monitor 14 Series)",
+        "valve_technology": "Delta Monitor / MultiChoice Universal",
+        "theme": "Modern",
+        "certifications": "ANSI; ASME A112.18.1; CSA B125.1",
+        "ada_compliant": true,
+        "watersense_certified": true,
+        "ca_drought_compliant": true,
+        "water_efficient": true,
+        "approved_commercial_use": true,
+        "residential_warranty": "Limited Lifetime",
+        "commercial_warranty": "5 Year Limited",
+        "country_of_origin": "USA",
+        "made_in_america": true,
+        "rating": 4.4,
+        "review_count": 93
+      },
+      "resources": {
+        "installation_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/882299/delta-t14459-installation-sheet.pdf",
+        "exploded_parts": "https://s1.img-b.com/build.com/mediabase/specifications/delta/882299/delta-t14459-exploded-parts.pdf",
+        "owners_manual": "https://s1.img-b.com/build.com/mediabase/specifications/delta/882299/delta-t14459-owners-manual.pdf",
+        "spec_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/882299/delta-t14459-specification-sheet.pdf"
+      },
+      "variants": [
+        {
+          "finish": "Chrome",
+          "model": "T14459",
+          "variant_id": 2243056,
+          "swatch_hex": "#F2F2F2",
+          "price_usd": 209.9,
+          "image_slug": "delta-t14459-9130060.jpg"
+        },
+        {
+          "finish": "Brilliance Stainless",
+          "model": "T14459-SS",
+          "variant_id": 2419572,
+          "swatch_hex": "#CFD4D9",
+          "price_usd": 299.0,
+          "image_slug": "delta-t14459-ss-9130060.jpg"
+        },
+        {
+          "finish": "Brilliance Polished Nickel",
+          "model": "T14459-PN",
+          "variant_id": 4922859,
+          "swatch_hex": "#DADFE3",
+          "price_usd": 299.0,
+          "image_slug": "delta-t14459-pn-9130060.jpg"
+        },
+        {
+          "finish": "Matte Black",
+          "model": "T14459-BL",
+          "variant_id": 3092475,
+          "swatch_hex": "#000000",
+          "price_usd": 319.0,
+          "image_slug": "delta-t14459-bl-9130060.jpg"
+        },
+        {
+          "finish": "Champagne Bronze",
+          "model": "T14459-CZ",
+          "variant_id": 2243057,
+          "swatch_hex": "#D5B98C",
+          "price_usd": 329.0,
+          "image_slug": "delta-t14459-cz-9130060.jpg"
+        },
+        {
+          "finish": "Venetian Bronze",
+          "model": "T14459-RB",
+          "variant_id": 2243058,
+          "swatch_hex": "#766440",
+          "price_usd": 329.0,
+          "image_slug": "delta-t14459-rb-9130060.jpg"
+        }
+      ],
+      "gallery_images": [
+        "delta-t14459-alternate-image-46.jpg",
+        "delta-t14459-alternate-image-47.jpg",
+        "delta-t14459-alternate-image-48.jpg",
+        "delta-t14459-alternate-image-49.jpg",
+        "delta-t14459-alternate-image-50.jpg",
+        "delta-t14459-alternate-image-51.jpg",
+        "delta-t14459-alternate-image-52.jpg",
+        "delta-t14459-alternate-image-53.jpg",
+        "delta-t14459-alternate-image-54.jpg",
+        "delta-t14459-alternate-image-55.jpg",
+        "delta-t14459-alternate-image-56.jpg",
+        "delta-t14459-alternate-image-57.jpg"
+      ],
+      "image_naming_note": "All 6 finishes on unified batch 9130060, matching the shower-only trim.",
+      "retail_urls": {
+        "ferguson_home": "https://www.fergusonhome.com/delta-t14459/s882299",
+        "build": "https://www.build.com/delta-t14459/s882299"
+      },
+      "verified": "Full page source verified 2026-08-02 - variant IDs, prices, image slugs confirmed",
+      "related_configurations": {
+        "shower_only_sibling": "T14259 (family 799211, in catalog)",
+        "valve_trim_only_sibling": "T14059",
+        "additional_sibling": "T14159",
+        "recommended_rough_in": "R10000-UNBX"
+      }
+    },
+    {
+      "family_id": "799115",
+      "brand": "Delta",
+      "collection": "Trinsic",
+      "base_model": "75950",
+      "title": "Trinsic Single Bar Tissue Holder",
+      "category": "Bath Accessories",
+      "specs": {
+        "mounting_type": "Wall Mounted",
+        "installation_type": "Wall Mounted",
+        "height_in": 1.125,
+        "width_in": 7.0,
+        "nominal_width_in": 7.0,
+        "depth_projection_in": 3.313,
+        "orientation": "Horizontal",
+        "product_variation": "Single Bar (open-post) Tissue Holder",
+        "installation_hardware_included": true,
+        "material": "Zinc",
+        "theme": "Modern",
+        "approved_commercial_use": true,
+        "residential_warranty": "Limited Lifetime",
+        "commercial_warranty": "5 Year Limited",
+        "rating": 4.4,
+        "review_count": 182
+      },
+      "resources": {
+        "exploded_parts": "https://s1.img-b.com/build.com/mediabase/specifications/delta/799115/delta-75950-exploded-parts.pdf",
+        "owners_manual": "https://s1.img-b.com/build.com/mediabase/specifications/delta/799115/delta-75950-owners-manual.pdf",
+        "spec_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/799115/delta-75950-specification-sheet.pdf"
+      },
+      "variants": [
+        {
+          "finish": "Chrome",
+          "model": "75950",
+          "variant_id": 2060384,
+          "swatch_hex": "#F2F2F2",
+          "price_usd": 38.25,
+          "image_slug": "delta-75950-703.jpg"
+        },
+        {
+          "finish": "Brilliance Stainless",
+          "model": "75950-SS",
+          "variant_id": 2417846,
+          "swatch_hex": "#CFD4D9",
+          "price_usd": 47.48,
+          "image_slug": "delta-75950-ss-705.jpg"
+        },
+        {
+          "finish": "Matte Black",
+          "model": "75950-BL",
+          "variant_id": 3099616,
+          "swatch_hex": "#000000",
+          "price_usd": 50.53,
+          "image_slug": "delta-75950-bl.jpg"
+        },
+        {
+          "finish": "Champagne Bronze",
+          "model": "75950-CZ",
+          "variant_id": 2060385,
+          "swatch_hex": "#D5B98C",
+          "price_usd": 56.31,
+          "image_slug": "delta-75950-cz-704.jpg"
+        },
+        {
+          "finish": "Venetian Bronze",
+          "model": "759500-RB",
+          "model_aliases": ["75950-RB"],
+          "variant_id": 2103864,
+          "swatch_hex": "#766440",
+          "price_usd": 56.31,
+          "image_slug": "delta-759500-rb-702.jpg",
+          "data_note": "Model listed as 759500-RB (six-digit). Initially flagged as a possible typo of 75950-RB, but the towel ring family (759460, all finishes) proves six-digit models exist legitimately in Trinsic accessories - so 759500-RB may be the genuine Delta SKU. Verify against Delta spec sheet before ordering."
+        },
+        {
+          "finish": "Brilliance Polished Nickel",
+          "model": "75950-PN",
+          "variant_id": 4922992,
+          "swatch_hex": "#DADFE3",
+          "price_usd": 66.26,
+          "image_slug": "delta-75950-pn-8212396.jpg"
+        }
+      ],
+      "image_naming_note": "Batches: originals 702-705, BL with NO batch suffix (delta-75950-bl.jpg), PN on 8212396. VB slug carries retailer model-number typo (759500).",
+      "retail_urls": {
+        "ferguson_home": "https://www.fergusonhome.com/delta-75950/s799115",
+        "build": "https://www.build.com/delta-75950/s799115"
+      },
+      "verified": "Full page source verified 2026-08-02 - variant IDs, prices, image slugs confirmed",
+      "related_configurations": {
+        "coordinating_accessories": "75918/75924 (bars, expected), 75946 (ring, expected), 75935 (hook, expected)"
+      }
+    },
+    {
+      "family_id": "799217",
+      "brand": "Delta",
+      "collection": "Trinsic",
+      "base_model": "75935",
+      "title": "Trinsic Single Robe Hook",
+      "category": "Bath Accessories",
+      "specs": {
+        "mounting_type": "Wall Mounted",
+        "installation_type": "Wall Mounted",
+        "height_in": 3.125,
+        "width_in": 1.125,
+        "length_in": 1.125,
+        "depth_projection_in": 2.844,
+        "weight_lb": 0.6,
+        "hanging_capacity": 1,
+        "product_variation": "Single Hook",
+        "material": "Zinc",
+        "theme": "Modern",
+        "residential_warranty": "Limited Lifetime",
+        "rating": 4.8,
+        "review_count": 123
+      },
+      "resources": {
+        "exploded_parts": "https://s1.img-b.com/build.com/mediabase/specifications/delta/799217/delta-75935-exploded-parts.pdf",
+        "owners_manual": "https://s1.img-b.com/build.com/mediabase/specifications/delta/799217/delta-75935-owners-manual.pdf",
+        "spec_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/799217/delta-75935-specification-sheet.pdf"
+      },
+      "variants": [
+        {
+          "finish": "Chrome",
+          "model": "75935",
+          "variant_id": 2060381,
+          "swatch_hex": "#F2F2F2",
+          "price_usd": 22.06,
+          "image_slug": "delta-75935-563.jpg"
+        },
+        {
+          "finish": "Brilliance Stainless",
+          "model": "75935-SS",
+          "variant_id": 2417844,
+          "swatch_hex": "#CFD4D9",
+          "price_usd": 28.15,
+          "image_slug": "delta-75935-ss-562.jpg"
+        },
+        {
+          "finish": "Matte Black",
+          "model": "75935-BL",
+          "variant_id": 3099620,
+          "swatch_hex": "#000000",
+          "price_usd": 28.32,
+          "image_slug": "delta-75935-bl.jpg"
+        },
+        {
+          "finish": "Champagne Bronze",
+          "model": "75935-CZ",
+          "variant_id": 2060382,
+          "swatch_hex": "#D5B98C",
+          "price_usd": 33.61,
+          "image_slug": "delta-75935-cz-564.jpg"
+        },
+        {
+          "finish": "Brilliance Polished Nickel",
+          "model": "75935-PN",
+          "variant_id": 4923030,
+          "swatch_hex": "#DADFE3",
+          "price_usd": 35.8,
+          "image_slug": "delta-75935-pn-8212396.jpg"
+        },
+        {
+          "finish": "Venetian Bronze",
+          "model": "759350-RB",
+          "model_aliases": ["75935-RB"],
+          "variant_id": 2103863,
+          "swatch_hex": "#766440",
+          "price_usd": 45.99,
+          "image_slug": "delta-759350-rb-565.jpg",
+          "data_note": "Model listed as 759350-RB (six-digit). Initially flagged as a possible typo of 75935-RB, but the towel ring family (759460, all finishes) proves six-digit models exist legitimately in Trinsic accessories - so 759350-RB may be the genuine Delta SKU. Verify against Delta spec sheet before ordering."
+        }
+      ],
+      "gallery_images": [
+        "delta-75935-alternate-image-420.jpg",
+        "delta-75935-alternate-image-421.jpg",
+        "delta-75935-alternate-image-422.jpg",
+        "delta-75935-alternate-image-423.jpg"
+      ],
+      "image_naming_note": "Same pattern as tissue holder: originals numbered, BL no batch suffix, PN on 8212396, VB slug carries retailer typo (759350).",
+      "retail_urls": {
+        "ferguson_home": "https://www.fergusonhome.com/delta-75935/s799217",
+        "build": "https://www.build.com/delta-75935/s799217"
+      },
+      "verified": "Full page source verified 2026-08-02 - variant IDs, prices, image slugs confirmed",
+      "related_configurations": {
+        "coordinating_accessories": "75950 (tissue, in catalog); 75918/75924 (bars, expected), 75946 (ring, expected)"
+      }
+    },
+    {
+      "family_id": "799114",
+      "brand": "Delta",
+      "collection": "Trinsic",
+      "base_model": "759460",
+      "title": "Trinsic Wall Mounted Towel Ring",
+      "category": "Bath Accessories",
+      "specs": {
+        "mounting_type": "Wall Mounted",
+        "installation_type": "Wall Mounted",
+        "height_in": 5.688,
+        "width_in": 6.406,
+        "nominal_width_in": 7.0,
+        "depth_projection_in": 2.0,
+        "weight_lb": 2.2,
+        "material": "Zinc",
+        "theme": "Modern",
+        "residential_warranty": "Limited Lifetime",
+        "rating": 4.0,
+        "review_count": 144
+      },
+      "resources": {
+        "exploded_parts": "https://s1.img-b.com/build.com/mediabase/specifications/delta/799114/delta-759460-exploded-parts.pdf",
+        "owners_manual": "https://s1.img-b.com/build.com/mediabase/specifications/delta/799114/delta-759460-owners-manual.pdf",
+        "spec_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/799114/delta-759460-specification-sheet.pdf"
+      },
+      "variants": [
+        {
+          "finish": "Chrome",
+          "model": "759460",
+          "variant_id": 2060397,
+          "swatch_hex": "#F2F2F2",
+          "price_usd": 29.65,
+          "image_slug": "delta-759460-614.jpg"
+        },
+        {
+          "finish": "Brilliance Stainless",
+          "model": "759460-SS",
+          "variant_id": 2417845,
+          "swatch_hex": "#CFD4D9",
+          "price_usd": 38.25,
+          "image_slug": "delta-759460-ss-616.jpg"
+        },
+        {
+          "finish": "Matte Black",
+          "model": "759460-BL",
+          "variant_id": 3099232,
+          "swatch_hex": "#000000",
+          "price_usd": 39.53,
+          "image_slug": "delta-759460-bl.jpg"
+        },
+        {
+          "finish": "Champagne Bronze",
+          "model": "759460-CZ",
+          "variant_id": 2060395,
+          "swatch_hex": "#D5B98C",
+          "price_usd": 45.48,
+          "image_slug": "delta-759460-cz-615.jpg"
+        },
+        {
+          "finish": "Brilliance Polished Nickel",
+          "model": "759460-PN",
+          "variant_id": 4923033,
+          "swatch_hex": "#DADFE3",
+          "price_usd": 54.95,
+          "image_slug": "delta-759460-pn-8212396.jpg"
+        },
+        {
+          "finish": "Venetian Bronze",
+          "model": "759460-RB",
+          "variant_id": 2060394,
+          "swatch_hex": "#766440",
+          "price_usd": 62.93,
+          "image_slug": "delta-759460-rb-613.jpg"
+        }
+      ],
+      "gallery_images": [
+        "delta-759460-alternate-image-424.jpg",
+        "delta-759460-alternate-image-425.jpg",
+        "delta-759460-alternate-image-426.jpg"
+      ],
+      "image_naming_note": "Six-digit base model 759460 is legitimate for ALL finishes of this family (page URL, PDFs, every variant). This revises the earlier 'VB typo' theory - see model_numbering_note.",
+      "model_numbering_note": "RESOLVED PATTERN: Trinsic accessories use six-digit models formed by appending 0 to the five-digit base (75924->759240, 75946->759460, 75935->759350, 75950->759500). Ferguson's data mixes eras: some families list six-digit for all finishes (ring 759460, 24in bar 759240), others show five-digit for most finishes with six-digit only on VB (75950/759500-RB, 75935/759350-RB, 75918/759180-RB). Both strings almost certainly resolve to the same Delta SKU; the six-digit form appears to be the current one. Confirm preferred ordering string with Delta.",
+      "retail_urls": {
+        "ferguson_home": "https://www.fergusonhome.com/delta-759460/s799114",
+        "build": "https://www.build.com/delta-759460/s799114"
+      },
+      "verified": "Full page source verified 2026-08-02 - variant IDs, prices, image slugs confirmed",
+      "related_configurations": {
+        "coordinating_accessories": "75950 (tissue), 75935 (hook) - in catalog; 75918/75924 (bars, expected)"
+      }
+    },
+    {
+      "family_id": "799262",
+      "brand": "Delta",
+      "collection": "Trinsic",
+      "base_model": "759240",
+      "title": "Trinsic 24\" Wall Mounted Towel Bar",
+      "category": "Bath Accessories",
+      "specs": {
+        "mounting_type": "Wall Mounted",
+        "installation_type": "Wall Mounted",
+        "bar_length_in": 24,
+        "nominal_width_in": 24.0,
+        "overall_width_in": 26.25,
+        "height_in": 1.125,
+        "depth_projection_in": 3.313,
+        "configuration": "Single Bar",
+        "number_of_bars": 1,
+        "weight_lb": 1.35,
+        "material": "Brass",
+        "theme": "Modern",
+        "residential_warranty": "Limited Lifetime",
+        "rating": 4.6,
+        "review_count": 113
+      },
+      "resources": {
+        "exploded_parts": "https://s1.img-b.com/build.com/mediabase/specifications/delta/799262/delta-759240-exploded-parts.pdf",
+        "owners_manual": "https://s1.img-b.com/build.com/mediabase/specifications/delta/799262/delta-759240-owners-manual.pdf",
+        "spec_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/799262/delta-759240-specification-sheet.pdf"
+      },
+      "variants": [
+        {
+          "finish": "Chrome",
+          "model": "759240",
+          "variant_id": 2060393,
+          "swatch_hex": "#F2F2F2",
+          "price_usd": 45.48,
+          "image_slug": "delta-759240-483.jpg"
+        },
+        {
+          "finish": "Brilliance Stainless",
+          "model": "759240-SS",
+          "variant_id": 2417841,
+          "swatch_hex": "#CFD4D9",
+          "price_usd": 56.31,
+          "image_slug": "delta-759240-ss-480.jpg"
+        },
+        {
+          "finish": "Matte Black",
+          "model": "759240-BL",
+          "variant_id": 3100589,
+          "swatch_hex": "#000000",
+          "price_usd": 61.36,
+          "image_slug": "delta-759240-bl.jpg"
+        },
+        {
+          "finish": "Champagne Bronze",
+          "model": "759240-CZ",
+          "variant_id": 2060392,
+          "swatch_hex": "#D5B98C",
+          "price_usd": 67.16,
+          "image_slug": "delta-759240-cz-482.jpg"
+        },
+        {
+          "finish": "Brilliance Polished Nickel",
+          "model": "759240-PN",
+          "variant_id": 4923032,
+          "swatch_hex": "#DADFE3",
+          "price_usd": 72.44,
+          "image_slug": "delta-759240-pn-8212396.jpg"
+        },
+        {
+          "finish": "Venetian Bronze",
+          "model": "759240-RB",
+          "variant_id": 2060390,
+          "swatch_hex": "#766440",
+          "price_usd": 92.93,
+          "image_slug": "delta-759240-rb-481.jpg"
+        }
+      ],
+      "image_naming_note": "Six-digit base 759240 for all finishes. Same sub-batches: numbered originals, BL no suffix, PN 8212396.",
+      "retail_urls": {
+        "ferguson_home": "https://www.fergusonhome.com/delta-759240/s799262",
+        "build": "https://www.build.com/delta-759240/s799262"
+      },
+      "verified": "Full page source verified 2026-08-02 - variant IDs, prices, image slugs confirmed",
+      "related_configurations": {
+        "size_sibling": "75918 (18in bar - slug set leaked; VB slug is 759180-rb, mixed 5/6-digit like tissue/hook)",
+        "additional_leaked": "75912 (12in/hand towel bar) and 75930 (double/hand bar) full slug sets leaked",
+        "coordinating_accessories": "759460 (ring), 75950 (tissue), 75935 (hook) - in catalog"
+      }
+    },
+    {
+      "family_id": "799216",
+      "brand": "Delta",
+      "collection": "Trinsic",
+      "base_model": "75918",
+      "title": "Trinsic 18\" Wall Mounted Towel Bar",
+      "category": "Bath Accessories",
+      "specs": {
+        "mounting_type": "Wall Mounted",
+        "installation_type": "Wall Mounted",
+        "bar_length_in": 18,
+        "nominal_width_in": 18.0,
+        "overall_width_in": 21.25,
+        "height_in": 1.125,
+        "depth_projection_in": 3.313,
+        "configuration": "Single Bar",
+        "number_of_bars": 1,
+        "weight_lb": 1.2,
+        "material": "Brass",
+        "theme": "Modern",
+        "residential_warranty": "Limited Lifetime",
+        "rating": 4.4,
+        "review_count": 79
+      },
+      "resources": {
+        "exploded_parts": "https://s1.img-b.com/build.com/mediabase/specifications/delta/799216/delta-75918-exploded-parts.pdf",
+        "owners_manual": "https://s1.img-b.com/build.com/mediabase/specifications/delta/799216/delta-75918-owners-manual.pdf",
+        "spec_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/799216/delta-75918-specification-sheet.pdf"
+      },
+      "variants": [
+        {
+          "finish": "Chrome",
+          "model": "75918",
+          "model_aliases": ["759180"],
+          "variant_id": 2060387,
+          "swatch_hex": "#F2F2F2",
+          "price_usd": 40.17,
+          "image_slug": "delta-75918-451.jpg"
+        },
+        {
+          "finish": "Matte Black",
+          "model": "75918-BL",
+          "model_aliases": ["759180-BL"],
+          "variant_id": 3100587,
+          "swatch_hex": "#000000",
+          "price_usd": 59.99,
+          "image_slug": "delta-75918-bl.jpg"
+        },
+        {
+          "finish": "Brilliance Polished Nickel",
+          "model": "75918-PN",
+          "model_aliases": ["759180-PN"],
+          "variant_id": 4923031,
+          "swatch_hex": "#DADFE3",
+          "price_usd": 68.9,
+          "image_slug": "delta-75918-pn-8212396.jpg"
+        },
+        {
+          "finish": "Brilliance Stainless",
+          "model": "75918-SS",
+          "model_aliases": ["759180-SS"],
+          "variant_id": 2417840,
+          "swatch_hex": "#CFD4D9",
+          "price_usd": 69.93,
+          "image_slug": "delta-75918-ss-450.jpg"
+        },
+        {
+          "finish": "Venetian Bronze",
+          "model": "759180-RB",
+          "model_aliases": ["75918-RB"],
+          "variant_id": 2103865,
+          "swatch_hex": "#766440",
+          "price_usd": 82.92,
+          "image_slug": "delta-759180-rb-453.jpg",
+          "data_note": "Six-digit VB model (759180-RB) per the resolved Trinsic SKU-migration pattern (75918+0); other finishes still list five-digit. Both strings should resolve to the same Delta SKU - confirm preferred ordering string."
+        },
+        {
+          "finish": "Champagne Bronze",
+          "model": "75918-CZ",
+          "model_aliases": ["759180-CZ"],
+          "variant_id": 2060388,
+          "swatch_hex": "#D5B98C",
+          "price_usd": 84.91,
+          "image_slug": "delta-75918-cz-452.jpg"
+        }
+      ],
+      "image_naming_note": "Mixed-era family: five-digit slugs for 5 finishes, six-digit for VB (759180-rb-453). BL no batch suffix, PN on 8212396.",
+      "retail_urls": {
+        "ferguson_home": "https://www.fergusonhome.com/delta-75918/s799216",
+        "build": "https://www.build.com/delta-75918/s799216"
+      },
+      "verified": "Full page source verified 2026-08-02 - variant IDs, prices, image slugs confirmed",
+      "related_configurations": {
+        "size_sibling": "759240 (24in bar, family 799262, in catalog)",
+        "additional_leaked": "75912 (hand towel bar - full slug set leaked)",
+        "coordinating_accessories": "759460 (ring), 75950 (tissue), 75935 (hook) - in catalog"
+      }
+    }
+  ],
+  "catalog_status": "All 9 families fully verified from page source as of 2026-08-02. Trinsic Lumen program complete: 2 lav faucets, 2 shower trims, 5 accessories. 6 finishes per family (finish lock pending JT decision)."
+}

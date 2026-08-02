@@ -13,7 +13,10 @@ export type PlumbingFinishId =
   | "matte-black"
   | "champagne-bronze"
   | "venetian-bronze"
-  | "polished-nickel";
+  | "polished-nickel"
+  // Lineax only, and only on its two towel bars — a legacy finish Delta carried over when it
+  // folded the pre-existing bars into the collection.
+  | "brushed-nickel";
 
 export type PlumbingComponentKey =
   | "faucet1cc"
@@ -35,6 +38,7 @@ export const PLUMBING_FINISHES: PlumbingFinish[] = [
   { id: "champagne-bronze", name: "Champagne Bronze", code: "CZ", hex: "#c2a878" },
   { id: "venetian-bronze", name: "Venetian Bronze", code: "RB", hex: "#4a3a2e" },
   { id: "polished-nickel", name: "Polished Nickel", code: "PN", hex: "#d6d3cb" },
+  { id: "brushed-nickel", name: "Brilliance Brushed Nickel", code: "BN", hex: "#c4b5a0" },
 ];
 
 // Shared across every package and finish.
@@ -55,7 +59,31 @@ export type PlumbingPackage = {
   skus: Record<PlumbingComponentKey, Partial<Record<PlumbingFinishId, string>>>;
 };
 
+// Order here IS the order the dealer sees, and the first entry is the default selection —
+// so this reads Good -> Better -> Best: Foundations, Terra, Bohème, Eleva, Lumen.
 export const PLUMBING_PACKAGES: PlumbingPackage[] = [
+  {
+    id: "foundations",
+    name: "Foundations",
+    lane: "Essential",
+    family: "Lineax",
+    skus: {
+      // Lineax has NO single-hole faucet — the collection ships widespread only. Left empty
+      // rather than pointed at another collection's SKU; the configurator surfaces the gap
+      // when a vanity specifies 1cc drilling.
+      faucet1cc: {},
+      faucet8cc: { "chrome": "3562LF-MPU", "stainless": "3562LF-SSMPU", "matte-black": "3562LF-BLMPU", "champagne-bronze": "3562LF-CZMPU" },
+      showerTrim: { "chrome": "T14262", "stainless": "T14262-SS", "matte-black": "T14262-BL", "champagne-bronze": "T14262-CZ" },
+      tubShowerTrim: { "chrome": "T14462", "stainless": "T14462-SS", "matte-black": "T14462-BL", "champagne-bronze": "T14462-CZ" },
+      // The two bars carry a fifth finish (Brilliance Brushed Nickel) that nothing else in
+      // the package does — see availableFinishes() in the configurator for how that's handled.
+      towelBar18: { "chrome": "76218", "brushed-nickel": "76218-BN", "stainless": "76218-SS", "matte-black": "76218-BL", "champagne-bronze": "76218-CZ" },
+      towelBar24: { "chrome": "76224", "brushed-nickel": "76224-BN", "stainless": "76224-SS", "matte-black": "76224-BL", "champagne-bronze": "76224-CZ" },
+      tpHolder: { "chrome": "76247", "stainless": "76247-SS", "matte-black": "76247-BL", "champagne-bronze": "76247-CZ" },
+      towelRing: { "chrome": "76236", "stainless": "76236-SS", "matte-black": "76236-BL", "champagne-bronze": "76236-CZ" },
+      robeHook: { "chrome": "76232", "stainless": "76232-SS", "matte-black": "76232-BL", "champagne-bronze": "76232-CZ" },
+    },
+  },
   {
     id: "terra",
     name: "Terra",

@@ -1,10 +1,9 @@
 // Delta product-data lookup — images, prices, spec sheets and specs, keyed by model.
 //
 // The data lives in lib/data/*.json (one file per Delta collection), kept out of code so a
-// refreshed scrape is a data commit, not a code change. Woodhurst and Lahara are loaded
-// today; Ashlyn and Trinsic drop into CATALOGS below as their JSON lands — the lookup
-// functions never change, and every caller keeps its existing fallback for models that
-// aren't loaded.
+// refreshed scrape is a data commit, not a code change. All four collections behind the
+// dealer packages are loaded: Woodhurst, Lahara, Ashlyn and Trinsic. Callers still keep their
+// fallbacks — a finish a collection doesn't publish has no entry here by design.
 //
 // PRICING: price_usd is the retailer's Internet Sell Price. Treat it as an MSRP / retail
 // reference ONLY — it is NOT dealer cost. Anything that surfaces it must label it as such.
@@ -13,10 +12,24 @@
 
 import woodhurst from "./data/woodhurst-catalog.json";
 import lahara from "./data/lahara-catalog.json";
+import ashlyn from "./data/ashlyn-catalog.json";
+import trinsic from "./data/trinsic-catalog.json";
+import lineax from "./data/lineax-catalog.json";
 
 export type DeltaVariant = {
   finish: string;
   model: string;
+  /**
+   * Other model strings that denote this same physical product.
+   *
+   * The retailer's model string and our wholesale ordering SKU don't always agree in form:
+   * Trinsic accessories are mid-migration from five- to six-digit models (75918 -> 759180),
+   * and its single-hole faucet is listed without the -DST suffix the order sheet carries.
+   * Aliases let the image/price lookup succeed from either string, so the ORDERING SKUs in
+   * lib/plumbing-catalog.ts stay exactly as the supplier spreadsheet has them — those must
+   * never be adjusted to make a lookup work.
+   */
+  model_aliases?: string[];
   variant_id?: number;
   swatch_hex?: string;
   price_usd: number;
@@ -52,12 +65,16 @@ export type DeltaCatalog = {
 // The JSON carries extra keys (retail_urls, gallery_images, price_note…) that no caller
 // reads yet, so it's cast to the shape this module contracts on rather than inferred.
 //
-// Collections publish different finish sets — Woodhurst in Chrome/Stainless/Matte Black/
-// Venetian Bronze, Lahara in Chrome/Stainless/Champagne Bronze/Venetian Bronze — which is
-// exactly what the configurator's swatch filter reads back out of here.
+// Collections publish different finish sets — Lineax in Chrome/Stainless/Matte Black/
+// Champagne Bronze (plus Brushed Nickel on its two towel bars alone), Woodhurst swapping
+// Champagne for Venetian Bronze, Lahara the reverse, Ashlyn five and Trinsic all six — which
+// is exactly what the configurator's swatch filter reads back out of here.
 const CATALOGS: DeltaCatalog[] = [
+  lineax as unknown as DeltaCatalog,
   woodhurst as unknown as DeltaCatalog,
   lahara as unknown as DeltaCatalog,
+  ashlyn as unknown as DeltaCatalog,
+  trinsic as unknown as DeltaCatalog,
 ];
 
 const DEFAULT_IMAGE_SIZE = 400;
@@ -77,10 +94,13 @@ for (const catalog of CATALOGS) {
   for (const family of catalog.families) {
     byBaseModel.set(normalize(family.base_model), family);
     for (const variant of family.variants) {
-      // First registration wins, so a duplicated model across collections can't shadow the
-      // canonical one silently.
-      const key = normalize(variant.model);
-      if (!byModel.has(key)) byModel.set(key, { catalog, family, variant });
+      // Primary model first, then its aliases — so a real model can never be shadowed by
+      // something else's alias. First registration wins either way, which keeps a duplicated
+      // model across collections from silently displacing the canonical one.
+      for (const model of [variant.model, ...(variant.model_aliases ?? [])]) {
+        const key = normalize(model);
+        if (!byModel.has(key)) byModel.set(key, { catalog, family, variant });
+      }
     }
   }
 }

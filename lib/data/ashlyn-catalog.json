@@ -1,0 +1,934 @@
+{
+  "catalog_name": "Delta Ashlyn Collection",
+  "image_url_template": "https://s3.img-b.com/image/private/t_base,c_lpad,f_auto,dpr_auto,w_{W},h_{H}/product/delta/{IMAGE_SLUG}",
+  "finish_dimension_note": "Ashlyn offers 5 finishes: Chrome, Brilliance Stainless (SS), Champagne Bronze (CZ), Matte Black (BL), Venetian Bronze (RB). Pending JT decision whether to lock to the 4-finish Boheme palette (dropping Matte Black).",
+  "families": [
+    {
+      "family_id": "1062192",
+      "brand": "Delta",
+      "collection": "Ashlyn",
+      "base_model": "3564-MPU-DST",
+      "title": "Ashlyn 1.2 GPM Widespread Bathroom Faucet with Push Pop-Up Drain Assembly",
+      "category": "Bathroom Sink Faucets",
+      "specs": {
+        "mounting_type": "Widespread",
+        "faucet_holes": 3,
+        "number_of_handles": 2,
+        "flow_rate_gpm": 1.2,
+        "height_in": 5.25,
+        "spout_height_in": 4.125,
+        "spout_reach_in": 5.125,
+        "faucet_centers_in": "4.5 - 16",
+        "max_deck_thickness_in": 2.5,
+        "installation_type": "Deck Mounted",
+        "handle_style": "Lever",
+        "handle_material": "Metal",
+        "spout_type": "Fixed",
+        "spout_style": "Conventional",
+        "valve_type": "Ceramic Disc",
+        "valve_technology": "Diamond Seal",
+        "material": "Brass",
+        "theme": "Modern (Ferguson tag; JT positions Ashlyn as transitional)",
+        "drain_assembly_included": true,
+        "handles_included": true,
+        "valve_included": true,
+        "escutcheon_included": false,
+        "ada_compliant": true,
+        "watersense_certified": true,
+        "ca_drought_compliant": true,
+        "approved_commercial_use": true,
+        "eco_friendly": true,
+        "residential_warranty": "Limited Lifetime",
+        "commercial_warranty": "5 Year Limited",
+        "country_of_origin": "USA",
+        "made_in_america": true,
+        "rating": 4.2,
+        "review_count": 220
+      },
+      "resources": {
+        "manufacturer_warranty": "https://s1.img-b.com/build.com/mediabase/specifications/delta/1062192/delta-3564-mpu-dst-warranty.pdf",
+        "dimensions_drawing": "https://s1.img-b.com/build.com/mediabase/specifications/delta/1062192/dpd-l-3564-mpu-dst.pdf",
+        "spec_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/1062192/dsp-l-3564-mpu-dst.pdf"
+      },
+      "variants": [
+        {
+          "finish": "Chrome",
+          "model": "3564-MPU-DST",
+          "variant_id": 2567401,
+          "swatch_hex": "#F2F2F2",
+          "price_usd": 289.0,
+          "image_slug": "3564-mpu-dst-1.jpg"
+        },
+        {
+          "finish": "Brilliance Stainless",
+          "model": "3564-SSMPU-DST",
+          "variant_id": 2564856,
+          "swatch_hex": "#CFD4D9",
+          "price_usd": 379.0,
+          "image_slug": "3564-ss-mpu-dst-1.jpg"
+        },
+        {
+          "finish": "Champagne Bronze",
+          "model": "3564-CZMPU-DST",
+          "variant_id": 4977741,
+          "swatch_hex": "#D5B98C",
+          "price_usd": 399.0,
+          "image_slug": "3564-cz-mpu-dst-1.jpg"
+        },
+        {
+          "finish": "Matte Black",
+          "model": "3564-BLMPU-DST",
+          "variant_id": 4000374,
+          "swatch_hex": "#000000",
+          "price_usd": 399.0,
+          "image_slug": "3564-blmpu-dst-1.jpg"
+        },
+        {
+          "finish": "Venetian Bronze",
+          "model": "3564-RBMPU-DST",
+          "variant_id": 2567402,
+          "swatch_hex": "#766440",
+          "price_usd": 419.0,
+          "image_slug": "3564-rbmpu-dst-1.jpg"
+        }
+      ],
+      "image_naming_note": "Fifth naming convention: no delta- prefix, no batch number - 3564[-finish]-mpu-dst-1.jpg. Note SS and CZ slugs hyphenate the finish (3564-ss-mpu-dst) while BL and RB concatenate (3564-blmpu-dst).",
+      "retail_urls": {
+        "ferguson_home": "https://www.fergusonhome.com/delta-3564-mpu-dst/s1062192",
+        "build": "https://www.build.com/delta-3564-mpu-dst/s1062192"
+      },
+      "verified": "Full page source verified 2026-08-02 - variant IDs, prices, image slugs confirmed",
+      "related_configurations": {
+        "centerset_sibling": "2564-MPU-DST (4in centerset - slugs leaked in page)",
+        "single_hole_sibling": "564-MPU-DST (single hole - slugs leaked in page)"
+      }
+    },
+    {
+      "family_id": "1064239",
+      "brand": "Delta",
+      "collection": "Ashlyn",
+      "base_model": "564-MPU-DST",
+      "title": "Ashlyn 1.2 GPM Single Hole Bathroom Faucet with Push Pop-Up Drain Assembly",
+      "category": "Bathroom Sink Faucets",
+      "specs": {
+        "mounting_type": "Single Hole",
+        "faucet_holes": 1,
+        "number_of_handles": 1,
+        "flow_rate_gpm": 1.2,
+        "height_in": 7.75,
+        "spout_height_in": 3.438,
+        "spout_reach_in": 5.125,
+        "faucet_centers_in": "0",
+        "max_deck_thickness_in": 2.875,
+        "water_connection": "1/4\" OD",
+        "installation_type": "Deck Mounted",
+        "handle_style": "Lever",
+        "handle_material": "Metal",
+        "spout_type": "Fixed",
+        "valve_type": "Ceramic Disc",
+        "valve_technology": "Diamond Seal",
+        "material": "Brass",
+        "theme": "Modern (Ferguson tag; JT positions Ashlyn as transitional)",
+        "drain_assembly_included": true,
+        "handles_included": true,
+        "valve_included": true,
+        "escutcheon_included": true,
+        "escutcheon_width_in": 6.0,
+        "ada_compliant": true,
+        "watersense_certified": true,
+        "ca_drought_compliant": true,
+        "approved_commercial_use": true,
+        "eco_friendly": true,
+        "residential_warranty": "Limited Lifetime",
+        "commercial_warranty": "5 Year Limited",
+        "country_of_origin": "USA",
+        "made_in_america": true,
+        "rating": 4.7,
+        "review_count": 119
+      },
+      "resources": {
+        "installation_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/1064239/delta-564-mpu-dst-installation-sheet.pdf",
+        "exploded_parts": "https://s1.img-b.com/build.com/mediabase/specifications/delta/1064239/delta-564-mpu-dst-exploded-parts.pdf",
+        "spec_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/1064239/delta-564-mpu-dst-specification-sheet.pdf",
+        "manufacturer_warranty": "https://s1.img-b.com/build.com/mediabase/specifications/delta/1064239/delta-564-mpu-dst-warranty.pdf"
+      },
+      "variants": [
+        {
+          "finish": "Chrome",
+          "model": "564-MPU-DST",
+          "variant_id": 2567403,
+          "swatch_hex": "#F2F2F2",
+          "price_usd": 219.9,
+          "image_slug": "delta-564-mpu-dst-4005701.jpg"
+        },
+        {
+          "finish": "Brilliance Stainless",
+          "model": "564-SSMPU-DST",
+          "variant_id": 2567405,
+          "swatch_hex": "#CFD4D9",
+          "price_usd": 289.1,
+          "image_slug": "delta-564-ssmpu-dst-4005701.jpg"
+        },
+        {
+          "finish": "Matte Black",
+          "model": "564-BLMPU-DST",
+          "variant_id": 4000379,
+          "swatch_hex": "#000000",
+          "price_usd": 299.6,
+          "image_slug": "delta-564-blmpu-dst-4005701.jpg"
+        },
+        {
+          "finish": "Champagne Bronze",
+          "model": "564-CZMPU-DST",
+          "variant_id": 4986888,
+          "swatch_hex": "#D5B98C",
+          "price_usd": 329.0,
+          "image_slug": "delta-564-czmpu-dst-6222650.jpg"
+        },
+        {
+          "finish": "Venetian Bronze",
+          "model": "564-RBMPU-DST",
+          "variant_id": 2567404,
+          "swatch_hex": "#766440",
+          "price_usd": 329.0,
+          "image_slug": "delta-564-rbmpu-dst-4005701.jpg"
+        }
+      ],
+      "gallery_images": [
+        "delta-564-mpu-dst-alternate-image-60.jpg",
+        "delta-564-mpu-dst-alternate-image-61.jpg",
+        "delta-564-mpu-dst-alternate-image-62.jpg",
+        "delta-564-mpu-dst-alternate-image-63.jpg",
+        "delta-564-mpu-dst-alternate-image-64.jpg",
+        "delta-564-mpu-dst-alternate-image-65.jpg",
+        "delta-564-mpu-dst-alternate-image-66.jpg",
+        "delta-564-mpu-dst-alternate-image-67.jpg",
+        "delta-564-mpu-dst-alternate-image-68.jpg",
+        "delta-564-mpu-dst-alternate-image-69.jpg",
+        "delta-564-mpu-dst-alternate-image-70.jpg",
+        "delta-564-mpu-dst-alternate-image-71.jpg",
+        "delta-564-mpu-dst-alternate-image-72.jpg",
+        "delta-564-mpu-dst-alternate-image-73.jpg",
+        "delta-564-mpu-dst-alternate-image-74.jpg",
+        "delta-564-mpu-dst-alternate-image-75.jpg",
+        "delta-564-mpu-dst-alternate-image-76.jpg"
+      ],
+      "image_naming_note": "Standard delta-<model>-<batch> naming, batch 4005701 for 4 finishes; CZ on newer batch 6222650 (CZ was added to Ashlyn later).",
+      "retail_urls": {
+        "ferguson_home": "https://www.fergusonhome.com/delta-564-mpu-dst/s1064239",
+        "build": "https://www.build.com/delta-564-mpu-dst/s1064239"
+      },
+      "verified": "Full page source verified 2026-08-02 - variant IDs, prices, image slugs confirmed",
+      "related_configurations": {
+        "widespread_sibling": "3564-MPU-DST (family 1062192, in catalog)",
+        "centerset_sibling": "2564-MPU-DST (slugs leaked: delta-2564-* batches 478/479/480, BL 4825098, CZ 6222650)"
+      }
+    },
+    {
+      "family_id": "1064250",
+      "brand": "Delta",
+      "collection": "Ashlyn",
+      "base_model": "T14264",
+      "title": "Ashlyn Monitor 14 Series Single Function Pressure Balanced Shower Only Trim - Less Rough-In Valve",
+      "category": "Shower Trim",
+      "specs": {
+        "mounting_type": "Wall Mounted",
+        "installation_type": "Wall Mounted",
+        "number_of_handles": 1,
+        "flow_rate_gpm": 1.75,
+        "showerhead": "Single function, square, Touch-Clean, full spray",
+        "showerhead_width_in": 5.25,
+        "showerhead_height_in": 2.688,
+        "showerhead_material": "ABS",
+        "valve_trim_dimensions_in": "6 H x 6 W",
+        "valve_trim_material": "Brass",
+        "handle_style": "Lever",
+        "handle_material": "Brass",
+        "material": "Brass",
+        "shower_arm_included": true,
+        "shower_head_included": true,
+        "diverter_included": false,
+        "handshower_included": false,
+        "volume_control": false,
+        "tub_spout_included": false,
+        "rough_in_valve_included": false,
+        "rough_in_note": "Trim kit only - requires Delta MultiChoice Universal rough-in valve (R10000 series), sold separately",
+        "valve_type": "Pressure Balanced (Monitor 14 Series)",
+        "valve_technology": "Delta Monitor",
+        "theme": "Modern (Ferguson tag; JT positions Ashlyn as transitional)",
+        "ada_compliant": true,
+        "watersense_certified": true,
+        "ca_drought_compliant": true,
+        "water_efficient": true,
+        "approved_commercial_use": true,
+        "residential_warranty": "Limited Lifetime",
+        "country_of_origin": "USA",
+        "made_in_america": true,
+        "rating": 4.4,
+        "review_count": 131
+      },
+      "resources": {
+        "installation_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/1064250/delta-t14264-installation-sheet.pdf",
+        "exploded_parts": "https://s1.img-b.com/build.com/mediabase/specifications/delta/1064250/delta-t14264-exploded-parts.pdf",
+        "spec_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/1064250/delta-t14264-specification-sheet.pdf"
+      },
+      "variants": [
+        {
+          "finish": "Chrome",
+          "model": "T14264",
+          "variant_id": 2567436,
+          "swatch_hex": "#F2F2F2",
+          "price_usd": 132.9,
+          "image_slug": "delta-t14264-965.jpg"
+        },
+        {
+          "finish": "Brilliance Stainless",
+          "model": "T14264-SS",
+          "variant_id": 2567440,
+          "swatch_hex": "#CFD4D9",
+          "price_usd": 194.9,
+          "image_slug": "delta-t14264-ss-966.jpg"
+        },
+        {
+          "finish": "Matte Black",
+          "model": "T14264-BL",
+          "variant_id": 4000388,
+          "swatch_hex": "#000000",
+          "price_usd": 199.92,
+          "image_slug": "delta-t14264-bl-4825098.jpg"
+        },
+        {
+          "finish": "Champagne Bronze",
+          "model": "T14264-CZ",
+          "variant_id": 4986895,
+          "swatch_hex": "#D5B98C",
+          "price_usd": 204.9,
+          "image_slug": "delta-t14264-cz-6222650.jpg"
+        },
+        {
+          "finish": "Venetian Bronze",
+          "model": "T14264-RB",
+          "variant_id": 2567438,
+          "swatch_hex": "#766440",
+          "price_usd": 209.9,
+          "image_slug": "delta-t14264-rb-967.jpg"
+        }
+      ],
+      "gallery_images": [
+        "delta-t14264-alternate-image-79.jpg",
+        "delta-t14264-alternate-image-108.jpg",
+        "delta-t14264-alternate-image-109.jpg",
+        "delta-t14264-alternate-image-110.jpg",
+        "delta-t14264-alternate-image-111.jpg",
+        "delta-t14264-alternate-image-112.jpg",
+        "delta-t14264-alternate-image-113.jpg",
+        "delta-t14264-alternate-image-114.jpg",
+        "delta-t14264-alternate-image-115.jpg",
+        "delta-t14264-alternate-image-116.jpg",
+        "delta-t14264-alternate-image-117.jpg",
+        "delta-t14264-alternate-image-118.jpg",
+        "delta-t14264-alternate-image-119.jpg",
+        "delta-t14264-alternate-image-120.jpg",
+        "delta-t14264-alternate-image-121.jpg",
+        "delta-t14264-alternate-image-122.jpg",
+        "delta-t14264-alternate-image-123.jpg",
+        "delta-t14264-alternate-image-124.jpg",
+        "delta-t14264-alternate-image-125.jpg"
+      ],
+      "image_naming_note": "Batches: original finishes on 965/966/967, BL on 4825098, CZ on 6222650 - three image eras in one family.",
+      "retail_urls": {
+        "ferguson_home": "https://www.fergusonhome.com/delta-t14264/s1064250",
+        "build": "https://www.build.com/delta-t14264/s1064250"
+      },
+      "verified": "Full page source verified 2026-08-02 - variant IDs, prices, image slugs confirmed",
+      "related_configurations": {
+        "tub_shower_sibling": "T14464 (expected)",
+        "valve_trim_only_sibling": "T14064 (slugs leaked: delta-t14064-392/393/394, bl-4825098, cz-6222650)",
+        "additional_sibling": "T14164 (slugs leaked: delta-t14164-1/2/3, bl-4825098, cz-6222650)",
+        "recommended_rough_in": "R10000-UNBX"
+      }
+    },
+    {
+      "family_id": "1064252",
+      "brand": "Delta",
+      "collection": "Ashlyn",
+      "base_model": "T14464",
+      "title": "Ashlyn Monitor 14 Series Single Function Pressure Balanced Tub and Shower Trim - Less Rough-In Valve",
+      "category": "Tub & Shower Trim",
+      "specs": {
+        "mounting_type": "Wall Mounted",
+        "installation_type": "Wall Mounted",
+        "number_of_handles": 1,
+        "flow_rate_gpm": 1.75,
+        "showerhead": "Single function, square, Touch-Clean, full spray",
+        "showerhead_width_in": 5.25,
+        "showerhead_height_in": 2.688,
+        "showerhead_material": "ABS",
+        "tub_spout_reach_in": 7.938,
+        "tub_spout_material": "Brass",
+        "valve_trim_dimensions_in": "6 H x 6 W",
+        "valve_trim_material": "Brass",
+        "handle_style": "Lever",
+        "handle_material": "Brass",
+        "material": "Brass",
+        "shower_arm_included": true,
+        "shower_head_included": true,
+        "tub_spout_included": true,
+        "diverter_included": true,
+        "diverter_location": "Tub Spout",
+        "integrated_diverter": true,
+        "handshower_included": false,
+        "volume_control": false,
+        "rough_in_valve_included": false,
+        "rough_in_note": "Trim kit only - requires Delta MultiChoice Universal rough-in valve (R10000 series), sold separately",
+        "valve_type": "Pressure Balanced (Monitor 14 Series)",
+        "valve_technology": "Delta Monitor",
+        "theme": "Modern (Ferguson tag; JT positions Ashlyn as transitional)",
+        "ada_compliant": true,
+        "watersense_certified": true,
+        "ca_drought_compliant": true,
+        "water_efficient": true,
+        "approved_commercial_use": true,
+        "residential_warranty": "Limited Lifetime",
+        "country_of_origin": "USA",
+        "made_in_america": true,
+        "rating": 4.3,
+        "review_count": 91
+      },
+      "resources": {
+        "installation_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/1064252/delta-t14464-installation-sheet.pdf",
+        "exploded_parts": "https://s1.img-b.com/build.com/mediabase/specifications/delta/1064252/delta-t14464-exploded-parts.pdf",
+        "spec_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/1064252/delta-t14464-specification-sheet.pdf"
+      },
+      "variants": [
+        {
+          "finish": "Chrome",
+          "model": "T14464",
+          "variant_id": 2567442,
+          "swatch_hex": "#F2F2F2",
+          "price_usd": 169.9,
+          "image_slug": "delta-t14464-238.jpg"
+        },
+        {
+          "finish": "Brilliance Stainless",
+          "model": "T14464-SS",
+          "variant_id": 2567446,
+          "swatch_hex": "#CFD4D9",
+          "price_usd": 249.9,
+          "image_slug": "delta-t14464-ss-239.jpg"
+        },
+        {
+          "finish": "Matte Black",
+          "model": "T14464-BL",
+          "variant_id": 4000390,
+          "swatch_hex": "#000000",
+          "price_usd": 269.0,
+          "image_slug": "delta-t14464-bl-4825098.jpg"
+        },
+        {
+          "finish": "Venetian Bronze",
+          "model": "T14464-RB",
+          "variant_id": 2567444,
+          "swatch_hex": "#766440",
+          "price_usd": 279.0,
+          "image_slug": "delta-t14464-rb-240.jpg"
+        },
+        {
+          "finish": "Champagne Bronze",
+          "model": "T14464-CZ",
+          "variant_id": 4986889,
+          "swatch_hex": "#D5B98C",
+          "price_usd": 289.1,
+          "image_slug": "delta-t14464-cz-6222650.jpg"
+        }
+      ],
+      "gallery_images": [
+        "delta-t14464-alternate-image-83.jpg",
+        "delta-t14464-alternate-image-126.jpg",
+        "delta-t14464-alternate-image-127.jpg",
+        "delta-t14464-alternate-image-128.jpg",
+        "delta-t14464-alternate-image-129.jpg",
+        "delta-t14464-alternate-image-130.jpg",
+        "delta-t14464-alternate-image-131.jpg",
+        "delta-t14464-alternate-image-132.jpg",
+        "delta-t14464-alternate-view-156.jpg",
+        "delta-t14464-alternate-view-157.jpg"
+      ],
+      "image_naming_note": "Batches: originals on 238/239/240, BL on 4825098, CZ on 6222650 - same three-era pattern as shower trim. Page also exposed dss-ashlyn-14xx suite lifestyle shots.",
+      "retail_urls": {
+        "ferguson_home": "https://www.fergusonhome.com/delta-t14464/s1064252",
+        "build": "https://www.build.com/delta-t14464/s1064252"
+      },
+      "verified": "Full page source verified 2026-08-02 - variant IDs, prices, image slugs confirmed",
+      "related_configurations": {
+        "shower_only_sibling": "T14264 (family 1064250, in catalog)",
+        "valve_trim_only_sibling": "T14064",
+        "additional_sibling": "T14164",
+        "recommended_rough_in": "R10000-UNBX"
+      }
+    },
+    {
+      "family_id": "1064243",
+      "brand": "Delta",
+      "collection": "Ashlyn",
+      "base_model": "76446",
+      "title": "Ashlyn 6-3/8\" Wall Mounted Towel Ring",
+      "category": "Bath Accessories",
+      "specs": {
+        "mounting_type": "Wall Mounted",
+        "installation_type": "Wall Mounted",
+        "height_in": 7.578,
+        "width_in": 6.375,
+        "depth_projection_in": 2.75,
+        "nominal_width_in": 7.0,
+        "shape": "Round",
+        "product_variation": "Closed Towel Ring",
+        "escutcheon_included": true,
+        "escutcheon_shape": "Round",
+        "escutcheon_height_in": 2.25,
+        "escutcheon_width_in": 2.25,
+        "installation_hardware_included": true,
+        "concealed_screws": true,
+        "material": "Zinc",
+        "theme": "Traditional (Ferguson tag)",
+        "residential_warranty": "Limited Lifetime",
+        "country_of_origin": "China",
+        "rating": 4.6,
+        "review_count": 71
+      },
+      "resources": {
+        "installation_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/1064243/delta-76446-installation-sheet.pdf",
+        "spec_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/1064243/delta-76446-specification-sheet.pdf",
+        "manufacturer_warranty": "https://s1.img-b.com/build.com/mediabase/specifications/delta/1064243/delta-76446-warranty.pdf"
+      },
+      "variants": [
+        {
+          "finish": "Chrome",
+          "model": "76446",
+          "variant_id": 2567415,
+          "swatch_hex": "#F2F2F2",
+          "price_usd": 30.52,
+          "image_slug": "delta-76446-504.jpg"
+        },
+        {
+          "finish": "Matte Black",
+          "model": "76446-BL",
+          "variant_id": 4000383,
+          "swatch_hex": "#000000",
+          "price_usd": 32.74,
+          "image_slug": "delta-76446-bl-4825098.jpg"
+        },
+        {
+          "finish": "Brilliance Stainless",
+          "model": "76446-SS",
+          "variant_id": 2567417,
+          "swatch_hex": "#CFD4D9",
+          "price_usd": 36.51,
+          "image_slug": "delta-76446-ss-505.jpg"
+        },
+        {
+          "finish": "Champagne Bronze",
+          "model": "76446-CZ",
+          "variant_id": 4986906,
+          "swatch_hex": "#D5B98C",
+          "price_usd": 40.5,
+          "image_slug": "delta-76446-cz-6222650.jpg"
+        },
+        {
+          "finish": "Venetian Bronze",
+          "model": "76446-RB",
+          "variant_id": 2567416,
+          "swatch_hex": "#766440",
+          "price_usd": 43.51,
+          "image_slug": "delta-76446-rb-506.jpg"
+        }
+      ],
+      "gallery_images": [
+        "delta-76446-alternate-image-86.jpg",
+        "delta-76446-alternate-image-87.jpg",
+        "delta-76446-alternate-image-88.jpg",
+        "delta-76446-alternate-image-89.jpg",
+        "delta-76446-alternate-image-90.jpg",
+        "delta-76446-alternate-image-91.jpg",
+        "delta-76446-alternate-image-92.jpg",
+        "delta-76446-towel-ring-in-chrome-919.jpg",
+        "delta-76446-overall-room-view-in-brilliance-stainless-920.jpg",
+        "delta-76446-overall-room-view-in-venetian-bronze-921.jpg"
+      ],
+      "image_naming_note": "Same three-era batches: originals 504/505/506, BL 4825098, CZ 6222650.",
+      "retail_urls": {
+        "ferguson_home": "https://www.fergusonhome.com/delta-76446/s1064243",
+        "build": "https://www.build.com/delta-76446/s1064243"
+      },
+      "verified": "Full page source verified 2026-08-02 - variant IDs, prices, image slugs confirmed",
+      "related_configurations": {
+        "coordinating_accessories": "76418/76424 (bars, expected), 76450 (tissue, expected), 76435 (hook, expected)"
+      }
+    },
+    {
+      "family_id": "1064244",
+      "brand": "Delta",
+      "collection": "Ashlyn",
+      "base_model": "76450",
+      "title": "Ashlyn Wall Mounted Pivoting Toilet Paper Holder",
+      "category": "Bath Accessories",
+      "specs": {
+        "mounting_type": "Wall Mounted",
+        "installation_type": "Wall Mounted",
+        "height_in": 2.188,
+        "width_in": 7.625,
+        "overall_width_in": 9.813,
+        "bar_length_in": 7.625,
+        "nominal_width_in": 8.0,
+        "depth_projection_in": 3.438,
+        "orientation": "Horizontal",
+        "number_of_rolls": 1,
+        "product_variation": "Pivoting Paper Holder",
+        "escutcheon_shape": "Round",
+        "installation_hardware_included": true,
+        "concealed_screws": true,
+        "material": "Metal",
+        "theme": "Modern (Ferguson tag)",
+        "approved_commercial_use": true,
+        "residential_warranty": "Limited Lifetime",
+        "country_of_origin": "China",
+        "rating": 4.2,
+        "review_count": 79
+      },
+      "resources": {
+        "installation_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/1064244/delta-76450-installation-sheet.pdf",
+        "spec_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/1064244/delta-76450-specification-sheet.pdf",
+        "manufacturer_warranty": "https://s1.img-b.com/build.com/mediabase/specifications/delta/1064244/delta-76450-warranty.pdf"
+      },
+      "variants": [
+        {
+          "finish": "Chrome",
+          "model": "76450",
+          "variant_id": 2567418,
+          "swatch_hex": "#F2F2F2",
+          "price_usd": 46.52,
+          "image_slug": "delta-76450-405.jpg"
+        },
+        {
+          "finish": "Matte Black",
+          "model": "76450-BL",
+          "variant_id": 4000384,
+          "swatch_hex": "#000000",
+          "price_usd": 50.54,
+          "image_slug": "delta-76450-bl-4825098.jpg"
+        },
+        {
+          "finish": "Brilliance Stainless",
+          "model": "76450-SS",
+          "variant_id": 2567420,
+          "swatch_hex": "#CFD4D9",
+          "price_usd": 50.95,
+          "image_slug": "delta-76450-ss-406.jpg"
+        },
+        {
+          "finish": "Venetian Bronze",
+          "model": "76450-RB",
+          "variant_id": 2567419,
+          "swatch_hex": "#766440",
+          "price_usd": 67.9,
+          "image_slug": "delta-76450-rb-407.jpg"
+        },
+        {
+          "finish": "Champagne Bronze",
+          "model": "76450-CZ",
+          "variant_id": 4986903,
+          "swatch_hex": "#D5B98C",
+          "price_usd": 84.91,
+          "image_slug": "delta-76450-cz-6222650.jpg"
+        }
+      ],
+      "gallery_images": [
+        "delta-76450-alternate-image-93.jpg",
+        "delta-76450-overall-room-view-in-brilliance-stainless-906.jpg"
+      ],
+      "image_naming_note": "Same three-era batches: original 405/406/407, BL 4825098, CZ 6222650.",
+      "retail_urls": {
+        "ferguson_home": "https://www.fergusonhome.com/delta-76450/s1064244",
+        "build": "https://www.build.com/delta-76450/s1064244"
+      },
+      "verified": "Full page source verified 2026-08-02 - variant IDs, prices, image slugs confirmed",
+      "related_configurations": {
+        "coordinating_accessories": "76446 (ring, in catalog), 76418/76424 (bars, expected), 76435 (hook, expected)"
+      }
+    },
+    {
+      "family_id": "1064242",
+      "brand": "Delta",
+      "collection": "Ashlyn",
+      "base_model": "76435",
+      "title": "Ashlyn Double Robe Hook",
+      "category": "Bath Accessories",
+      "specs": {
+        "mounting_type": "Wall Mounted",
+        "installation_type": "Wall Mounted",
+        "height_in": 5.0,
+        "width_in": 2.25,
+        "depth_projection_in": 4.313,
+        "hanging_capacity": 2,
+        "product_variation": "Double Hook",
+        "escutcheon_shape": "Round",
+        "escutcheon_height_in": 2.25,
+        "escutcheon_width_in": 2.25,
+        "installation_hardware_included": true,
+        "concealed_screws": true,
+        "material": "Zinc",
+        "theme": "Traditional (Ferguson tag)",
+        "residential_warranty": "Limited Lifetime",
+        "country_of_origin": "China",
+        "rating": 4.8,
+        "review_count": 64
+      },
+      "resources": {
+        "installation_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/1064242/delta-76435-installation-sheet.pdf",
+        "spec_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/1064242/delta-76435-specification-sheet.pdf",
+        "manufacturer_warranty": "https://s1.img-b.com/build.com/mediabase/specifications/delta/1064242/delta-76435-warranty.pdf"
+      },
+      "variants": [
+        {
+          "finish": "Chrome",
+          "model": "76435",
+          "variant_id": 2567412,
+          "swatch_hex": "#F2F2F2",
+          "price_usd": 30.52,
+          "image_slug": "delta-76435-378.jpg"
+        },
+        {
+          "finish": "Matte Black",
+          "model": "76435-BL",
+          "variant_id": 4000382,
+          "swatch_hex": "#000000",
+          "price_usd": 32.74,
+          "image_slug": "delta-76435-bl-4825098.jpg"
+        },
+        {
+          "finish": "Brilliance Stainless",
+          "model": "76435-SS",
+          "variant_id": 2567414,
+          "swatch_hex": "#CFD4D9",
+          "price_usd": 36.51,
+          "image_slug": "delta-76435-ss-379.jpg"
+        },
+        {
+          "finish": "Venetian Bronze",
+          "model": "76435-RB",
+          "variant_id": 2567413,
+          "swatch_hex": "#766440",
+          "price_usd": 44.52,
+          "image_slug": "delta-76435-rb-380.jpg"
+        },
+        {
+          "finish": "Champagne Bronze",
+          "model": "76435-CZ",
+          "variant_id": 4986907,
+          "swatch_hex": "#D5B98C",
+          "price_usd": 69.93,
+          "image_slug": "delta-76435-cz-6222650.jpg"
+        }
+      ],
+      "gallery_images": [
+        "delta-76435-alternate-image-83.jpg",
+        "delta-76435-alternate-image-84.jpg",
+        "delta-76435-alternate-image-85.jpg",
+        "delta-76435-overall-room-view-in-venetian-bronze-902.jpg"
+      ],
+      "image_naming_note": "Same three-era batches: original 378/379/380, BL 4825098, CZ 6222650.",
+      "retail_urls": {
+        "ferguson_home": "https://www.fergusonhome.com/delta-76435/s1064242",
+        "build": "https://www.build.com/delta-76435/s1064242"
+      },
+      "verified": "Full page source verified 2026-08-02 - variant IDs, prices, image slugs confirmed",
+      "related_configurations": {
+        "coordinating_accessories": "76446 (ring), 76450 (tissue) - in catalog; 76418/76424 (bars, expected)"
+      }
+    },
+    {
+      "family_id": "1064241",
+      "brand": "Delta",
+      "collection": "Ashlyn",
+      "base_model": "76424",
+      "title": "Ashlyn 24\" Towel Bar",
+      "category": "Bath Accessories",
+      "specs": {
+        "mounting_type": "Wall Mounted",
+        "installation_type": "Wall Mounted",
+        "bar_length_in": 24,
+        "nominal_width_in": 24.0,
+        "overall_width_in": 26.188,
+        "height_in": 2.188,
+        "depth_projection_in": 3.5,
+        "configuration": "Single Bar",
+        "number_of_bars": 1,
+        "shape": "Round",
+        "escutcheon_shape": "Round",
+        "escutcheon_height_in": 2.188,
+        "escutcheon_width_in": 2.188,
+        "installation_hardware_included": true,
+        "concealed_screws": true,
+        "material": "Brass",
+        "theme": "Traditional (Ferguson tag)",
+        "residential_warranty": "Limited Lifetime",
+        "country_of_origin": "China",
+        "rating": 4.6,
+        "review_count": 58
+      },
+      "resources": {
+        "installation_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/1064241/delta-76424-installation-sheet.pdf",
+        "spec_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/1064241/delta-76424-specification-sheet.pdf",
+        "manufacturer_warranty": "https://s1.img-b.com/build.com/mediabase/specifications/delta/1064241/delta-76424-warranty.pdf"
+      },
+      "variants": [
+        {
+          "finish": "Chrome",
+          "model": "76424",
+          "variant_id": 2567409,
+          "swatch_hex": "#F2F2F2",
+          "price_usd": 52.92,
+          "image_slug": "delta-76424-484.jpg"
+        },
+        {
+          "finish": "Matte Black",
+          "model": "76424-BL",
+          "variant_id": 4000381,
+          "swatch_hex": "#000000",
+          "price_usd": 57.74,
+          "image_slug": "delta-76424-bl-4825098.jpg"
+        },
+        {
+          "finish": "Brilliance Stainless",
+          "model": "76424-SS",
+          "variant_id": 2567411,
+          "swatch_hex": "#CFD4D9",
+          "price_usd": 64.93,
+          "image_slug": "delta-76424-ss-485.jpg"
+        },
+        {
+          "finish": "Venetian Bronze",
+          "model": "76424-RB",
+          "variant_id": 2567410,
+          "swatch_hex": "#766440",
+          "price_usd": 72.91,
+          "image_slug": "delta-76424-rb-486.jpg"
+        },
+        {
+          "finish": "Champagne Bronze",
+          "model": "76424-CZ",
+          "variant_id": 4986905,
+          "swatch_hex": "#D5B98C",
+          "price_usd": 97.93,
+          "image_slug": "delta-76424-cz-6222650.jpg"
+        }
+      ],
+      "image_naming_note": "Same three-era batches: original 484/485/486, BL 4825098, CZ 6222650.",
+      "retail_urls": {
+        "ferguson_home": "https://www.fergusonhome.com/delta-76424/s1064241",
+        "build": "https://www.build.com/delta-76424/s1064241"
+      },
+      "verified": "Full page source verified 2026-08-02 - variant IDs, prices, image slugs confirmed",
+      "related_configurations": {
+        "size_sibling": "76418 (18in bar - full slug set leaked: 481/482/483 + BL 4825098 + CZ 6222650)",
+        "coordinating_accessories": "76446 (ring), 76450 (tissue), 76435 (hook) - in catalog"
+      }
+    },
+    {
+      "family_id": "1064240",
+      "brand": "Delta",
+      "collection": "Ashlyn",
+      "base_model": "76418",
+      "title": "Ashlyn 18\" Towel Bar",
+      "category": "Bath Accessories",
+      "specs": {
+        "mounting_type": "Wall Mounted",
+        "installation_type": "Wall Mounted",
+        "bar_length_in": 18,
+        "nominal_width_in": 18.0,
+        "overall_width_in": 20.188,
+        "height_in": 2.188,
+        "depth_projection_in": 3.5,
+        "configuration": "Single Bar",
+        "number_of_bars": 1,
+        "shape": "Round",
+        "escutcheon_shape": "Round",
+        "escutcheon_height_in": 2.188,
+        "escutcheon_width_in": 2.188,
+        "installation_hardware_included": true,
+        "concealed_screws": true,
+        "material": "Brass",
+        "theme": "Traditional (Ferguson tag)",
+        "residential_warranty": "Limited Lifetime",
+        "country_of_origin": "China",
+        "rating": 4.5,
+        "review_count": 29
+      },
+      "resources": {
+        "installation_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/1064240/delta-76418-installation-sheet.pdf",
+        "spec_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/1064240/delta-76418-specification-sheet.pdf",
+        "manufacturer_warranty": "https://s1.img-b.com/build.com/mediabase/specifications/delta/1064240/delta-76418-warranty.pdf"
+      },
+      "variants": [
+        {
+          "finish": "Chrome",
+          "model": "76418",
+          "variant_id": 2567406,
+          "swatch_hex": "#F2F2F2",
+          "price_usd": 47.5,
+          "image_slug": "delta-76418-481.jpg"
+        },
+        {
+          "finish": "Brilliance Stainless",
+          "model": "76418-SS",
+          "variant_id": 2567408,
+          "swatch_hex": "#CFD4D9",
+          "price_usd": 59.92,
+          "image_slug": "delta-76418-ss-482.jpg"
+        },
+        {
+          "finish": "Matte Black",
+          "model": "76418-BL",
+          "variant_id": 4000380,
+          "swatch_hex": "#000000",
+          "price_usd": 62.93,
+          "image_slug": "delta-76418-bl-4825098.jpg"
+        },
+        {
+          "finish": "Venetian Bronze",
+          "model": "76418-RB",
+          "variant_id": 2567407,
+          "swatch_hex": "#766440",
+          "price_usd": 67.9,
+          "image_slug": "delta-76418-rb-483.jpg"
+        },
+        {
+          "finish": "Champagne Bronze",
+          "model": "76418-CZ",
+          "variant_id": 4986904,
+          "swatch_hex": "#D5B98C",
+          "price_usd": 89.92,
+          "image_slug": "delta-76418-cz-6222650.jpg"
+        }
+      ],
+      "gallery_images": [
+        "delta-76418-alternate-image-80.jpg",
+        "delta-76418-alternate-image-81.jpg",
+        "delta-76418-alternate-image-82.jpg",
+        "delta-76418-overall-room-view-in-brilliance-stainless-914.jpg",
+        "delta-76418-overall-room-view-in-venetian-bronze-916.jpg"
+      ],
+      "image_naming_note": "Same three-era batches: original 481/482/483, BL 4825098, CZ 6222650. Slugs exactly matched prediction from 24in bar page leak.",
+      "retail_urls": {
+        "ferguson_home": "https://www.fergusonhome.com/delta-76418/s1064240",
+        "build": "https://www.build.com/delta-76418/s1064240"
+      },
+      "verified": "Full page source verified 2026-08-02 - variant IDs, prices, image slugs confirmed",
+      "related_configurations": {
+        "size_sibling": "76424 (24in bar, family 1064241, in catalog)",
+        "coordinating_accessories": "76446 (ring), 76450 (tissue), 76435 (hook) - in catalog"
+      }
+    }
+  ],
+  "catalog_status": "All 9 families fully verified from page source as of 2026-08-02. Ashlyn program complete: 2 lav faucets, 2 shower trims, 5 accessories. 5 finishes per family (Matte Black inclusion pending JT decision)."
+}

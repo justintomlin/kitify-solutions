@@ -128,7 +128,7 @@ function ConfirmStep({ profile, onDone }: { profile: Profile; onDone: () => Prom
         </label>
         <label className="block">
           <span className={LABEL}>{t("onboarding.phone")}</span>
-          <input value={phone} onChange={(e) => setPhone(e.target.value)} className={INPUT} />
+          <input type="tel" inputMode="tel" autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className={INPUT} />
         </label>
         <label className="block">
           <span className={LABEL}>{t("onboarding.territory")}</span>

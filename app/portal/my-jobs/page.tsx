@@ -12,16 +12,19 @@
 // Photos go to the 'job-photos' Supabase Storage bucket (see lib/storage.ts). That bucket
 // does not exist yet, so uploads are treated as best-effort everywhere: the registration
 // and the claim still succeed, and the UI says the photos can be added later.
+//
+// Both photo pickers are <PhotoUpload>, which uploads on selection rather than on submit —
+// so by the time these forms submit they are only writing URLs that already exist.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Camera, CheckCircle2, Plus, ShieldAlert, Truck, X } from "lucide-react";
+import { ArrowRight, Camera, CheckCircle2, ShieldAlert, Truck, X } from "lucide-react";
 import { useLanguage } from "@/components/LanguageContext";
 import { useAuth } from "@/components/AuthContext";
 import { useToast, ToastView } from "@/components/Toast";
+import { PhotoUpload } from "@/components/PhotoUpload";
 import { WarrantyStatusChip, ClaimStatusChip } from "@/components/projects/ui";
 import { createClaim, listClaims, listOrders, updateOrder, type Claim, type Order } from "@/lib/store";
-import { ACCEPT_ATTR, isAcceptedImage, uploadPhotos } from "@/lib/storage";
 
 const fmtDate = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString() : "—");
 
@@ -200,64 +203,41 @@ function RegisteredTab({ orders, onDone }: { orders: Order[]; onDone: (msg: stri
 }
 
 // ------------------------- install registration form -------------------------
-type Picked = { id: string; file: File; tag: Tag };
 
 function RegistrationForm({ order, onDone }: { order: Order; onDone: (msg: string) => void }) {
   const { t } = useLanguage();
-  const fileRef = useRef<HTMLInputElement>(null);
   const [installDate, setInstallDate] = useState(order.installDate ?? "");
-  const [picked, setPicked] = useState<Picked[]>([]);
+  // URLs of photos already in storage — PhotoUpload uploads as they're picked.
+  const [photos, setPhotos] = useState<string[]>([]);
+  // The tag is encoded into the storage filename, which is fixed at upload time, so it has to
+  // be chosen BEFORE the pick. It applies to each photo added next.
+  const [tag, setTag] = useState<Tag>("finished");
   const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
-  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [error, setError] = useState("");
-
-  function addFiles(list: FileList | null) {
-    if (!list) return;
-    const files = Array.from(list);
-    const good = files.filter(isAcceptedImage);
-    setError(good.length === files.length ? "" : t("myJobs.errFileType"));
-    setPicked((prev) => [
-      ...prev,
-      ...good.map((file, i) => ({ id: `${Date.now()}-${prev.length + i}-${file.name}`, file, tag: "finished" as Tag })),
-    ]);
-    if (fileRef.current) fileRef.current.value = ""; // let the same file be re-picked
-  }
 
   async function submit() {
     if (!installDate) { setError(t("myJobs.errInstallDate")); return; }
-    if (picked.length === 0) { setError(t("myJobs.errPhotoRequired")); return; }
+    if (photos.length === 0) { setError(t("myJobs.errPhotoRequired")); return; }
     setBusy(true);
     setError("");
     try {
-      const up = await uploadPhotos(
-        `orders/${order.id}`,
-        picked.map((p) => ({ file: p.file, tag: p.tag })),
-        (done, total) => setProgress({ done, total }),
-      );
       const now = new Date().toISOString();
       // One write closes the loop: order completed, photos stored, warranty activated.
       await updateOrder(order.id, {
         status: "completed",
         installDate,
         completedAt: now,
-        completionPhotos: [...order.completionPhotos, ...up.urls],
+        completionPhotos: [...order.completionPhotos, ...photos],
         notes: notes.trim() || order.notes,
         warrantyStatus: "registered",
         warrantyRegisteredAt: now,
       });
-      onDone(
-        up.bucketMissing
-          ? t("myJobs.registeredNoPhotos")
-          : up.failed > 0
-            ? t("myJobs.registeredSomePhotos", { n: String(up.failed) })
-            : t("myJobs.registered"),
-      );
+      onDone(t("myJobs.registered"));
     } catch {
       setError(t("myJobs.errSave"));
     } finally {
       setBusy(false);
-      setProgress(null);
     }
   }
 
@@ -271,32 +251,27 @@ function RegistrationForm({ order, onDone }: { order: Order; onDone: (msg: strin
 
       <Field label={t("myJobs.fPhotos")}>
         <p className="mb-2 text-xs text-muted">{t("myJobs.photosHint")}</p>
-        <input ref={fileRef} type="file" multiple accept={ACCEPT_ATTR} onChange={(e) => addFiles(e.target.files)} className="hidden" />
-        <button type="button" onClick={() => fileRef.current?.click()} disabled={busy} className={BTN_GHOST}>
-          <Plus className="h-4 w-4" /> {t("myJobs.addPhotos")}
-        </button>
-
-        {picked.length > 0 && (
-          <div className="mt-3 space-y-2">
-            {picked.map((p) => (
-              <div key={p.id} className="flex flex-wrap items-center gap-2 rounded-lg border border-line bg-card px-3 py-2">
-                <span className="min-w-0 flex-1 truncate text-xs text-ink">{p.file.name}</span>
-                <label className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-muted">
-                  <span className="font-mono">{t("myJobs.tag")}</span>
-                  <select value={p.tag} disabled={busy}
-                    onChange={(e) => setPicked((prev) => prev.map((x) => (x.id === p.id ? { ...x, tag: e.target.value as Tag } : x)))}
-                    className="rounded-md border border-line bg-paper px-2 py-1 text-xs normal-case tracking-normal text-ink focus:border-accent focus:outline-none">
-                    {TAGS.map((tg) => <option key={tg} value={tg}>{t(TAG_KEY[tg])}</option>)}
-                  </select>
-                </label>
-                <button type="button" onClick={() => setPicked((prev) => prev.filter((x) => x.id !== p.id))} disabled={busy}
-                  aria-label={t("myJobs.remove")} className="rounded-md border border-line p-1 text-muted transition hover:text-ink disabled:opacity-50">
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
+        {/* Tag first, then shoot: the stored filename carries the tag and is fixed the moment
+            the upload starts, so it can't be re-assigned from the thumbnail afterwards. */}
+        <label className="mb-2 flex flex-wrap items-center gap-2">
+          <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted">{t("myJobs.tag")}</span>
+          <select
+            value={tag}
+            disabled={busy}
+            onChange={(e) => setTag(e.target.value as Tag)}
+            className="rounded-md border border-line bg-paper px-2 py-1.5 text-sm text-ink focus:border-accent focus:outline-none disabled:opacity-50"
+          >
+            {TAGS.map((tg) => <option key={tg} value={tg}>{t(TAG_KEY[tg])}</option>)}
+          </select>
+        </label>
+        <PhotoUpload
+          photos={photos}
+          onPhotosChange={setPhotos}
+          storagePrefix={`orders/${order.id}`}
+          tag={tag}
+          minPhotos={1}
+          disabled={busy}
+        />
       </Field>
 
       <Field label={t("myJobs.fNotes")}>
@@ -305,9 +280,8 @@ function RegistrationForm({ order, onDone }: { order: Order; onDone: (msg: strin
       </Field>
 
       {error && <ErrorNote>{error}</ErrorNote>}
-      {busy && progress && (
-        <p className="text-xs text-muted">{t("myJobs.uploading", { done: String(progress.done), total: String(progress.total) })}</p>
-      )}
+      {/* No upload progress here any more — PhotoUpload reports it per thumbnail as the
+          photos are picked, so submit is just the database write. */}
 
       <button onClick={submit} disabled={busy} className={BTN}>
         <CheckCircle2 className="h-4 w-4" /> {busy ? t("myJobs.submitting") : t("myJobs.submit")}
@@ -464,28 +438,15 @@ function ClaimForm({
   orders, ownerId, onDone, onCancel,
 }: { orders: Order[]; ownerId: string; onDone: (msg: string) => void; onCancel: () => void }) {
   const { t } = useLanguage();
-  const fileRef = useRef<HTMLInputElement>(null);
   const [orderId, setOrderId] = useState("");
   const [products, setProducts] = useState<string[]>([]);
   const [description, setDescription] = useState("");
-  const [files, setFiles] = useState<{ id: string; file: File }[]>([]);
+  const [photos, setPhotos] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
   const order = orders.find((o) => o.id === orderId) ?? null;
   const items = order ? lineItems(order) : [];
-
-  function addFiles(list: FileList | null) {
-    if (!list) return;
-    const incoming = Array.from(list);
-    const good = incoming.filter(isAcceptedImage);
-    setError(good.length === incoming.length ? "" : t("myJobs.errFileType"));
-    setFiles((prev) => [
-      ...prev,
-      ...good.map((file, i) => ({ id: `${Date.now()}-${prev.length + i}-${file.name}`, file })),
-    ].slice(0, MAX_CLAIM_PHOTOS));
-    if (fileRef.current) fileRef.current.value = "";
-  }
 
   async function submit() {
     if (!orderId) { setError(t("myJobs.errJob")); return; }
@@ -494,19 +455,14 @@ function ClaimForm({
     setBusy(true);
     setError("");
     try {
-      const up = await uploadPhotos(`claims/${orderId}`, files.map((f) => ({ file: f.file })));
       const claim = await createClaim({
         orderId,
         ownerId,
         affectedProducts: products,
         description: description.trim(),
-        photos: up.urls,
+        photos,
       });
-      onDone(
-        up.bucketMissing && files.length > 0
-          ? t("myJobs.claimFiledNoPhotos", { number: claim.claimNumber })
-          : t("myJobs.claimFiled", { number: claim.claimNumber }),
-      );
+      onDone(t("myJobs.claimFiled", { number: claim.claimNumber }));
     } catch {
       setError(t("myJobs.errClaimSave"));
     } finally {
@@ -525,7 +481,7 @@ function ClaimForm({
       </div>
 
       <Field label={t("myJobs.fJob")}>
-        <select value={orderId} onChange={(e) => { setOrderId(e.target.value); setProducts([]); }} className={FIELD}>
+        <select value={orderId} onChange={(e) => { setOrderId(e.target.value); setProducts([]); setPhotos([]); }} className={FIELD}>
           <option value="">{t("myJobs.fJobPlaceholder")}</option>
           {orders.map((o) => (
             <option key={o.id} value={o.id}>{o.orderNumber} — {o.customer.name || "—"}</option>
@@ -561,22 +517,18 @@ function ClaimForm({
       </Field>
 
       <Field label={t("myJobs.fClaimPhotos", { max: String(MAX_CLAIM_PHOTOS) })}>
-        <input ref={fileRef} type="file" multiple accept={ACCEPT_ATTR} onChange={(e) => addFiles(e.target.files)} className="hidden" />
-        <button type="button" onClick={() => fileRef.current?.click()} disabled={busy || files.length >= MAX_CLAIM_PHOTOS} className={BTN_GHOST}>
-          <Plus className="h-4 w-4" /> {t("myJobs.addPhotos")}
-        </button>
-        {files.length > 0 && (
-          <div className="mt-2 space-y-1.5">
-            {files.map((f) => (
-              <div key={f.id} className="flex items-center gap-2 rounded-lg border border-line bg-paper/60 px-3 py-1.5">
-                <span className="min-w-0 flex-1 truncate text-xs text-ink">{f.file.name}</span>
-                <button type="button" onClick={() => setFiles((prev) => prev.filter((x) => x.id !== f.id))} disabled={busy}
-                  aria-label={t("myJobs.remove")} className="rounded-md border border-line p-1 text-muted transition hover:text-ink disabled:opacity-50">
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            ))}
-          </div>
+        {/* Photos land under claims/<orderId>, so a job has to be picked first — and changing
+            the job clears them, since anything already uploaded sits under the old job's path. */}
+        {order ? (
+          <PhotoUpload
+            photos={photos}
+            onPhotosChange={setPhotos}
+            storagePrefix={`claims/${orderId}`}
+            maxPhotos={MAX_CLAIM_PHOTOS}
+            disabled={busy}
+          />
+        ) : (
+          <p className="text-xs text-muted">{t("myJobs.claimPhotosPickJob")}</p>
         )}
       </Field>
 

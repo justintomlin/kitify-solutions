@@ -1,15 +1,17 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Menu, LogOut } from "lucide-react";
+import { Menu, X, LogOut } from "lucide-react";
 import { useAuth } from "./AuthContext";
 import { useLanguage } from "./LanguageContext";
 import { LanguageToggle } from "./LanguageToggle";
+import { useSidebar } from "./SidebarContext";
 
-export function Header({ onMenu }: { onMenu: () => void }) {
+export function Header() {
   const { user, profile, signOut } = useAuth();
   const { t } = useLanguage();
   const router = useRouter();
+  const { mode, isOpen, toggle } = useSidebar();
 
   const isAdmin = profile?.role === "admin";
   const roleLabel = isAdmin ? t("header.roleAdmin") : t("header.roleUser");
@@ -22,14 +24,21 @@ export function Header({ onMenu }: { onMenu: () => void }) {
 
   return (
     <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-line bg-card/90 px-4 backdrop-blur md:px-6">
-      <button
-        type="button"
-        onClick={onMenu}
-        className="rounded-md p-2 text-ink/70 hover:bg-ink/5 md:hidden"
-        aria-label="Menu"
-      >
-        <Menu className="h-5 w-5" />
-      </button>
+      {/* Only rendered when there's a collapsed nav to reveal. The header is sticky, so this
+          stays reachable while the page scrolls without needing to leave the flow — a truly
+          fixed button would sit on top of the welcome text. 44px tap target for tablets. */}
+      {mode === "collapsible" && (
+        <button
+          type="button"
+          onClick={toggle}
+          aria-label={isOpen ? t("nav.closeMenu") : t("nav.openMenu")}
+          aria-expanded={isOpen}
+          aria-controls="portal-sidebar"
+          className="-ml-2 grid h-11 w-11 shrink-0 place-items-center rounded-md text-ink/70 transition-colors hover:bg-ink/5"
+        >
+          {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+        </button>
+      )}
 
       <div className="min-w-0">
         <div className="truncate font-display text-base font-semibold">

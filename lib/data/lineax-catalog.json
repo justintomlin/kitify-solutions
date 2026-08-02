@@ -1,0 +1,713 @@
+{
+  "catalog_name": "Delta Lineax Foundation Series",
+  "image_url_template": "https://s3.img-b.com/image/private/t_base,c_lpad,f_auto,dpr_auto,w_{W},h_{H}/product/delta/{IMAGE_SLUG}",
+  "program_note": "Foundation series - the portal's DEFAULT series. Built on Delta Lineax (contemporary, value-tier).",
+  "finish_dimension_note": "Lineax offers 4 finishes: Chrome, Brilliance Stainless (SS), Champagne Bronze (CZ), Matte Black (BL) - no Venetian Bronze. JT decision pending: all 4 finishes vs Chrome only for the Foundation program.",
+  "families": [
+    {
+      "family_id": "2128888",
+      "brand": "Delta",
+      "collection": "Lineax",
+      "base_model": "3562LF-MPU",
+      "title": "Lineax 1.2 GPM Widespread Bathroom Faucet with Push Pop-Up Drain Assembly",
+      "category": "Bathroom Sink Faucets",
+      "specs": {
+        "mounting_type": "Widespread",
+        "faucet_holes": 3,
+        "number_of_handles": 2,
+        "flow_rate_gpm": 1.2,
+        "height_in": 7.31,
+        "spout_height_in": 5.0,
+        "spout_reach_in": 5.25,
+        "faucet_centers_in": "4 - 16",
+        "max_deck_thickness_in": 2.4375,
+        "water_connection": "1/2\" NPSM",
+        "weight_lb": 4.29,
+        "installation_type": "Deck Mounted",
+        "handle_style": "Lever",
+        "handle_material": "Zinc",
+        "spout_type": "Fixed",
+        "valve_type": "Cartridge (not Diamond Seal)",
+        "material": "Zinc",
+        "theme": "Contemporary",
+        "drain_assembly_included": true,
+        "handles_included": true,
+        "valve_included": true,
+        "ada_compliant": true,
+        "watersense_certified": true,
+        "ca_drought_compliant": true,
+        "low_lead_compliant": true,
+        "residential_warranty": "Limited Lifetime",
+        "country_of_origin": "Thailand",
+        "rating": 4.6,
+        "review_count": 5
+      },
+      "resources": {
+        "exploded_parts": "https://s1.img-b.com/build.com/mediabase/specifications/delta/2128888/delta-3562lf-mpu-exploded-parts.pdf",
+        "owners_manual": "https://s1.img-b.com/build.com/mediabase/specifications/delta/2128888/delta-3562lf-mpu-owners-manual.pdf",
+        "spec_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/2128888/delta-3562lf-mpu-specification-sheet.pdf"
+      },
+      "variants": [
+        {
+          "finish": "Chrome",
+          "model": "3562LF-MPU",
+          "variant_id": 5214144,
+          "swatch_hex": "#F2F2F2",
+          "price_usd": 159.96,
+          "image_slug": "delta-3562lf-mpu-1222956.jpg"
+        },
+        {
+          "finish": "Brilliance Stainless",
+          "model": "3562LF-SSMPU",
+          "variant_id": 5214142,
+          "swatch_hex": "#CFD4D9",
+          "price_usd": 201.18,
+          "image_slug": "delta-3562lf-ssmpu-1222956.jpg"
+        },
+        {
+          "finish": "Matte Black",
+          "model": "3562LF-BLMPU",
+          "variant_id": 5214145,
+          "swatch_hex": "#000000",
+          "price_usd": 201.39,
+          "image_slug": "delta-3562lf-blmpu-1222956.jpg"
+        },
+        {
+          "finish": "Champagne Bronze",
+          "model": "3562LF-CZMPU",
+          "variant_id": 5214143,
+          "swatch_hex": "#D5B98C",
+          "price_usd": 232.38,
+          "image_slug": "delta-3562lf-czmpu-1222956.jpg"
+        }
+      ],
+      "gallery_images": [
+        "delta-3562lf-mpu-alternate-image-36.jpg",
+        "delta-3562lf-mpu-alternate-image-37.jpg",
+        "delta-3562lf-mpu-alternate-image-38.jpg",
+        "delta-3562lf-mpu-alternate-image-39.jpg",
+        "delta-3562lf-mpu-alternate-image-40.jpg",
+        "delta-3562lf-mpu-alternate-image-41.jpg",
+        "delta-3562lf-mpu-alternate-image-42.jpg",
+        "delta-3562lf-mpu-alternate-image-43.jpg",
+        "delta-3562lf-mpu-alternate-image-44.jpg",
+        "delta-3562lf-mpu-alternate-image-45.jpg"
+      ],
+      "image_naming_note": "All 4 finishes on single unified batch 1222956 - new line, clean photography.",
+      "retail_urls": {
+        "ferguson_home": "https://www.fergusonhome.com/delta-3562lf-mpu/s2128888",
+        "build": "https://www.build.com/delta-3562lf-mpu/s2128888"
+      },
+      "verified": "Full page source verified 2026-08-02 - variant IDs, prices, image slugs confirmed"
+    },
+    {
+      "family_id": "2128890",
+      "brand": "Delta",
+      "collection": "Lineax",
+      "base_model": "T14262",
+      "title": "Lineax Monitor 14 Series Single Function Pressure Balanced Shower Only Trim - Less Rough-In Valve",
+      "category": "Shower Trim",
+      "specs": {
+        "mounting_type": "Wall Mounted",
+        "installation_type": "Wall Mounted",
+        "number_of_handles": 1,
+        "flow_rate_gpm": 1.75,
+        "showerhead": "Multi function, 5 spray settings, round, full spray, pause control",
+        "showerhead_width_in": 6.0,
+        "showerhead_height_in": 3.6875,
+        "shower_arm_reach_in": 5.5,
+        "valve_trim_dimensions_in": "6.5 H x 6.5 W",
+        "handle_style": "Lever",
+        "handle_material": "Zinc",
+        "material": "Zinc",
+        "shower_arm_included": true,
+        "shower_head_included": true,
+        "diverter_included": false,
+        "handshower_included": false,
+        "pause_control": true,
+        "rough_in_valve_included": false,
+        "rough_in_note": "Trim kit only - requires Delta MultiChoice Universal rough-in valve (R10000 series), sold separately",
+        "valve_type": "Pressure Balanced (Monitor 14 Series)",
+        "theme": "Contemporary",
+        "ada_compliant": true,
+        "watersense_certified": true,
+        "ca_drought_compliant": true,
+        "water_efficient": true,
+        "residential_warranty": "Limited Lifetime",
+        "country_of_origin": "USA",
+        "made_in_america": true,
+        "rating": 4.8,
+        "review_count": 6
+      },
+      "resources": {
+        "exploded_parts": "https://s1.img-b.com/build.com/mediabase/specifications/delta/2128890/delta-t14262-exploded-parts.pdf",
+        "owners_manual": "https://s1.img-b.com/build.com/mediabase/specifications/delta/2128890/delta-t14262-owners-manual.pdf",
+        "spec_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/2128890/delta-t14262-specification-sheet.pdf"
+      },
+      "variants": [
+        {
+          "finish": "Chrome",
+          "model": "T14262",
+          "variant_id": 5213992,
+          "swatch_hex": "#F2F2F2",
+          "price_usd": 92.28,
+          "image_slug": "delta-t14262-1222956.jpg"
+        },
+        {
+          "finish": "Brilliance Stainless",
+          "model": "T14262-SS",
+          "variant_id": 5213990,
+          "swatch_hex": "#CFD4D9",
+          "price_usd": 138.93,
+          "image_slug": "delta-t14262-ss-1222956.jpg"
+        },
+        {
+          "finish": "Matte Black",
+          "model": "T14262-BL",
+          "variant_id": 5213993,
+          "swatch_hex": "#000000",
+          "price_usd": 139.08,
+          "image_slug": "delta-t14262-bl-1222956.jpg"
+        },
+        {
+          "finish": "Champagne Bronze",
+          "model": "T14262-CZ",
+          "variant_id": 5213991,
+          "swatch_hex": "#D5B98C",
+          "price_usd": 144.18,
+          "image_slug": "delta-t14262-cz-1222956.jpg"
+        }
+      ],
+      "gallery_images": [
+        "delta-t14262-alternate-image-303.jpg",
+        "delta-t14262-alternate-image-304.jpg",
+        "delta-t14262-alternate-image-305.jpg",
+        "delta-t14262-alternate-image-306.jpg",
+        "delta-t14262-alternate-image-307.jpg",
+        "delta-t14262-alternate-image-308.jpg",
+        "delta-t14262-alternate-image-309.jpg",
+        "delta-t14262-alternate-image-310.jpg",
+        "delta-t14262-alternate-image-311.jpg",
+        "delta-t14262-alternate-image-312.jpg",
+        "delta-t14262-alternate-image-313.jpg",
+        "delta-t14262-alternate-image-314.jpg",
+        "delta-t14262-alternate-image-315.jpg",
+        "delta-t14262-alternate-image-316.jpg",
+        "delta-t14262-alternate-image-317.jpg",
+        "delta-t14262-alternate-image-318.jpg"
+      ],
+      "image_naming_note": "All 4 finishes on unified batch 1222956, matching the widespread faucet.",
+      "retail_urls": {
+        "ferguson_home": "https://www.fergusonhome.com/delta-t14262/s2128890",
+        "build": "https://www.build.com/delta-t14262/s2128890"
+      },
+      "verified": "Full page source verified 2026-08-02 - variant IDs, prices, image slugs confirmed",
+      "related_configurations": {
+        "tub_shower_sibling": "T14462 (expected)",
+        "recommended_rough_in": "R10000-UNBX"
+      }
+    },
+    {
+      "family_id": "2132517",
+      "brand": "Delta",
+      "collection": "Lineax",
+      "base_model": "T14462",
+      "title": "Lineax Monitor 14 Series Single Function Pressure Balanced Tub and Shower Trim - Less Rough-In Valve",
+      "category": "Tub & Shower Trim",
+      "specs": {
+        "mounting_type": "Wall Mounted",
+        "installation_type": "Wall Mounted",
+        "number_of_handles": 1,
+        "flow_rate_gpm": 1.75,
+        "showerhead": "Multi function, 5 spray settings, round, full spray, pause control",
+        "showerhead_width_in": 6.0,
+        "showerhead_height_in": 3.6875,
+        "shower_arm_reach_in": 5.5,
+        "tub_spout_reach_in": 6.625,
+        "valve_trim_dimensions_in": "6.5 H x 6.5 W",
+        "handle_style": "Lever",
+        "handle_material": "Zinc",
+        "material": "Zinc",
+        "shower_arm_included": true,
+        "shower_head_included": true,
+        "tub_spout_included": true,
+        "diverter_included": true,
+        "handshower_included": false,
+        "pause_control": true,
+        "rough_in_valve_included": false,
+        "rough_in_note": "Trim kit only - requires Delta MultiChoice Universal rough-in valve (R10000 series), sold separately",
+        "valve_type": "Pressure Balanced (Monitor 14 Series)",
+        "theme": "Contemporary",
+        "ada_compliant": true,
+        "watersense_certified": true,
+        "ca_drought_compliant": true,
+        "water_efficient": true,
+        "residential_warranty": "Limited Lifetime",
+        "country_of_origin": "USA",
+        "made_in_america": true,
+        "rating": 4.7,
+        "review_count": 7
+      },
+      "resources": {
+        "exploded_parts": "https://s1.img-b.com/build.com/mediabase/specifications/delta/2132517/delta-t14462-exploded-parts.pdf",
+        "owners_manual": "https://s1.img-b.com/build.com/mediabase/specifications/delta/2132517/delta-t14462-owners-manual.pdf",
+        "spec_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/2132517/delta-t14462-specification-sheet.pdf"
+      },
+      "variants": [
+        {
+          "finish": "Chrome",
+          "model": "T14462",
+          "variant_id": 5213981,
+          "swatch_hex": "#F2F2F2",
+          "price_usd": 107.88,
+          "image_slug": "delta-t14462-1222956.jpg"
+        },
+        {
+          "finish": "Brilliance Stainless",
+          "model": "T14462-SS",
+          "variant_id": 5213979,
+          "swatch_hex": "#CFD4D9",
+          "price_usd": 159.75,
+          "image_slug": "delta-t14462-ss-1222956.jpg"
+        },
+        {
+          "finish": "Matte Black",
+          "model": "T14462-BL",
+          "variant_id": 5213982,
+          "swatch_hex": "#000000",
+          "price_usd": 159.93,
+          "image_slug": "delta-t14462-bl-1222956.jpg"
+        },
+        {
+          "finish": "Champagne Bronze",
+          "model": "T14462-CZ",
+          "variant_id": 5213980,
+          "swatch_hex": "#D5B98C",
+          "price_usd": 175.02,
+          "image_slug": "delta-t14462-cz-1222956.jpg"
+        }
+      ],
+      "gallery_images": [
+        "delta-t14462-alternate-image-336.jpg",
+        "delta-t14462-alternate-image-337.jpg",
+        "delta-t14462-alternate-image-338.jpg",
+        "delta-t14462-alternate-image-339.jpg",
+        "delta-t14462-alternate-image-340.jpg",
+        "delta-t14462-alternate-image-341.jpg",
+        "delta-t14462-alternate-image-342.jpg",
+        "delta-t14462-alternate-image-343.jpg",
+        "delta-t14462-alternate-image-344.jpg",
+        "delta-t14462-alternate-image-345.jpg",
+        "delta-t14462-alternate-image-346.jpg",
+        "delta-t14462-alternate-image-347.jpg",
+        "delta-t14462-alternate-image-348.jpg",
+        "delta-t14462-alternate-image-349.jpg",
+        "delta-t14462-alternate-image-350.jpg",
+        "delta-t14462-alternate-image-351.jpg"
+      ],
+      "image_naming_note": "All 4 finishes on unified batch 1222956, consistent with the whole Lineax line.",
+      "retail_urls": {
+        "ferguson_home": "https://www.fergusonhome.com/delta-t14462/s2132517",
+        "build": "https://www.build.com/delta-t14462/s2132517"
+      },
+      "verified": "Full page source verified 2026-08-02 - variant IDs, prices, image slugs confirmed",
+      "related_configurations": {
+        "shower_only_sibling": "T14262 (family 2128890, in catalog)",
+        "recommended_rough_in": "R10000-UNBX"
+      }
+    },
+    {
+      "family_id": "2132419",
+      "brand": "Delta",
+      "collection": "Lineax",
+      "base_model": "76247",
+      "title": "Lineax Wall Mounted Spring Loaded Toilet Paper Holder",
+      "category": "Bath Accessories",
+      "specs": {
+        "mounting_type": "Wall Mounted",
+        "installation_type": "Wall Mounted",
+        "height_in": 2.0,
+        "width_in": 8.44,
+        "overall_width_in": 8.4375,
+        "nominal_width_in": 9.0,
+        "depth_projection_in": 3.125,
+        "center_to_center_in": 6.4375,
+        "orientation": "Horizontal",
+        "number_of_rolls": 1,
+        "weight_lb": 1.46,
+        "product_variation": "Spring Loaded Paper Holder",
+        "escutcheon_shape": "Round",
+        "installation_hardware_included": true,
+        "material": "Zinc",
+        "theme": "Contemporary",
+        "residential_warranty": "Limited Lifetime",
+        "country_of_origin": "China",
+        "rating": null,
+        "review_count": 0
+      },
+      "resources": {
+        "spec_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/2132419/delta-76247-specification-sheet.pdf"
+      },
+      "variants": [
+        {
+          "finish": "Chrome",
+          "model": "76247",
+          "variant_id": 5214177,
+          "swatch_hex": "#F2F2F2",
+          "price_usd": 29.39,
+          "image_slug": "delta-76247-1222956.jpg"
+        },
+        {
+          "finish": "Brilliance Stainless",
+          "model": "76247-SS",
+          "variant_id": 5214175,
+          "swatch_hex": "#CFD4D9",
+          "price_usd": 40.36,
+          "image_slug": "delta-76247-ss-1222956.jpg"
+        },
+        {
+          "finish": "Matte Black",
+          "model": "76247-BL",
+          "variant_id": 5214178,
+          "swatch_hex": "#000000",
+          "price_usd": 40.49,
+          "image_slug": "delta-76247-bl-1222956.jpg"
+        },
+        {
+          "finish": "Champagne Bronze",
+          "model": "76247-CZ",
+          "variant_id": 5214176,
+          "swatch_hex": "#D5B98C",
+          "price_usd": 42.22,
+          "image_slug": "delta-76247-cz-1222956.jpg"
+        }
+      ],
+      "image_naming_note": "All 4 finishes on unified batch 1222956, consistent with the whole Lineax line. Only 4 images total - minimal photography, no gallery yet (new line).",
+      "retail_urls": {
+        "ferguson_home": "https://www.fergusonhome.com/delta-76247/s2132419",
+        "build": "https://www.build.com/delta-76247/s2132419"
+      },
+      "verified": "Full page source verified 2026-08-02 - variant IDs, prices, image slugs confirmed",
+      "related_configurations": {
+        "coordinating_accessories": "Lineax accessory line exists - other pieces (bars, ring, hook) expected in 762xx numbering"
+      }
+    },
+    {
+      "family_id": "2132418",
+      "brand": "Delta",
+      "collection": "Lineax",
+      "base_model": "76236",
+      "title": "Lineax 7-11/16\" Wall Mounted Towel Ring",
+      "category": "Bath Accessories",
+      "specs": {
+        "mounting_type": "Wall Mounted",
+        "installation_type": "Wall Mounted",
+        "height_in": 5.8125,
+        "width_in": 7.6875,
+        "nominal_width_in": 8.0,
+        "depth_projection_in": 2.625,
+        "weight_lb": 1.6,
+        "escutcheon_height_in": 2.0,
+        "escutcheon_width_in": 2.0,
+        "installation_hardware_included": true,
+        "material": "Zinc",
+        "theme": "Contemporary",
+        "residential_warranty": "Limited Lifetime",
+        "country_of_origin": "China",
+        "rating": 5.0,
+        "review_count": 1
+      },
+      "resources": {
+        "owners_manual": "https://s1.img-b.com/build.com/mediabase/specifications/delta/2132418/delta-76236-owners-manual.pdf",
+        "spec_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/2132418/delta-76236-specification-sheet.pdf"
+      },
+      "variants": [
+        {
+          "finish": "Chrome",
+          "model": "76236",
+          "variant_id": 5214181,
+          "swatch_hex": "#F2F2F2",
+          "price_usd": 20.24,
+          "image_slug": "delta-76236-1222956.jpg"
+        },
+        {
+          "finish": "Brilliance Stainless",
+          "model": "76236-SS",
+          "variant_id": 5214179,
+          "swatch_hex": "#CFD4D9",
+          "price_usd": 29.33,
+          "image_slug": "delta-76236-ss-1222956.jpg"
+        },
+        {
+          "finish": "Matte Black",
+          "model": "76236-BL",
+          "variant_id": 5214182,
+          "swatch_hex": "#000000",
+          "price_usd": 29.42,
+          "image_slug": "delta-76236-bl-1222956.jpg"
+        },
+        {
+          "finish": "Champagne Bronze",
+          "model": "76236-CZ",
+          "variant_id": 5214180,
+          "swatch_hex": "#D5B98C",
+          "price_usd": 31.19,
+          "image_slug": "delta-76236-cz-1222956.jpg"
+        }
+      ],
+      "image_naming_note": "All 4 finishes on unified batch 1222956. Minimal photography (4 primary shots only).",
+      "retail_urls": {
+        "ferguson_home": "https://www.fergusonhome.com/delta-76236/s2132418",
+        "build": "https://www.build.com/delta-76236/s2132418"
+      },
+      "verified": "Full page source verified 2026-08-02 - variant IDs, prices, image slugs confirmed",
+      "related_configurations": {
+        "coordinating_accessories": "76247 (tissue, in catalog); bars and hook expected in 762xx numbering"
+      }
+    },
+    {
+      "family_id": "2132417",
+      "brand": "Delta",
+      "collection": "Lineax",
+      "base_model": "76232",
+      "title": "Lineax Single Robe Hook",
+      "category": "Bath Accessories",
+      "specs": {
+        "mounting_type": "Wall Mounted",
+        "installation_type": "Wall Mounted",
+        "height_in": 2.0,
+        "width_in": 2.0,
+        "depth_projection_in": 2.75,
+        "weight_lb": 0.43,
+        "hanging_capacity": 1,
+        "escutcheon_shape": "Round",
+        "escutcheon_height_in": 2.0,
+        "escutcheon_width_in": 2.0,
+        "installation_hardware_included": true,
+        "material": "Zinc",
+        "theme": "Contemporary",
+        "residential_warranty": "Limited Lifetime",
+        "country_of_origin": "China",
+        "rating": null,
+        "review_count": 0
+      },
+      "resources": {
+        "owners_manual": "https://s1.img-b.com/build.com/mediabase/specifications/delta/2132417/delta-76232-owners-manual.pdf",
+        "spec_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/2132417/delta-76232-specification-sheet.pdf"
+      },
+      "variants": [
+        {
+          "finish": "Chrome",
+          "model": "76232",
+          "variant_id": 5214185,
+          "swatch_hex": "#F2F2F2",
+          "price_usd": 14.73,
+          "image_slug": "delta-76232-1222956.jpg"
+        },
+        {
+          "finish": "Brilliance Stainless",
+          "model": "76232-SS",
+          "variant_id": 5214183,
+          "swatch_hex": "#CFD4D9",
+          "price_usd": 20.15,
+          "image_slug": "delta-76232-ss-1222956.jpg"
+        },
+        {
+          "finish": "Matte Black",
+          "model": "76232-BL",
+          "variant_id": 5214186,
+          "swatch_hex": "#000000",
+          "price_usd": 20.21,
+          "image_slug": "delta-76232-bl-1222956.jpg"
+        },
+        {
+          "finish": "Champagne Bronze",
+          "model": "76232-CZ",
+          "variant_id": 5214184,
+          "swatch_hex": "#D5B98C",
+          "price_usd": 22.04,
+          "image_slug": "delta-76232-cz-1222956.jpg"
+        }
+      ],
+      "image_naming_note": "All 4 finishes on unified batch 1222956. Minimal photography (4 primary shots only).",
+      "retail_urls": {
+        "ferguson_home": "https://www.fergusonhome.com/delta-76232/s2132417",
+        "build": "https://www.build.com/delta-76232/s2132417"
+      },
+      "verified": "Full page source verified 2026-08-02 - variant IDs, prices, image slugs confirmed",
+      "related_configurations": {
+        "coordinating_accessories": "76247 (tissue), 76236 (ring) - in catalog; bars expected in 762xx numbering"
+      }
+    },
+    {
+      "family_id": "333021",
+      "brand": "Delta",
+      "collection": "Lineax",
+      "base_model": "76224",
+      "title": "Lineax 24\" Towel Bar",
+      "category": "Bath Accessories",
+      "specs": {
+        "mounting_type": "Wall Mounted",
+        "installation_type": "Wall Mounted",
+        "bar_length_in": 24,
+        "nominal_width_in": 24.0,
+        "overall_width_in": 26.0,
+        "height_in": 2.0,
+        "depth_projection_in": 3.125,
+        "configuration": "Single Bar",
+        "number_of_bars": 1,
+        "weight_lb": 1.58,
+        "escutcheon_width_in": 2.25,
+        "material": "Stainless Steel",
+        "theme": "Contemporary",
+        "residential_warranty": "Limited Lifetime",
+        "country_of_origin": "China",
+        "rating": 3.5,
+        "review_count": 2
+      },
+      "resources": {
+        "owners_manual": "https://s1.img-b.com/build.com/mediabase/specifications/delta/333021/delta-76224-owners-manual.pdf",
+        "spec_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/333021/delta-76224-specification-sheet.pdf"
+      },
+      "variants": [
+        {
+          "finish": "Chrome",
+          "model": "76224",
+          "variant_id": 5214211,
+          "swatch_hex": "#F2F2F2",
+          "price_usd": 31.25,
+          "image_slug": "delta-76224-1222956.jpg"
+        },
+        {
+          "finish": "Brilliance Brushed Nickel",
+          "model": "76224-BN",
+          "variant_id": 1862998,
+          "swatch_hex": "#C9C4BC",
+          "price_usd": 30.79,
+          "image_slug": "delta_76224bn_productimage.jpg",
+          "data_note": "Legacy variant: old variant ID (18xxxxx vs 52xxxxx for the others) and old underscore image naming. This family predates the Lineax branding - Delta folded an existing bar into the collection. BN finish exists ONLY on this family within Lineax."
+        },
+        {
+          "finish": "Brilliance Stainless",
+          "model": "76224-SS",
+          "variant_id": 5214209,
+          "swatch_hex": "#CFD4D9",
+          "price_usd": 42.22,
+          "image_slug": "delta-76224-ss-1222956.jpg"
+        },
+        {
+          "finish": "Matte Black",
+          "model": "76224-BL",
+          "variant_id": 5214212,
+          "swatch_hex": "#000000",
+          "price_usd": 44.14,
+          "image_slug": "delta-76224-bl-1222956.jpg"
+        },
+        {
+          "finish": "Champagne Bronze",
+          "model": "76224-CZ",
+          "variant_id": 5214210,
+          "swatch_hex": "#D5B98C",
+          "price_usd": 45.94,
+          "image_slug": "delta-76224-cz-1222956.jpg"
+        }
+      ],
+      "image_naming_note": "Mixed-era family: 4 new finishes on batch 1222956, legacy BN variant with underscore naming. Family ID 333021 is much older than the other Lineax families (21xxxxx) - pre-existing product folded into the new collection. Material listed as Stainless Steel (other Lineax accessories are Zinc).",
+      "retail_urls": {
+        "ferguson_home": "https://www.fergusonhome.com/delta-76224/s333021",
+        "build": "https://www.build.com/delta-76224/s333021"
+      },
+      "verified": "Full page source verified 2026-08-02 - variant IDs, prices, image slugs confirmed",
+      "related_configurations": {
+        "size_sibling": "18in bar expected (7621x/76218 numbering)",
+        "coordinating_accessories": "76247 (tissue), 76236 (ring), 76232 (hook) - in catalog"
+      }
+    },
+    {
+      "family_id": "328277",
+      "brand": "Delta",
+      "collection": "Lineax",
+      "base_model": "76218",
+      "title": "Lineax 18\" Towel Bar",
+      "category": "Bath Accessories",
+      "specs": {
+        "mounting_type": "Wall Mounted",
+        "installation_type": "Wall Mounted",
+        "bar_length_in": 18,
+        "nominal_width_in": 18.0,
+        "overall_width_in": 20.0,
+        "height_in": 2.0,
+        "depth_projection_in": 3.437,
+        "configuration": "Single Bar",
+        "number_of_bars": 1,
+        "weight_lb": 1.39,
+        "escutcheon_width_in": 2.25,
+        "material": "Stainless Steel",
+        "theme": "Contemporary",
+        "residential_warranty": "Limited Lifetime",
+        "country_of_origin": "China",
+        "rating": null,
+        "review_count": 0
+      },
+      "resources": {
+        "owners_manual": "https://s1.img-b.com/build.com/mediabase/specifications/delta/328277/delta-76218-owners-manual.pdf",
+        "spec_sheet": "https://s1.img-b.com/build.com/mediabase/specifications/delta/328277/delta-76218-specification-sheet.pdf"
+      },
+      "variants": [
+        {
+          "finish": "Brilliance Brushed Nickel",
+          "model": "76218-BN",
+          "variant_id": 1862999,
+          "swatch_hex": "#C9C4BC",
+          "price_usd": 28.59,
+          "image_slug": "76218brilliance_brushed_nickel.jpg",
+          "data_note": "Legacy variant (old 18xxxxx variant ID, no delta- prefix in slug). Same pre-Lineax history as the 24in bar. BN only matches within these two bar families."
+        },
+        {
+          "finish": "Chrome",
+          "model": "76218",
+          "variant_id": 5214207,
+          "swatch_hex": "#F2F2F2",
+          "price_usd": 29.39,
+          "image_slug": "delta-76218-1222956.jpg"
+        },
+        {
+          "finish": "Brilliance Stainless",
+          "model": "76218-SS",
+          "variant_id": 5214205,
+          "swatch_hex": "#CFD4D9",
+          "price_usd": 40.36,
+          "image_slug": "delta-76218-ss-1222956.jpg"
+        },
+        {
+          "finish": "Matte Black",
+          "model": "76218-BL",
+          "variant_id": 5214208,
+          "swatch_hex": "#000000",
+          "price_usd": 42.25,
+          "image_slug": "delta-76218-bl-1222956.jpg"
+        },
+        {
+          "finish": "Champagne Bronze",
+          "model": "76218-CZ",
+          "variant_id": 5214206,
+          "swatch_hex": "#D5B98C",
+          "price_usd": 43.99,
+          "image_slug": "delta-76218-cz-1222956.jpg"
+        }
+      ],
+      "image_naming_note": "Mixed-era family like the 24in bar: 4 new finishes on batch 1222956, legacy BN with prefix-less slug. Old family ID 328277. Stainless steel construction.",
+      "retail_urls": {
+        "ferguson_home": "https://www.fergusonhome.com/delta-76218/s328277",
+        "build": "https://www.build.com/delta-76218/s328277"
+      },
+      "verified": "Full page source verified 2026-08-02 - variant IDs, prices, image slugs confirmed",
+      "related_configurations": {
+        "size_sibling": "76224 (24in bar, family 333021, in catalog)",
+        "coordinating_accessories": "76247 (tissue), 76236 (ring), 76232 (hook) - in catalog"
+      }
+    }
+  ],
+  "catalog_status": "All 7 families fully verified from page source as of 2026-08-02. Foundation series (Lineax): widespread faucet, shower + tub/shower trims, 5 accessories. Finish decision pending (chrome-only vs 4 finishes; legacy BN on bars excluded either way). Single-hole faucet not yet extracted.",
+  "kitify_note": "The catalog_status line above says '7 families' but enumerates 1 faucet + 2 trims + 5 accessories = 8, and 8 family objects are present. Preserved verbatim from the source extract; the count in that sentence is the error, not the data."
+}

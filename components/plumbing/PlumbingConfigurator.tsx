@@ -75,7 +75,13 @@ export type PlumbingConfig = {
   label: string;
 };
 
-const initial: PlumbingSelections = { faucetQty: 1, roughIn: "standard", dualShower: false, wasteOverflow: false, accessories: {} };
+// Foundations is the default package: it's first in PLUMBING_PACKAGES, which is ordered
+// Good -> Better -> Best, and pre-selecting it means the finish step is reachable immediately
+// instead of the dealer facing an empty panel. A restored quote overwrites this wholesale.
+const initial: PlumbingSelections = {
+  packageId: PLUMBING_PACKAGES[0].id,
+  faucetQty: 1, roughIn: "standard", dualShower: false, wasteOverflow: false, accessories: {},
+};
 
 // ------------------------------ Engine ------------------------------------
 const pkgById = (id?: string) => PLUMBING_PACKAGES.find((p) => p.id === id);
@@ -119,15 +125,23 @@ function skuFor(s: PlumbingSelections, k: PlumbingComponentKey): string | undefi
 }
 
 // ------------------- Finish availability (catalog-driven) -------------------
-// Delta doesn't publish every finish in every collection, and not the same four: Woodhurst
-// ships Chrome/Stainless/Matte Black/Venetian Bronze, Lahara swaps Matte Black for Champagne
-// Bronze — while the SKU table carries all six. Offering a swatch that resolves to a SKU
-// nobody sells sends a dealer to an unfulfillable order, so the swatch row is filtered
-// against the catalog rather than against a hardcoded list.
+// Delta doesn't publish every finish in every collection, nor the same ones: Lineax ships
+// Chrome/Stainless/Matte Black/Champagne Bronze, Woodhurst swaps Champagne for Venetian
+// Bronze, Lahara the reverse, Ashlyn carries five and Trinsic all six — while the SKU table
+// carries seven. Offering a swatch that resolves to a SKU nobody sells sends a dealer to an
+// unfulfillable order, so the swatch row is filtered against the catalog rather than against
+// a hardcoded list.
 
 const ALL_COMPONENT_KEYS: PlumbingComponentKey[] = [
   "faucet1cc", "faucet8cc", "showerTrim", "tubShowerTrim", ...ACCESSORY_KEYS,
 ];
+
+/** Components this package actually sells — Lineax has no single-hole faucet, so it has none. */
+function catalogued(packageId: string): PlumbingComponentKey[] {
+  return ALL_COMPONENT_KEYS.filter((k) =>
+    PLUMBING_FINISHES.some((f) => hasProduct(plumbingSku(packageId, k, f.id))),
+  );
+}
 
 // Cached per package: PLUMBING_PACKAGES and the JSON catalogs are both static at runtime,
 // so this answer can never change within a session.
@@ -136,24 +150,40 @@ const finishCache = new Map<string, PlumbingFinish[]>();
 /**
  * The finishes to OFFER for a package.
  *
- * A package with NO catalog data at all — Eleva and Lumen until their JSON lands — offers
- * all six: the SKUs are real, we simply have no imagery or pricing yet, and hiding them
- * would remove working configurations. Once a package has ANY catalog data, only the
- * finishes actually published for it stay selectable — Terra and Bohème both land on four,
- * but not the same four.
+ * EVERY component must be available in the finish, not merely one of them. That follows from
+ * the module's core rule: one finish governs the faucet, the bathing trim and all accessories
+ * together. A finish only some pieces come in can't dress a set, so offering it would let a
+ * dealer build a quote where the trim is Champagne Bronze and the towel bar silently isn't.
+ *
+ * Lineax makes the difference concrete: its two towel bars carry a fifth finish (Brilliance
+ * Brushed Nickel) that nothing else in the collection does. Under an ANY rule the swatch row
+ * would show five and four of the five pieces would fall back to a schematic and a $1
+ * placeholder. Under this ALL rule Foundations offers the four finishes the whole set shares,
+ * and the Brushed Nickel bars stay in the data — ready if the program ever wants a
+ * per-component finish, which is a deliberately separate change.
+ *
+ * A package with NO catalog data at all still offers everything: the SKUs are real, only the
+ * imagery and pricing are missing, and hiding them would remove working configurations.
  */
 export function availableFinishes(packageId?: string): PlumbingFinish[] {
   if (!packageId) return PLUMBING_FINISHES;
   const cached = finishCache.get(packageId);
   if (cached) return cached;
-  const withData = PLUMBING_FINISHES.filter((f) =>
-    // A finish counts as available if ANY component in it is catalogued, not just the
-    // faucet — a collection could be photographed trim-first.
-    ALL_COMPONENT_KEYS.some((k) => hasProduct(plumbingSku(packageId, k, f.id))),
-  );
-  const result = withData.length === 0 ? PLUMBING_FINISHES : withData;
+  const sold = catalogued(packageId);
+  const result = sold.length === 0
+    ? PLUMBING_FINISHES
+    : PLUMBING_FINISHES.filter((f) => sold.every((k) => hasProduct(plumbingSku(packageId, k, f.id))));
   finishCache.set(packageId, result);
   return result;
+}
+
+/**
+ * True when the package simply doesn't sell this component — Lineax and the single-hole
+ * faucet. Distinct from "not catalogued yet": there is no SKU to order in any finish.
+ */
+export function componentUnavailable(packageId: string | undefined, k: PlumbingComponentKey): boolean {
+  if (!packageId) return false;
+  return PLUMBING_FINISHES.every((f) => !plumbingSku(packageId, k, f.id));
 }
 
 // Accessory SKUs for the current package + finish, keyed for the preview row. Goes through
@@ -176,8 +206,15 @@ export function computePlumbingPrice(s: PlumbingSelections): { total: number; li
   const lines: PriceLine[] = [];
   const dual = dualActive(s);
   if (s.faucetType) {
-    const u = unitPrice(s, s.faucetType);
-    lines.push({ key: "configurator.plumbing.priceLine.faucet", params: { kind: faucetCode(s.faucetType), qty: String(s.faucetQty) }, amount: u.amount * s.faucetQty, msrp: u.msrp });
+    // A package that doesn't sell this faucet type at all (Lineax + single hole) gets a $0
+    // line that says so, rather than a $1 placeholder that reads like a real price for a
+    // product with no SKU behind it.
+    if (componentUnavailable(s.packageId, s.faucetType)) {
+      lines.push({ key: "configurator.plumbing.priceLine.faucetUnavailable", params: { kind: faucetCode(s.faucetType) }, amount: 0 });
+    } else {
+      const u = unitPrice(s, s.faucetType);
+      lines.push({ key: "configurator.plumbing.priceLine.faucet", params: { kind: faucetCode(s.faucetType), qty: String(s.faucetQty) }, amount: u.amount * s.faucetQty, msrp: u.msrp });
+    }
   }
   if (s.bathTrim) {
     const qty = dual ? 2 : 1;
@@ -410,6 +447,16 @@ export function PlumbingConfigurator({
                       <div className="text-xs text-muted">{t(lk)}</div>
                     </button>
                   ))}
+                </div>
+              )}
+              {/* Lineax ships widespread only, so a vanity drilled 1cc leaves this package
+                  with nothing to fit. Say so plainly and keep the package selectable — the
+                  dealer may prefer to change the vanity top, and blocking the choice here
+                  would hide why. The price line shows $0 "not in this package" to match. */}
+              {s.faucetType && componentUnavailable(s.packageId, s.faucetType) && (
+                <div className="mt-3 rounded-lg border border-amber/40 bg-amber/10 p-3">
+                  <div className="text-xs font-semibold text-amber">{t("configurator.plumbing.faucetNotInPackage", { pkg: pkgById(s.packageId)?.name ?? "" })}</div>
+                  <p className="mt-1 text-[11px] leading-relaxed text-amber">{t("configurator.plumbing.faucetNotInPackageHelp")}</p>
                 </div>
               )}
               {s.faucetType && <CatalogCard sku={skuFor(s, s.faucetType)} finishHex={finishHex} />}

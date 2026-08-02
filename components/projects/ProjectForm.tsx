@@ -78,10 +78,10 @@ export function ProjectForm({ ownerId, initial, onSaved, onCancel }: {
           <input value={customerName} onChange={(e) => setCustomerName(e.target.value)} className={INPUT} />
         </Field>
         <Field label={t("projects.fieldPhone")}>
-          <input value={phone} onChange={(e) => setPhone(e.target.value)} className={INPUT} />
+          <input type="tel" inputMode="tel" autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className={INPUT} />
         </Field>
         <Field label={t("projects.fieldEmail")}>
-          <input value={email} onChange={(e) => setEmail(e.target.value)} className={INPUT} />
+          <input type="email" inputMode="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} className={INPUT} />
         </Field>
         <Field label={t("projects.fieldStreet")}>
           <input value={street} onChange={(e) => setStreet(e.target.value)} className={INPUT} />
@@ -94,7 +94,7 @@ export function ProjectForm({ ownerId, initial, onSaved, onCancel }: {
             <input value={stateField} onChange={(e) => setStateField(e.target.value)} className={INPUT} />
           </Field>
           <Field label={t("projects.fieldZip")}>
-            <input value={zip} onChange={(e) => setZip(e.target.value)} className={INPUT} />
+            <input inputMode="numeric" autoComplete="postal-code" value={zip} onChange={(e) => setZip(e.target.value)} className={INPUT} />
           </Field>
         </div>
         <div className="sm:col-span-2">

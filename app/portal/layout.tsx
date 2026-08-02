@@ -1,16 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthContext";
 import { Sidebar } from "@/components/Sidebar";
 import { Header } from "@/components/Header";
 import { OnboardingGate } from "@/components/OnboardingGate";
+import { SidebarProvider, useSidebar } from "@/components/SidebarContext";
+import { SIDEBAR_GRID_COLS } from "@/lib/sidebar-mode";
 
 export default function PortalLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const [drawerOpen, setDrawerOpen] = useState(false);
 
   // Guard: portal routes require a session. Bounce to the login screen once the session
   // has resolved and there's no user. The loading state prevents a logged-out flicker.
@@ -30,30 +31,32 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
     // OnboardingGate blocks the entire portal (chrome included) until an admin-created
     // contractor sets a permanent password and confirms their info.
     <OnboardingGate>
-    <div className="min-h-dvh md:grid md:grid-cols-[260px_1fr]">
-      {/* Desktop sidebar */}
-      <aside className="sticky top-0 hidden h-dvh md:block">
-        <Sidebar />
-      </aside>
+      <SidebarProvider>
+        <PortalShell>{children}</PortalShell>
+      </SidebarProvider>
+    </OnboardingGate>
+  );
+}
 
-      {/* Mobile drawer */}
-      {drawerOpen && (
-        <div className="fixed inset-0 z-40 md:hidden">
-          <div
-            className="absolute inset-0 bg-ink/40"
-            onClick={() => setDrawerOpen(false)}
-          />
-          <div className="absolute inset-y-0 left-0 w-[260px]">
-            <Sidebar onNavigate={() => setDrawerOpen(false)} />
-          </div>
-        </div>
-      )}
+/**
+ * The portal chrome. Split out of PortalLayout because it has to be INSIDE SidebarProvider
+ * to read the mode — which decides the one thing the layout owns: whether a sidebar column
+ * is reserved at all.
+ *
+ * In collapsible mode the sidebar renders fixed-position (out of flow), so dropping the grid
+ * here is what gives focused-work pages the full viewport width.
+ */
+function PortalShell({ children }: { children: React.ReactNode }) {
+  const { mode } = useSidebar();
+
+  return (
+    <div className={`min-h-dvh ${mode === "fixed" ? `grid ${SIDEBAR_GRID_COLS}` : ""}`}>
+      <Sidebar />
 
       <div className="flex min-h-dvh flex-col">
-        <Header onMenu={() => setDrawerOpen(true)} />
+        <Header />
         <main className="flex-1 px-4 py-6 md:px-8 md:py-10">{children}</main>
       </div>
     </div>
-    </OnboardingGate>
   );
 }

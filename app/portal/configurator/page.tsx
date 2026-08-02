@@ -3,8 +3,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
+import { Check, ChevronUp, X } from "lucide-react";
 import { useLanguage } from "@/components/LanguageContext";
 import { useAuth } from "@/components/AuthContext";
+import { useMediaQuery } from "@/lib/useMediaQuery";
 import { loadCurrentQuote, saveCurrentQuote, clearCurrentQuote } from "@/lib/quoteStorage";
 import { getQuote, getProject, saveQuote, type Quote } from "@/lib/store";
 import { SaveQuotePanel } from "@/components/configurator/SaveQuotePanel";
@@ -253,6 +255,37 @@ export default function Page() {
 
   const savedText = savedAt ? relativeSaved(t, savedAt, nowMs) : null;
 
+  // ---- quote summary placement -------------------------------------------
+  // Wide screens keep the quote as a standing column beside the work area. Below that the
+  // work area needs the whole width (the room plan is the point of this page), so the quote
+  // collapses to a sticky total bar that expands into a sheet.
+  //
+  // Chosen in JS rather than by rendering both and hiding one with CSS: the summary contains
+  // SaveQuotePanel, which holds its own form state and loads the project list. Two mounted
+  // copies would mean two fetches and a half-filled form the user can't see.
+  const wideQuote = useMediaQuery("(min-width: 1280px)", true);
+  const [quoteSheetOpen, setQuoteSheetOpen] = useState(false);
+  const [sheetShown, setSheetShown] = useState(false); // drives the slide-up transition
+
+  // Mount, then transition on the next frame so there's a starting transform to animate from.
+  useEffect(() => {
+    if (!quoteSheetOpen) { setSheetShown(false); return; }
+    const raf = requestAnimationFrame(() => setSheetShown(true));
+    const onKeyDown = (e: KeyboardEvent) => { if (e.key === "Escape") setQuoteSheetOpen(false); };
+    window.addEventListener("keydown", onKeyDown);
+    return () => { cancelAnimationFrame(raf); window.removeEventListener("keydown", onKeyDown); };
+  }, [quoteSheetOpen]);
+
+  // Growing past the breakpoint reveals the standing column, so a sheet left open would sit
+  // on top of it.
+  useEffect(() => { if (wideQuote) setQuoteSheetOpen(false); }, [wideQuote]);
+
+  // Open the sheet already showing the save controls — what the bar's save button implies.
+  const openQuoteSheetForSave = () => {
+    if (!activeQuote) { setSavePanelProjectId(undefined); setSavePanelOpen(true); }
+    setQuoteSheetOpen(true);
+  };
+
   // Flooring product-strip tile: read from the same live room state the plan uses, so
   // changing the color or room size updates it without recommitting. Nothing to show
   // until a flooring color is selected in the room. The plan also carries the texture.
@@ -264,43 +297,218 @@ export default function Page() {
     ? `${FLOORING_LINE.brand} ${FLOORING_LINE.name} · ${flooringColor.name}${flooringCartons > 0 ? " · " + t(flooringCartons === 1 ? "configurator.room.cartonsOne" : "configurator.room.cartonsMany", { n: String(flooringCartons) }) : ""}`
     : null;
 
-  return (
-    <div className="mx-auto max-w-6xl space-y-6">
-      <div className="rounded-2xl border border-line bg-card p-6">
-        <div className="mb-2 text-sm font-mono uppercase tracking-[0.12em] text-accent">
-          {t("pages.configurator.title")}
+  // The quote panel, built once and placed in exactly one of two spots (see wideQuote).
+  const quoteSummary = (
+    <div className="rounded-2xl border border-line bg-card p-5">
+      <div className="mb-4">
+        <div className="flex items-center justify-between gap-2">
+          <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">{t("configurator.currentQuote")}</span>
+          {(room || shower || vanity) && (
+            <button onClick={clearQuote} className="text-[10px] text-muted transition hover:text-ink">{t("configurator.clearQuote")}</button>
+          )}
         </div>
-        <p className="text-ink/75 text-base leading-7">{t("pages.configurator.desc")}</p>
+        {savedText && <div className="mt-0.5 text-[10px] text-muted">{savedText}</div>}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-        {/* Main column */}
-        <div className="space-y-5">
-          {/* Selector cards */}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {(
-              [
-                { key: "room" as const, title: t("configurator.roomTitle"), desc: t("configurator.roomDesc") },
-                { key: "shower" as const, title: t("configurator.showerTitle"), desc: t("configurator.showerDesc") },
-                { key: "vanity" as const, title: t("configurator.vanityTitle"), desc: t("configurator.vanityDesc") },
-                { key: "plumbing" as const, title: t("configurator.plumbingTitle"), desc: t("configurator.plumbingDesc") },
-              ]
-            ).map((c) => {
-              const active = activeKind === c.key;
-              return (
-                <button
-                  key={c.key}
-                  onClick={() => open(c.key)}
-                  className={`rounded-2xl border p-4 text-left transition ${
-                    active ? "border-accent bg-accent-soft/40" : "border-line hover:bg-ink/5"
-                  }`}
-                >
-                  <div className="font-display text-sm font-semibold">{c.title}</div>
-                  <div className="mt-1 text-sm text-muted">{c.desc}</div>
-                </button>
-              );
-            })}
+      <div className="space-y-3">
+        {/* Room row */}
+        <div className="rounded-2xl border border-line/70 bg-paper/80 px-4 py-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-sm text-ink">
+              <div className="font-semibold">{t("configurator.roomTitle")}</div>
+              <div className="text-xs text-muted">{room ? room.label : t("configurator.notAdded")}</div>
+            </div>
+            <div className="flex items-center gap-3">
+              {room && room.price.total > 0 && <div className="font-semibold">{money(room.price.total)}</div>}
+              {room != null && (
+                <button onClick={() => open("room")} className="text-sm text-accent">{t("configurator.edit")}</button>
+              )}
+              {room != null && (
+                <button onClick={() => setRoom(null)} className="text-sm text-muted">{t("configurator.remove")}</button>
+              )}
+            </div>
           </div>
+          {/* Priced components (flooring, wall base) — a breakdown of the room total,
+              each translated at render so a saved quote reads right in either language. */}
+          {room && room.price.lines.length > 0 && (
+            <div className="mt-2 space-y-1 border-t border-line/60 pl-3 pt-2">
+              {room.price.lines.map((l, i) => (
+                <div key={i} className="flex items-center justify-between gap-3">
+                  <span className="text-xs text-ink">{t(l.key, l.params)}</span>
+                  <span className="text-xs text-muted">{money(l.amount)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Shower row */}
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-line/70 bg-paper/80 px-4 py-3">
+          <div className="text-sm text-ink">
+            <div className="font-semibold">{t("configurator.showerTitle")}</div>
+            <div className="text-xs text-muted">{shower ? shower.label : t("configurator.notAdded")}</div>
+          </div>
+          <div className="flex items-center gap-3">
+            {shower && <div className="font-semibold">{money(shower.price.total)}</div>}
+            {shower != null && (
+              <>
+                <button onClick={() => open("shower")} className="text-sm text-accent">{t("configurator.edit")}</button>
+                <button onClick={() => setShower(null)} className="text-sm text-muted">{t("configurator.remove")}</button>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Vanity row */}
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-line/70 bg-paper/80 px-4 py-3">
+          <div className="text-sm text-ink">
+            <div className="font-semibold">{t("configurator.vanityTitle")}</div>
+            <div className="text-xs text-muted">{vanity ? vanity.label : t("configurator.notAdded")}</div>
+          </div>
+          <div className="flex items-center gap-3">
+            {vanity && <div className="font-semibold">{money(vanity.price.total)}</div>}
+            {vanity != null && (
+              <>
+                <button onClick={() => open("vanity")} className="text-sm text-accent">{t("configurator.edit")}</button>
+                <button onClick={() => setVanity(null)} className="text-sm text-muted">{t("configurator.remove")}</button>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Plumbing row */}
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-line/70 bg-paper/80 px-4 py-3">
+          <div className="text-sm text-ink">
+            <div className="font-semibold">{t("configurator.plumbingTitle")}</div>
+            <div className="text-xs text-muted">{plumbing ? plumbing.label : t("configurator.notAdded")}</div>
+          </div>
+          <div className="flex items-center gap-3">
+            {plumbing && <div className="font-semibold">{money(plumbing.price.total)}</div>}
+            {plumbing != null && (
+              <>
+                <button onClick={() => open("plumbing")} className="text-sm text-accent">{t("configurator.edit")}</button>
+                <button onClick={() => setPlumbing(null)} className="text-sm text-muted">{t("configurator.remove")}</button>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Total */}
+        <div className="mt-3 flex items-center justify-between border-t border-line pt-3">
+          <div className="text-sm font-semibold">{t("configurator.total")}</div>
+          <div className="font-semibold">{money(total)}</div>
+        </div>
+        <div className="mt-2 rounded-md bg-amber/10 px-2 py-1 text-center text-[10px] font-medium text-amber">{t("configurator.placeholderPricing")}</div>
+
+        {/* Save to project */}
+        <div className="mt-4 border-t border-line pt-4">
+          {activeQuote && (
+            <div className="mb-3 text-[11px] text-muted">
+              <div className="truncate">{t("configurator.editingQuote", { quote: activeQuote.name })}</div>
+              <Link href={`/portal/projects/${activeQuote.projectId}`} className="text-accent transition hover:underline">
+                {activeQuote.projectName || t("configurator.viewProject")}
+              </Link>
+            </div>
+          )}
+
+          {activeQuote ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={updateActiveQuote}
+                className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110"
+              >
+                {t("configurator.updateQuote")}
+              </button>
+              <button
+                onClick={() => { setSavePanelProjectId(activeQuote.projectId); setSavePanelOpen(true); }}
+                className="rounded-lg border border-line px-4 py-2 text-sm font-medium text-muted transition hover:text-ink"
+              >
+                {t("configurator.saveAsNew")}
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => { setSavePanelProjectId(undefined); setSavePanelOpen(true); }}
+              disabled={!hasAny}
+              className="w-full rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {t("configurator.saveToProject")}
+            </button>
+          )}
+
+          {showSaved && activeQuote && (
+            <div className="mt-2 text-[11px] text-accent">
+              {t("configurator.savedToProject", { name: activeQuote.projectName || activeQuote.name })}{" · "}
+              <Link href={`/portal/projects/${activeQuote.projectId}`} className="underline">
+                {t("configurator.viewProject")}
+              </Link>
+            </div>
+          )}
+
+          {savePanelOpen && (
+            <div className="mt-3">
+              <SaveQuotePanel
+                ownerId={userKey}
+                initialProjectId={savePanelProjectId}
+                quoteInput={{ room, shower, vanity, plumbing, total }}
+                onSaved={onQuoteSaved}
+                onCancel={() => setSavePanelOpen(false)}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    // No max-w-6xl: the room plan scales with its container, and capping the page at 1152px
+    // was most of why it drew small. The remaining cap only stops the plan from becoming
+    // absurdly wide on an ultrawide monitor. pb-24 clears the sticky quote bar below xl.
+    <div className="mx-auto max-w-[1700px] space-y-4 pb-24 xl:pb-0">
+      <div className="rounded-2xl border border-line bg-card px-5 py-4">
+        <div className="mb-1 font-mono text-sm uppercase tracking-[0.12em] text-accent">
+          {t("pages.configurator.title")}
+        </div>
+        <p className="text-sm leading-6 text-ink/75">{t("pages.configurator.desc")}</p>
+      </div>
+
+      {/* Module tabs — one row across the top of the work area, equal width so they're
+          predictable finger targets on a tablet. Tapping the open module returns to the
+          overview, which is the only way back to the read-only plan + product strip. */}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {(
+          [
+            { key: "room" as const, title: t("configurator.roomTitle"), desc: t("configurator.roomDesc"), filled: !!room },
+            { key: "shower" as const, title: t("configurator.showerTitle"), desc: t("configurator.showerDesc"), filled: !!shower },
+            { key: "vanity" as const, title: t("configurator.vanityTitle"), desc: t("configurator.vanityDesc"), filled: !!vanity },
+            { key: "plumbing" as const, title: t("configurator.plumbingTitle"), desc: t("configurator.plumbingDesc"), filled: !!plumbing },
+          ]
+        ).map((c) => {
+          const active = activeKind === c.key;
+          return (
+            <button
+              key={c.key}
+              onClick={() => (active ? setActiveKind(null) : open(c.key))}
+              aria-pressed={active}
+              className={`min-h-[44px] rounded-xl border px-3 py-2.5 text-left transition ${
+                active ? "border-accent bg-accent-soft/50 ring-1 ring-accent/30" : "border-line bg-card hover:bg-ink/5"
+              }`}
+            >
+              <div className="flex items-center gap-1.5">
+                <span className="truncate font-display text-sm font-semibold">{c.title}</span>
+                {c.filled && <Check className="ml-auto h-3.5 w-3.5 shrink-0 text-accent" />}
+              </div>
+              <div className="mt-0.5 hidden text-xs leading-snug text-muted sm:block">{c.desc}</div>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px] 2xl:grid-cols-[minmax(0,1fr)_380px]">
+        {/* Work area — full width below xl, ~70% above it. min-w-0 so a wide child can't
+            push the grid column past its track and squeeze the quote column. */}
+        <div className="min-w-0 space-y-5">
 
           {/* Open configurator area. Each configurator mounts on first open and
               stays mounted (hidden when inactive) so its state persists and it
@@ -308,65 +516,57 @@ export default function Page() {
           <div>
             <div className={activeKind === "room" ? "" : "hidden"}>
               {opened.room && (
-                <div className="rounded-2xl border border-line bg-card p-4">
-                  <RoomConfigurator
-                    mode="dealer"
-                    initialBath={sharedBath}
-                    initialVanity={sharedVanity}
-                    initialTreatments={room?.selections.treatments}
-                    initialFlooring={room?.selections.flooring}
-                    initialWallBase={room?.selections.wallBase}
-                    initialPartitions={room?.selections.partitions}
-                    onChange={onRoomChange}
-                    onComplete={onRoomComplete}
-                    primaryLabel={room ? t("configurator.updateRoom") : t("configurator.addToQuote")}
-                  />
-                </div>
+                <RoomConfigurator
+                  mode="dealer"
+                  initialBath={sharedBath}
+                  initialVanity={sharedVanity}
+                  initialTreatments={room?.selections.treatments}
+                  initialFlooring={room?.selections.flooring}
+                  initialWallBase={room?.selections.wallBase}
+                  initialPartitions={room?.selections.partitions}
+                  onChange={onRoomChange}
+                  onComplete={onRoomComplete}
+                  primaryLabel={room ? t("configurator.updateRoom") : t("configurator.addToQuote")}
+                />
               )}
             </div>
             <div className={activeKind === "shower" ? "" : "hidden"}>
               {opened.shower && (
-                <div className="rounded-2xl border border-line bg-card p-4">
-                  <ShowerConfigurator
-                    mode="dealer"
-                    initialKind={sharedBath?.kind}
-                    initialBaseId={sharedBath?.baseId}
-                    initialBaseColor={sharedBath?.baseColor}
-                    onChange={applyBath}
-                    onComplete={onShowerComplete}
-                    primaryLabel={shower ? t("configurator.updateShower") : t("configurator.addToQuote")}
-                  />
-                </div>
+                <ShowerConfigurator
+                  mode="dealer"
+                  initialKind={sharedBath?.kind}
+                  initialBaseId={sharedBath?.baseId}
+                  initialBaseColor={sharedBath?.baseColor}
+                  onChange={applyBath}
+                  onComplete={onShowerComplete}
+                  primaryLabel={shower ? t("configurator.updateShower") : t("configurator.addToQuote")}
+                />
               )}
             </div>
             <div className={activeKind === "vanity" ? "" : "hidden"}>
               {opened.vanity && (
-                <div className="rounded-2xl border border-line bg-card p-4">
-                  <VanityConfigurator
-                    mode="dealer"
-                    initialSize={sharedVanity?.size}
-                    initialSinks={sharedVanity?.sinks}
-                    initialDrilling={sharedVanity?.drilling}
-                    initialSinkShape={sharedVanity?.sinkShape}
-                    onChange={applyVanity}
-                    onComplete={onVanityComplete}
-                    primaryLabel={vanity ? t("configurator.updateVanity") : t("configurator.addToQuote")}
-                  />
-                </div>
+                <VanityConfigurator
+                  mode="dealer"
+                  initialSize={sharedVanity?.size}
+                  initialSinks={sharedVanity?.sinks}
+                  initialDrilling={sharedVanity?.drilling}
+                  initialSinkShape={sharedVanity?.sinkShape}
+                  onChange={applyVanity}
+                  onComplete={onVanityComplete}
+                  primaryLabel={vanity ? t("configurator.updateVanity") : t("configurator.addToQuote")}
+                />
               )}
             </div>
             <div className={activeKind === "plumbing" ? "" : "hidden"}>
               {opened.plumbing && (
-                <div className="rounded-2xl border border-line bg-card p-4">
-                  <PlumbingConfigurator
-                    mode="dealer"
-                    lockedDrilling={sharedVanity?.drilling}
-                    lockedBathKind={plumbingBathKind}
-                    initialFaucetQty={plumbingFaucetQty}
-                    onComplete={onPlumbingComplete}
-                    primaryLabel={plumbing ? t("configurator.updatePlumbing") : t("configurator.addToQuote")}
-                  />
-                </div>
+                <PlumbingConfigurator
+                  mode="dealer"
+                  lockedDrilling={sharedVanity?.drilling}
+                  lockedBathKind={plumbingBathKind}
+                  initialFaucetQty={plumbingFaucetQty}
+                  onComplete={onPlumbingComplete}
+                  primaryLabel={plumbing ? t("configurator.updatePlumbing") : t("configurator.addToQuote")}
+                />
               )}
             </div>
             {!activeKind && (
@@ -382,7 +582,9 @@ export default function Page() {
                     className="block w-full rounded-2xl border border-line bg-card p-6 text-left transition hover:border-accent"
                   >
                     <div className="mb-3 font-mono text-[10px] uppercase tracking-[0.12em] text-muted">{t("configurator.roomPlan")}</div>
-                    <div className="mx-auto w-full max-w-[680px]">
+                    {/* Full width — this is the overview's hero. The old max-w-[680px] capped
+                        it well below the space available. */}
+                    <div className="w-full">
                       <RoomPlanSVG state={room.selections} interactive={false} showClearances={false} />
                       <div className="mt-2 text-center text-xs text-muted">{room.label}</div>
                     </div>
@@ -426,170 +628,77 @@ export default function Page() {
           </div>
         </div>
 
-        {/* Right sidebar: Current quote */}
-        <aside className="space-y-4">
-          <div className="rounded-2xl border border-line bg-card p-5">
-            <div className="mb-4">
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">{t("configurator.currentQuote")}</span>
-                {(room || shower || vanity) && (
-                  <button onClick={clearQuote} className="text-[10px] text-muted transition hover:text-ink">{t("configurator.clearQuote")}</button>
-                )}
-              </div>
-              {savedText && <div className="mt-0.5 text-[10px] text-muted">{savedText}</div>}
-            </div>
-
-            <div className="space-y-3">
-              {/* Room row */}
-              <div className="rounded-2xl border border-line/70 bg-paper/80 px-4 py-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="text-sm text-ink">
-                    <div className="font-semibold">{t("configurator.roomTitle")}</div>
-                    <div className="text-xs text-muted">{room ? room.label : t("configurator.notAdded")}</div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    {room && room.price.total > 0 && <div className="font-semibold">{money(room.price.total)}</div>}
-                    {room != null && (
-                      <button onClick={() => open("room")} className="text-sm text-accent">{t("configurator.edit")}</button>
-                    )}
-                    {room != null && (
-                      <button onClick={() => setRoom(null)} className="text-sm text-muted">{t("configurator.remove")}</button>
-                    )}
-                  </div>
-                </div>
-                {/* Priced components (flooring, wall base) — a breakdown of the room total,
-                    each translated at render so a saved quote reads right in either language. */}
-                {room && room.price.lines.length > 0 && (
-                  <div className="mt-2 space-y-1 border-t border-line/60 pl-3 pt-2">
-                    {room.price.lines.map((l, i) => (
-                      <div key={i} className="flex items-center justify-between gap-3">
-                        <span className="text-xs text-ink">{t(l.key, l.params)}</span>
-                        <span className="text-xs text-muted">{money(l.amount)}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Shower row */}
-              <div className="flex items-center justify-between gap-3 rounded-2xl border border-line/70 bg-paper/80 px-4 py-3">
-                <div className="text-sm text-ink">
-                  <div className="font-semibold">{t("configurator.showerTitle")}</div>
-                  <div className="text-xs text-muted">{shower ? shower.label : t("configurator.notAdded")}</div>
-                </div>
-                <div className="flex items-center gap-3">
-                  {shower && <div className="font-semibold">{money(shower.price.total)}</div>}
-                  {shower != null && (
-                    <>
-                      <button onClick={() => open("shower")} className="text-sm text-accent">{t("configurator.edit")}</button>
-                      <button onClick={() => setShower(null)} className="text-sm text-muted">{t("configurator.remove")}</button>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {/* Vanity row */}
-              <div className="flex items-center justify-between gap-3 rounded-2xl border border-line/70 bg-paper/80 px-4 py-3">
-                <div className="text-sm text-ink">
-                  <div className="font-semibold">{t("configurator.vanityTitle")}</div>
-                  <div className="text-xs text-muted">{vanity ? vanity.label : t("configurator.notAdded")}</div>
-                </div>
-                <div className="flex items-center gap-3">
-                  {vanity && <div className="font-semibold">{money(vanity.price.total)}</div>}
-                  {vanity != null && (
-                    <>
-                      <button onClick={() => open("vanity")} className="text-sm text-accent">{t("configurator.edit")}</button>
-                      <button onClick={() => setVanity(null)} className="text-sm text-muted">{t("configurator.remove")}</button>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {/* Plumbing row */}
-              <div className="flex items-center justify-between gap-3 rounded-2xl border border-line/70 bg-paper/80 px-4 py-3">
-                <div className="text-sm text-ink">
-                  <div className="font-semibold">{t("configurator.plumbingTitle")}</div>
-                  <div className="text-xs text-muted">{plumbing ? plumbing.label : t("configurator.notAdded")}</div>
-                </div>
-                <div className="flex items-center gap-3">
-                  {plumbing && <div className="font-semibold">{money(plumbing.price.total)}</div>}
-                  {plumbing != null && (
-                    <>
-                      <button onClick={() => open("plumbing")} className="text-sm text-accent">{t("configurator.edit")}</button>
-                      <button onClick={() => setPlumbing(null)} className="text-sm text-muted">{t("configurator.remove")}</button>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {/* Total */}
-              <div className="mt-3 flex items-center justify-between border-t border-line pt-3">
-                <div className="text-sm font-semibold">{t("configurator.total")}</div>
-                <div className="font-semibold">{money(total)}</div>
-              </div>
-              <div className="mt-2 rounded-md bg-amber/10 px-2 py-1 text-center text-[10px] font-medium text-amber">{t("configurator.placeholderPricing")}</div>
-
-              {/* Save to project */}
-              <div className="mt-4 border-t border-line pt-4">
-                {activeQuote && (
-                  <div className="mb-3 text-[11px] text-muted">
-                    <div className="truncate">{t("configurator.editingQuote", { quote: activeQuote.name })}</div>
-                    <Link href={`/portal/projects/${activeQuote.projectId}`} className="text-accent transition hover:underline">
-                      {activeQuote.projectName || t("configurator.viewProject")}
-                    </Link>
-                  </div>
-                )}
-
-                {activeQuote ? (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      onClick={updateActiveQuote}
-                      className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110"
-                    >
-                      {t("configurator.updateQuote")}
-                    </button>
-                    <button
-                      onClick={() => { setSavePanelProjectId(activeQuote.projectId); setSavePanelOpen(true); }}
-                      className="rounded-lg border border-line px-4 py-2 text-sm font-medium text-muted transition hover:text-ink"
-                    >
-                      {t("configurator.saveAsNew")}
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => { setSavePanelProjectId(undefined); setSavePanelOpen(true); }}
-                    disabled={!hasAny}
-                    className="w-full rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    {t("configurator.saveToProject")}
-                  </button>
-                )}
-
-                {showSaved && activeQuote && (
-                  <div className="mt-2 text-[11px] text-accent">
-                    {t("configurator.savedToProject", { name: activeQuote.projectName || activeQuote.name })}{" · "}
-                    <Link href={`/portal/projects/${activeQuote.projectId}`} className="underline">
-                      {t("configurator.viewProject")}
-                    </Link>
-                  </div>
-                )}
-
-                {savePanelOpen && (
-                  <div className="mt-3">
-                    <SaveQuotePanel
-                      ownerId={userKey}
-                      initialProjectId={savePanelProjectId}
-                      quoteInput={{ room, shower, vanity, plumbing, total }}
-                      onSaved={onQuoteSaved}
-                      onCancel={() => setSavePanelOpen(false)}
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </aside>
+        {/* Quote summary. Wide screens keep it as a standing, sticky column; below the
+            breakpoint the same element is rendered inside the slide-up sheet instead, so
+            there is only ever one mounted copy. */}
+        {wideQuote && <aside className="xl:sticky xl:top-4 xl:self-start">{quoteSummary}</aside>}
       </div>
+
+      {/* ---- Below xl: sticky total bar, expanding into a sheet ---- */}
+      {!wideQuote && (
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-card/95 px-4 py-2 backdrop-blur">
+          <div className="mx-auto flex max-w-[1700px] items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setQuoteSheetOpen(true)}
+              aria-label={t("configurator.viewQuote")}
+              aria-expanded={quoteSheetOpen}
+              className="flex min-h-[44px] flex-1 items-center gap-2 rounded-lg px-2 text-left transition hover:bg-ink/5"
+            >
+              <ChevronUp className="h-4 w-4 shrink-0 text-muted" />
+              <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">{t("configurator.total")}</span>
+              <span className="ml-auto font-display text-lg font-bold">{money(total)}</span>
+            </button>
+            {activeQuote ? (
+              <button
+                onClick={updateActiveQuote}
+                className="min-h-[44px] shrink-0 rounded-lg bg-accent px-4 text-sm font-semibold text-white transition hover:brightness-110"
+              >
+                {t("configurator.updateQuote")}
+              </button>
+            ) : (
+              <button
+                onClick={openQuoteSheetForSave}
+                disabled={!hasAny}
+                className="min-h-[44px] shrink-0 rounded-lg bg-accent px-4 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {t("configurator.saveToProject")}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {!wideQuote && quoteSheetOpen && (
+        <div className="fixed inset-0 z-40">
+          <div
+            aria-hidden
+            onClick={() => setQuoteSheetOpen(false)}
+            className={`absolute inset-0 bg-ink/40 transition-opacity duration-200 ease-out ${sheetShown ? "opacity-100" : "opacity-0"}`}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={t("configurator.currentQuote")}
+            className={`absolute inset-x-0 bottom-0 max-h-[86dvh] overflow-y-auto rounded-t-2xl border-t border-line bg-paper p-4 shadow-2xl transition-transform duration-200 ease-out ${
+              sheetShown ? "translate-y-0" : "translate-y-full"
+            }`}
+          >
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">{t("configurator.currentQuote")}</span>
+              <button
+                type="button"
+                onClick={() => setQuoteSheetOpen(false)}
+                aria-label={t("configurator.hideQuote")}
+                className="-mr-1 grid h-11 w-11 shrink-0 place-items-center rounded-md text-muted transition hover:bg-ink/5 hover:text-ink"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            {quoteSummary}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

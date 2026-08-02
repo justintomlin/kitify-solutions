@@ -290,10 +290,10 @@ function CustomerCard({
               <input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} className={INPUT} />
             </Field>
             <Field label={t("customers.fEmail")}>
-              <input value={draft.email} onChange={(e) => setDraft({ ...draft, email: e.target.value })} className={INPUT} />
+              <input type="email" inputMode="email" autoComplete="email" value={draft.email} onChange={(e) => setDraft({ ...draft, email: e.target.value })} className={INPUT} />
             </Field>
             <Field label={t("customers.fPhone")}>
-              <input value={draft.phone} onChange={(e) => setDraft({ ...draft, phone: e.target.value })} className={INPUT} />
+              <input type="tel" inputMode="tel" autoComplete="tel" value={draft.phone} onChange={(e) => setDraft({ ...draft, phone: e.target.value })} className={INPUT} />
             </Field>
             <Field label={t("customers.fStreet")}>
               <input value={draft.street} onChange={(e) => setDraft({ ...draft, street: e.target.value })} className={INPUT} />
@@ -306,7 +306,7 @@ function CustomerCard({
                 <input value={draft.state} onChange={(e) => setDraft({ ...draft, state: e.target.value })} className={INPUT} />
               </Field>
               <Field label={t("customers.fZip")}>
-                <input value={draft.zip} onChange={(e) => setDraft({ ...draft, zip: e.target.value })} className={INPUT} />
+                <input inputMode="numeric" autoComplete="postal-code" value={draft.zip} onChange={(e) => setDraft({ ...draft, zip: e.target.value })} className={INPUT} />
               </Field>
             </div>
             <div className="sm:col-span-2">
@@ -420,10 +420,10 @@ function AddForm({ onSave, onCancel }: { onSave: (d: Draft) => Promise<void>; on
           <input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} className={INPUT} />
         </Field>
         <Field label={t("customers.fEmail")}>
-          <input value={draft.email} onChange={(e) => setDraft({ ...draft, email: e.target.value })} className={INPUT} />
+          <input type="email" inputMode="email" autoComplete="email" value={draft.email} onChange={(e) => setDraft({ ...draft, email: e.target.value })} className={INPUT} />
         </Field>
         <Field label={t("customers.fPhone")}>
-          <input value={draft.phone} onChange={(e) => setDraft({ ...draft, phone: e.target.value })} className={INPUT} />
+          <input type="tel" inputMode="tel" autoComplete="tel" value={draft.phone} onChange={(e) => setDraft({ ...draft, phone: e.target.value })} className={INPUT} />
         </Field>
         <Field label={t("customers.fStreet")}>
           <input value={draft.street} onChange={(e) => setDraft({ ...draft, street: e.target.value })} className={INPUT} />
@@ -436,7 +436,7 @@ function AddForm({ onSave, onCancel }: { onSave: (d: Draft) => Promise<void>; on
             <input value={draft.state} onChange={(e) => setDraft({ ...draft, state: e.target.value })} className={INPUT} />
           </Field>
           <Field label={t("customers.fZip")}>
-            <input value={draft.zip} onChange={(e) => setDraft({ ...draft, zip: e.target.value })} className={INPUT} />
+            <input inputMode="numeric" autoComplete="postal-code" value={draft.zip} onChange={(e) => setDraft({ ...draft, zip: e.target.value })} className={INPUT} />
           </Field>
         </div>
         <div className="sm:col-span-2">

@@ -240,9 +240,9 @@ function AddContractorModal({ onClose, onCreated }: { onClose: () => void; onCre
             </div>
             <form onSubmit={submit} className="space-y-3">
               <ModalField label={t("crm.fieldName")} required><input value={name} onChange={(e) => setName(e.target.value)} className={MODAL_INPUT} autoComplete="off" /></ModalField>
-              <ModalField label={t("crm.fieldEmail")} required><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={MODAL_INPUT} autoComplete="off" /></ModalField>
+              <ModalField label={t("crm.fieldEmail")} required><input type="email" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} className={MODAL_INPUT} autoComplete="off" /></ModalField>
               <ModalField label={t("crm.fieldCompany")} required><input value={company} onChange={(e) => setCompany(e.target.value)} className={MODAL_INPUT} /></ModalField>
-              <ModalField label={t("crm.fieldPhone")}><input value={phone} onChange={(e) => setPhone(e.target.value)} className={MODAL_INPUT} /></ModalField>
+              <ModalField label={t("crm.fieldPhone")}><input type="tel" inputMode="tel" autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className={MODAL_INPUT} /></ModalField>
               <ModalField label={t("crm.fieldTerritory")}><input value={territory} onChange={(e) => setTerritory(e.target.value)} placeholder={t("crm.territoryPlaceholder")} className={MODAL_INPUT} /></ModalField>
               {error && <p className="rounded-md border border-amber/30 bg-amber/10 px-3 py-2 text-sm text-amber-700">{error}</p>}
               <div className="flex gap-2 pt-1">

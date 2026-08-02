@@ -10,8 +10,13 @@ import { supabase } from "@/lib/supabase";
 
 export const JOB_PHOTOS_BUCKET = "job-photos";
 
-export const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
-export const ACCEPT_ATTR = ".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp";
+// HEIC/HEIF is what an iPhone shoots by default, so it has to be accepted even though most
+// browsers can't render a preview for it (the upload and the stored file are fine).
+export const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
+export const ACCEPT_ATTR =
+  ".jpg,.jpeg,.png,.webp,.heic,.heif,image/jpeg,image/png,image/webp,image/heic,image/heif";
+
+const ACCEPTED_EXTENSIONS = ["jpg", "jpeg", "png", "webp", "heic", "heif"];
 
 export type UploadResult = {
   urls: string[]; // public URLs of everything that landed
@@ -34,7 +39,19 @@ function safeName(file: File, index: number, tag?: string): string {
   return [tag, `${Date.now()}-${index}`, stem].filter(Boolean).join("-") + "." + ext;
 }
 
-export const isAcceptedImage = (f: File) => ACCEPTED_IMAGE_TYPES.includes(f.type);
+/**
+ * Whether a picked file is an image we accept.
+ *
+ * Falls back to the extension when the MIME type is missing or unrecognised: iOS hands over
+ * HEIC captures with an empty or non-standard `type` often enough that a strict MIME check
+ * silently drops photos a contractor just took.
+ */
+export const isAcceptedImage = (f: File): boolean => {
+  if (ACCEPTED_IMAGE_TYPES.includes(f.type)) return true;
+  const dot = f.name.lastIndexOf(".");
+  const ext = dot > 0 ? f.name.slice(dot + 1).toLowerCase() : "";
+  return ACCEPTED_EXTENSIONS.includes(ext);
+};
 
 // Upload a batch under `prefix` (e.g. "orders/<id>" or "claims/<id>"). Never throws —
 // callers decide what a partial or total failure means for their flow. onProgress reports
@@ -43,6 +60,7 @@ export async function uploadPhotos(
   prefix: string,
   files: { file: File; tag?: string }[],
   onProgress?: (done: number, total: number) => void,
+  bucket: string = JOB_PHOTOS_BUCKET,
 ): Promise<UploadResult> {
   const urls: string[] = [];
   let failed = 0;
@@ -52,8 +70,9 @@ export async function uploadPhotos(
     const { file, tag } = files[i];
     const path = `${prefix}/${safeName(file, i, tag)}`;
     const { error } = await supabase.storage
-      .from(JOB_PHOTOS_BUCKET)
-      .upload(path, file, { contentType: file.type, upsert: false });
+      .from(bucket)
+      // contentType falls back for the iOS HEIC case where the browser reports no type.
+      .upload(path, file, { contentType: file.type || "application/octet-stream", upsert: false });
 
     if (error) {
       failed++;
@@ -66,7 +85,7 @@ export async function uploadPhotos(
         break;
       }
     } else {
-      urls.push(supabase.storage.from(JOB_PHOTOS_BUCKET).getPublicUrl(path).data.publicUrl);
+      urls.push(supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl);
     }
     onProgress?.(i + 1, files.length);
   }

@@ -220,10 +220,10 @@ export function ProposalView({ payload, acceptance, token }: {
                     <input value={name} onChange={(e) => setName(e.target.value)} required autoComplete="name" className={INPUT} />
                   </Field>
                   <Field label={t("proposal.emailLabel")} required>
-                    <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" className={INPUT} />
+                    <input type="email" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" className={INPUT} />
                   </Field>
                   <Field label={t("proposal.phoneLabel")}>
-                    <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} autoComplete="tel" className={INPUT} />
+                    <input type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} autoComplete="tel" className={INPUT} />
                   </Field>
                 </div>
                 {error && (

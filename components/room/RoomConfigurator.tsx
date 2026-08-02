@@ -120,7 +120,20 @@ const roOf = (w: number) => w + RO;
 const maxSinks = (w: number) => (w >= 48 ? 2 : 1);
 const SNAP_IN = 6; // inches of travel within which we snap flush to a corner
 const MINR = 24, MAXR = 480; // 2ft .. 40ft
+// The plan's coordinate space. The SVG renders at `w-full h-auto`, so EVERYTHING below is in
+// these units and scales with the container: a font size of 11 draws at 11px when the plan is
+// 620px wide, and at ~17px when it's 960px wide. That is why the plan being given real width
+// is what makes it legible — and why sizes here are chosen against the width the plan
+// actually gets (see PLAN_MIN_SCALE).
 const W = 620, H = 440;
+// The narrowest container the plan is laid out in — a tablet in portrait, where it spans the
+// full content column (~700px). Touch targets and type sizes below are picked so they still
+// land at >=44px / >=12px THERE; on a laptop or desktop they scale up from these.
+const PLAN_MIN_SCALE = 700 / W; // ~1.13
+// Minimum comfortable finger target, expressed in plan units.
+const TOUCH = Math.round(44 / PLAN_MIN_SCALE); // 39 units -> >=44px at every laid-out size
+// Smallest type that still renders at >=12px on a tablet.
+const LABEL_FS = Math.ceil(12 / PLAN_MIN_SCALE); // 11 units -> >=12px
 // Stable wall identifiers (W1, W2 …) derived from side identity — NOT array index — so the
 // walls table and the on-plan labels always agree, even if an edge is dropped after a shape
 // edit. Order matches build()'s SIDE array so rect/L number the same walls consistently.
@@ -645,7 +658,11 @@ function resolveModel(doc: Doc, ada: boolean, t: Tr): Model {
   const wallBaseCost = wbTake ? wbTake.cost : 0;
   const xs = verts.map((p) => p[0]), ys = verts.map((p) => p[1]);
   const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
-  const bwv = Math.max(1, maxX - minX), bhv = Math.max(1, maxY - minY), pad = 84;
+  // Gutter reserved around the room for the outside dimension lines and their labels. It has
+  // to cover the overall-dimension label's hit box, which reaches DIM_OFF (54) + TOUCH/2
+  // (~19.5) = 73.5 units out from the room. 76 covers that and still leaves the drawing a
+  // slightly larger share of the box than the old 84 did.
+  const bwv = Math.max(1, maxX - minX), bhv = Math.max(1, maxY - minY), pad = 76;
   const s = Math.min((W - pad * 2) / bwv, (H - pad * 2) / bhv), ox = (W - bwv * s) / 2 - minX * s, oy = (H - bhv * s) / 2 - minY * s;
   const P = (x: number, y: number): Pt => [x * s + ox, y * s + oy];
 
@@ -796,11 +813,11 @@ function BathArt({ m, sel, onSelect, onDragStart, interactive = true, bodySelect
     const label = req ? `${req.w}×${req.d} ${t("configurator.room.doesntFitHere")}` : t("configurator.room.selectedDoesntFit");
     const wp = pt(0, dp + 9);
     parts.push(<rect key="wr" pointerEvents="none" x={wp[0] - 88} y={wp[1] - 10} width={176} height={20} rx={10} fill="#f6e8cf" stroke={AMBER} />);
-    parts.push(<text key="wt" x={wp[0]} y={wp[1]} textAnchor="middle" dominantBaseline="middle" fontFamily="monospace" fontSize={10} fill={AMBER} pointerEvents="none">{label}</text>);
+    parts.push(<text key="wt" x={wp[0]} y={wp[1]} textAnchor="middle" dominantBaseline="middle" fontFamily="monospace" fontSize={LABEL_FS} fill={AMBER} pointerEvents="none">{label}</text>);
   } else if (bath.overhang) {
     const wp = pt(0, dp + 9);
     parts.push(<rect key="wr" pointerEvents="none" x={wp[0] - 78} y={wp[1] - 10} width={156} height={20} rx={10} fill="#f6e8cf" stroke={AMBER} />);
-    parts.push(<text key="wt" x={wp[0]} y={wp[1]} textAnchor="middle" dominantBaseline="middle" fontFamily="monospace" fontSize={10} fill={AMBER} pointerEvents="none">{t("configurator.room.doesntFitThisWall")}</text>);
+    parts.push(<text key="wt" x={wp[0]} y={wp[1]} textAnchor="middle" dominantBaseline="middle" fontFamily="monospace" fontSize={LABEL_FS} fill={AMBER} pointerEvents="none">{t("configurator.room.doesntFitThisWall")}</text>);
   }
   const h = pt(0, dp / 2);
   return <g>{parts}{interactive && <PickCircles kind="bath" cx={h[0]} cy={h[1]} selected={sel} crowded={crowded} onSelect={onSelect} onDragStart={onDragStart} />}</g>;
@@ -836,7 +853,7 @@ function VanityArt({ m, sel, onSelect, onDragStart, interactive = true, bodySele
   if (vanity.overhang) {
     const wp = pt(0, dp + 9);
     parts.push(<rect key="wr" pointerEvents="none" x={wp[0] - 70} y={wp[1] - 10} width={140} height={20} rx={10} fill="#f6e8cf" stroke={AMBER} />);
-    parts.push(<text key="wt" x={wp[0]} y={wp[1]} textAnchor="middle" dominantBaseline="middle" fontFamily="monospace" fontSize={10} fill={AMBER} pointerEvents="none">{t("configurator.room.doesntFitHere")}</text>);
+    parts.push(<text key="wt" x={wp[0]} y={wp[1]} textAnchor="middle" dominantBaseline="middle" fontFamily="monospace" fontSize={LABEL_FS} fill={AMBER} pointerEvents="none">{t("configurator.room.doesntFitHere")}</text>);
   }
   const h = pt(0, dp / 2);
   return <g>{parts}{interactive && <PickCircles kind="vanity" cx={h[0]} cy={h[1]} selected={sel} crowded={crowded} onSelect={onSelect} onDragStart={onDragStart} />}</g>;
@@ -1246,10 +1263,17 @@ export function RoomConfigurator({ mode = "dealer", onComplete, onChange, initia
 
   const S = model.S;
 
+  // The plan is the hero: it spans the FULL width of whatever column hosts this module, with
+  // the properties stacked BELOW rather than sharing the row. The drawing scales with its
+  // container, so handing it the whole width is the single biggest thing that makes it
+  // legible — a side-by-side properties rail would claim ~35% of that width back and drop the
+  // plan under the ~600px height it needs on a laptop.
   return (
-    <div className="grid gap-5 lg:grid-cols-[1fr_330px]">
-      {/* ---------------- Plan (left) ---------------- */}
-      <div ref={containerRef} className="relative rounded-2xl border border-line bg-card p-4">
+    <div className="space-y-5">
+      {/* ---------------- Plan (hero) ----------------
+          Tighter padding on phones: at 390px, 16px a side is 8% of the width the drawing
+          could otherwise use. */}
+      <div ref={containerRef} className="relative rounded-2xl border border-line bg-card p-2.5 sm:p-4">
         <div className="mb-2.5 flex flex-wrap items-center gap-2">
           <span className="mr-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-muted">{t("configurator.room.add")}</span>
           {([["door", "configurator.room.addDoor"], ["bath", "configurator.room.addBath"], ["toilet", "configurator.room.addToilet"], ["vanity", "configurator.room.addVanity"]] as [Kind, string][]).map(([k, label]) => (
@@ -1272,6 +1296,7 @@ export function RoomConfigurator({ mode = "dealer", onComplete, onChange, initia
         {editor && (
           <input
             autoFocus
+            inputMode="numeric"
             value={editor.value}
             onChange={(e) => setEditor((cur) => (cur ? { ...cur, value: e.target.value } : cur))}
             onKeyDown={(e) => { if (e.key === "Enter") commitEditor(); if (e.key === "Escape") setEditor(null); }}
@@ -1345,20 +1370,18 @@ export function RoomConfigurator({ mode = "dealer", onComplete, onChange, initia
         {/* clearance / warning box */}
         <ClearanceBox shapeNote={shapeNote} anyFix={anyFix} moved={moved} CL={model.CL} hasFixtures={activeFixtures(model.surfaces, model.fx).length > 0} />
 
-        <p className="mt-2 text-xs text-muted">{t("configurator.room.clickToEdit")}</p>
-
-        {/* add to quote */}
-        <div className="mt-4 flex items-center gap-3 border-t border-line pt-4">
-          <div className="min-w-0 flex-1">
-            <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted">{mode === "dealer" ? t("configurator.room.roomHdr") : t("configurator.room.yourSpace")}</div>
-            <div className="truncate text-sm font-semibold">{model.label}</div>
-          </div>
-          <button onClick={addToQuote} className="rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-white transition hover:brightness-110">{primaryLabel ?? t("configurator.addToQuote")}</button>
-        </div>
+        {/* The same hint is what ContextPanel shows when nothing is selected. Side by side in
+            the old two-column layout that read as one message; stacked, it printed twice. */}
       </div>
 
-      {/* ---------------- Properties (right) ---------------- */}
+      {/* ---------------- Properties (below the plan) ----------------
+          Three independent groups — room shape/size, the selected fixture, and surfaces —
+          so at the width the plan now occupies they read as columns instead of one long
+          rail. Each keeps its own heading; the dividers that separated them vertically are
+          gone because the grid gap does that job. */}
       <div className="rounded-2xl border border-line bg-card p-4">
+        <div className="grid gap-x-6 gap-y-5 md:grid-cols-2 xl:grid-cols-3">
+        <div className="min-w-0">
         {/* Room (always visible) */}
         <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted">{t("configurator.room.roomHdr")}</div>
         <div className="mt-1.5 flex gap-1.5">
@@ -1380,9 +1403,10 @@ export function RoomConfigurator({ mode = "dealer", onComplete, onChange, initia
         {doc.shape === "L" && <Field label={t("configurator.room.cutoutWidth")}><FtIn valueIn={S.cw} onChange={(v) => editS((s) => ({ ...s, cw: v }))} /></Field>}
         {doc.shape === "L" && <Field label={t("configurator.room.cutoutDepth")}><FtIn valueIn={S.cd} onChange={(v) => editS((s) => ({ ...s, cd: v }))} /></Field>}
         <Field label={t("configurator.room.ceilingHeight")}><FtIn valueIn={S.h} onChange={(v) => editS((s) => ({ ...s, h: v }))} /></Field>
+        </div>
 
         {/* Contextual — properties of the selected partition / fixture (or a hint) */}
-        <div className="mt-3.5 border-t border-line pt-2.5">
+        <div className="min-w-0">
           {effSelPart ? (
             <PartitionPanel
               key={effSelPart}
@@ -1403,13 +1427,24 @@ export function RoomConfigurator({ mode = "dealer", onComplete, onChange, initia
         </div>
 
         {/* Surfaces — always visible, independent of any fixture selection */}
-        <div className="mt-3.5 border-t border-line pt-2.5">
+        <div className="min-w-0 md:col-span-2 xl:col-span-1">
           <Surfaces
             model={model} onToggleEx={toggleEx}
             onTreatment={setTreatment} onAllPanels={setAllPanels}
             onFlooringColor={setFlooringColor} onFlooringWaste={setFlooringWaste} onFlooringClear={clearFlooring}
             onWallBaseColor={setWallBaseColor} onWallBaseHeight={setWallBaseHeight} onWallBaseWaste={setWallBaseWaste} onWallBaseClear={clearWallBase}
           />
+        </div>
+        </div>
+
+        {/* Commit — last, so it sits after everything it summarises rather than above the
+            surfaces the dealer still has to pick. */}
+        <div className="mt-5 flex items-center gap-3 border-t border-line pt-4">
+          <div className="min-w-0 flex-1">
+            <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted">{mode === "dealer" ? t("configurator.room.roomHdr") : t("configurator.room.yourSpace")}</div>
+            <div className="truncate text-sm font-semibold">{model.label}</div>
+          </div>
+          <button onClick={addToQuote} className="rounded-lg bg-accent px-5 py-3 text-sm font-semibold text-white transition hover:brightness-110">{primaryLabel ?? t("configurator.addToQuote")}</button>
         </div>
       </div>
     </div>
@@ -1459,8 +1494,14 @@ function Plan({ svgRef, model, armed, showClear, sel, onBackground, onPlace, onS
   // overall dims
   const dc = MUTED, tk = 5;
   const [blx, bly] = P(model.minX, model.maxY), [brx] = P(model.maxX, model.maxY), [tlx, tly] = P(model.minX, model.minY);
-  const wy = bly + 34;
-  const dx0 = tlx - 34;
+  // Offset far enough that this label's TOUCH-sized hit box clears the per-segment length
+  // label's (which sits 15 units out with its own TOUCH box, i.e. reaching 34.5). At the old
+  // 34 the two boxes overlapped once both were enlarged for touch, and because the segment
+  // labels paint later they stole the tap — so tapping the overall width opened the wall
+  // editor instead. DIM_OFF - TOUCH/2 must stay >= 34.5, and pad must cover DIM_OFF + TOUCH/2.
+  const DIM_OFF = 54;
+  const wy = bly + DIM_OFF;
+  const dx0 = tlx - DIM_OFF;
 
   // armed hit targets — every surface (perimeter wall AND partition face) is a candidate;
   // only those the fixture actually fits highlight as placeable, the rest gray out.
@@ -1479,6 +1520,11 @@ function Plan({ svgRef, model, armed, showClear, sel, onBackground, onPlace, onS
   }
 
   return (
+    // Purely width-driven. A viewport-height cap was tried and removed: to actually clear the
+    // fold on a 900px laptop it has to subtract the ~340px of chrome above, which drags the
+    // drawing back under the 600px height this is all for. Better to draw it as large as the
+    // width allows and let the last ~100px sit below the fold — the properties panel is down
+    // there anyway, so the page is scrolled regardless.
     <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} aria-label="Room plan" className={`block h-auto w-full rounded-[10px]${className ? " " + className : ""}`} style={interactive ? { background: PAPER } : { background: PAPER, pointerEvents: "none" }}
       onClick={interactive ? (e) => { if (e.target === e.currentTarget) onBackground?.(); } : undefined}>
       {floorImage && (
@@ -1498,24 +1544,33 @@ function Plan({ svgRef, model, armed, showClear, sel, onBackground, onPlace, onS
       <line x1={blx} y1={bly + 8} x2={blx} y2={wy + tk} stroke={dc} pointerEvents="none" />
       <line x1={brx} y1={bly + 8} x2={brx} y2={wy + tk} stroke={dc} pointerEvents="none" />
       <line x1={blx} y1={wy} x2={brx} y2={wy} stroke={dc} pointerEvents="none" />
+      {/* A separate transparent hit rect carries the tap: an SVG <g> has no geometry of its
+          own, so with every child pointer-events:none the group was unclickable — which is
+          what silently disabled tap-to-edit on both overall dimensions. Splitting hit area
+          from the visible plate lets the target be finger-sized without a big opaque block
+          masking the dimension line. */}
       <g style={interactive ? { cursor: "pointer" } : undefined} onClick={interactive ? (e) => { e.stopPropagation(); onEdit?.((blx + brx) / 2, wy, ftin(S.w), { type: "dim", d: "w" }); } : undefined}>
-        <rect x={(blx + brx) / 2 - 24} y={wy - 9} width={48} height={18} rx={4} fill={PAPER} pointerEvents="none" />
-        <text x={(blx + brx) / 2} y={wy} textAnchor="middle" dominantBaseline="middle" fontFamily="monospace" fontSize={11} fontWeight={700} pointerEvents="none">{ftin(model.bw)}</text>
+        <rect x={(blx + brx) / 2 - 26} y={wy - 11} width={52} height={22} rx={4} fill={PAPER} pointerEvents="none" />
+        <text x={(blx + brx) / 2} y={wy} textAnchor="middle" dominantBaseline="middle" fontFamily="monospace" fontSize={LABEL_FS} fontWeight={700} pointerEvents="none">{ftin(model.bw)}</text>
+        <rect x={(blx + brx) / 2 - TOUCH / 2} y={wy - TOUCH / 2} width={TOUCH} height={TOUCH} fill="transparent" pointerEvents={interactive ? undefined : "none"} />
       </g>
       {/* overall depth dim */}
       <line x1={tlx - 8} y1={tly} x2={dx0 - tk} y2={tly} stroke={dc} pointerEvents="none" />
       <line x1={blx - 8} y1={bly} x2={dx0 - tk} y2={bly} stroke={dc} pointerEvents="none" />
       <line x1={dx0} y1={tly} x2={dx0} y2={bly} stroke={dc} pointerEvents="none" />
       <g style={interactive ? { cursor: "pointer" } : undefined} onClick={interactive ? (e) => { e.stopPropagation(); onEdit?.(dx0, (tly + bly) / 2, ftin(S.d), { type: "dim", d: "d" }); } : undefined}>
-        <rect x={dx0 - 9} y={(tly + bly) / 2 - 24} width={18} height={48} fill={PAPER} pointerEvents="none" />
-        <text x={dx0} y={(tly + bly) / 2} textAnchor="middle" dominantBaseline="middle" transform={`rotate(-90 ${dx0} ${(tly + bly) / 2})`} fontFamily="monospace" fontSize={11} fontWeight={700} pointerEvents="none">{ftin(model.bh)}</text>
+        <rect x={dx0 - 11} y={(tly + bly) / 2 - 26} width={22} height={52} rx={4} fill={PAPER} pointerEvents="none" />
+        <text x={dx0} y={(tly + bly) / 2} textAnchor="middle" dominantBaseline="middle" transform={`rotate(-90 ${dx0} ${(tly + bly) / 2})`} fontFamily="monospace" fontSize={LABEL_FS} fontWeight={700} pointerEvents="none">{ftin(model.bh)}</text>
+        <rect x={dx0 - TOUCH / 2} y={(tly + bly) / 2 - TOUCH / 2} width={TOUCH} height={TOUCH} fill="transparent" pointerEvents={interactive ? undefined : "none"} />
       </g>
       </>)}
 
       {/* walls */}
       {edges.map((e, i) => { const [ax, ay] = P(e.a[0], e.a[1]), [bx, by] = P(e.b[0], e.b[1]); return <line key={`w${i}`} x1={ax} y1={ay} x2={bx} y2={by} stroke={excluded.has(i) ? GHOST : INK} strokeWidth={3} strokeLinecap="round" pointerEvents="none" />; })}
       {/* gray (not-ok) armed decorations */}
-      {gray.map((h) => <line key={`g${h.i}`} pointerEvents="none" x1={h.ax} y1={h.ay} x2={h.bx} y2={h.by} stroke={GHOST} strokeOpacity={0.25} strokeWidth={14} strokeLinecap="round" />)}
+      {/* Matches the placeable band's width so the "can't go here" walls read as the same
+          affordance, just disabled. */}
+      {gray.map((h) => <line key={`g${h.i}`} pointerEvents="none" x1={h.ax} y1={h.ay} x2={h.bx} y2={h.by} stroke={GHOST} strokeOpacity={0.25} strokeWidth={TOUCH} strokeLinecap="round" />)}
 
       {/* segment labels */}
       {edges.map((e, i) => {
@@ -1526,8 +1581,8 @@ function Plan({ svgRef, model, armed, showClear, sel, onBackground, onPlace, onS
         const lx = mx + px * 15, ly = my + py * 15;
         return (
           <g key={`sl${i}`} style={interactive ? { cursor: "pointer" } : undefined} onClick={interactive ? (ev) => { ev.stopPropagation(); onEdit?.(lx, ly, ftin(e.len), { type: "seg", p: e.p, len: e.len }); } : undefined}>
-            <rect x={lx - 20} y={ly - 10} width={40} height={20} rx={5} fill="#fff" fillOpacity={0.01} pointerEvents={interactive ? undefined : "none"} />
-            <text x={lx} y={ly} textAnchor="middle" dominantBaseline="middle" fontFamily="monospace" fontSize={11} fill={excluded.has(i) ? GHOST : INK} pointerEvents="none">{ftin(e.len)}</text>
+            <rect x={lx - TOUCH / 2} y={ly - TOUCH / 2} width={TOUCH} height={TOUCH} rx={5} fill="#fff" fillOpacity={0.01} pointerEvents={interactive ? undefined : "none"} />
+            <text x={lx} y={ly} textAnchor="middle" dominantBaseline="middle" fontFamily="monospace" fontSize={LABEL_FS} fill={excluded.has(i) ? GHOST : INK} pointerEvents="none">{ftin(e.len)}</text>
           </g>
         );
       })}
@@ -1536,7 +1591,7 @@ function Plan({ svgRef, model, armed, showClear, sel, onBackground, onPlace, onS
       {showClear && CL.turnCircle && (() => {
         const c0 = P(CL.turnCircle.x, CL.turnCircle.y), edge = P(CL.turnCircle.x + CL.turnCircle.r, CL.turnCircle.y);
         const rp = Math.hypot(edge[0] - c0[0], edge[1] - c0[1]);
-        return <g key="turn"><circle pointerEvents="none" cx={c0[0]} cy={c0[1]} r={rp} fill={ACCENT} fillOpacity={0.05} stroke={ACCENT} strokeWidth={1} strokeDasharray="6 4" /><text pointerEvents="none" x={c0[0]} y={c0[1] - rp + 12} textAnchor="middle" fontFamily="monospace" fontSize={9} fill={ACCENT}>{`60" ${t("configurator.room.turning")}`}</text></g>;
+        return <g key="turn"><circle pointerEvents="none" cx={c0[0]} cy={c0[1]} r={rp} fill={ACCENT} fillOpacity={0.05} stroke={ACCENT} strokeWidth={1} strokeDasharray="6 4" /><text pointerEvents="none" x={c0[0]} y={c0[1] - rp + 12} textAnchor="middle" fontFamily="monospace" fontSize={LABEL_FS} fill={ACCENT}>{`60" ${t("configurator.room.turning")}`}</text></g>;
       })()}
       {showClear && CL.zones.map((z, i) => (
         <polygon key={`z${i}`} pointerEvents="none" points={z.pts.map((pt) => P(pt[0], pt[1]).join(",")).join(" ")} fill={z.ok ? ACCENT : AMBER} fillOpacity={z.ok ? 0.06 : 0.16} stroke={z.ok ? ACCENT : AMBER} strokeWidth={1} strokeDasharray="4 3" strokeOpacity={z.ok ? 0.4 : 0.9} />
@@ -1583,11 +1638,15 @@ function Plan({ svgRef, model, armed, showClear, sel, onBackground, onPlace, onS
             <circle cx={ax} cy={ay} r={3.5} fill={stroke} pointerEvents="none" />
             {interactive && !armPartition && !armed ? (
               <>
-                {/* slide handle (midpoint) — moves the anchor along its wall */}
-                <circle r={15} cx={mx} cy={my} fill="transparent" style={{ cursor: "grab" }} onClick={pick} onPointerDown={(ev) => onPartSlideStart?.(ev, p.id)} />
+                {/* Slide handle (midpoint) — moves the anchor along its wall.
+                    Deliberately short of TOUCH: this handle and the resize handle below sit
+                    only half a partition-length apart, so on a short partition a full-size
+                    target would let the later-drawn resize handle swallow this one. Same
+                    trade-off the `crowded` fixture handles make. */}
+                <circle r={17} cx={mx} cy={my} fill="transparent" style={{ cursor: "grab" }} onClick={pick} onPointerDown={(ev) => onPartSlideStart?.(ev, p.id)} />
                 <circle cx={mx} cy={my} r={9} fill={ACCENT} fillOpacity={selected ? 0.35 : 0.15} stroke={ACCENT} strokeWidth={selected ? 2 : 1.2} style={{ cursor: "grab" }} onClick={pick} onPointerDown={(ev) => onPartSlideStart?.(ev, p.id)} />
                 {/* resize handle (free end) — changes the length */}
-                <circle r={14} cx={fx} cy={fy} fill="transparent" style={{ cursor: "grab" }} onClick={pick} onPointerDown={(ev) => onPartResizeStart?.(ev, p.id)} />
+                <circle r={17} cx={fx} cy={fy} fill="transparent" style={{ cursor: "grab" }} onClick={pick} onPointerDown={(ev) => onPartResizeStart?.(ev, p.id)} />
                 <circle cx={fx} cy={fy} r={selected ? 6 : 5} fill="#fff" stroke={ACCENT} strokeWidth={selected ? 2 : 1.5} style={{ cursor: "grab" }} onClick={pick} onPointerDown={(ev) => onPartResizeStart?.(ev, p.id)} />
               </>
             ) : (
@@ -1618,14 +1677,15 @@ function Plan({ svgRef, model, armed, showClear, sel, onBackground, onPlace, onS
         const lx = mx + px * 16, ly = my + py * 16, label = wallLabel(e.side);
         return (
           <g key={`wl${i}`} pointerEvents="none">
-            <rect x={lx - 11} y={ly - 8} width={22} height={16} rx={4} fill={PAPER} fillOpacity={0.85} />
-            <text x={lx} y={ly} textAnchor="middle" dominantBaseline="middle" fontFamily="monospace" fontSize={9} fontWeight={700} fill={excluded.has(i) ? GHOST : MUTED}>{label}</text>
+            <rect x={lx - 13} y={ly - 10} width={26} height={20} rx={4} fill={PAPER} fillOpacity={0.85} />
+            <text x={lx} y={ly} textAnchor="middle" dominantBaseline="middle" fontFamily="monospace" fontSize={LABEL_FS} fontWeight={700} fill={excluded.has(i) ? GHOST : MUTED}>{label}</text>
           </g>
         );
       })}
 
-      {/* placement targets sit above all artwork */}
-      {hits.map((h) => <line key={`h${h.i}`} x1={h.ax} y1={h.ay} x2={h.bx} y2={h.by} stroke={ACCENT} strokeOpacity={0.16} strokeWidth={18} strokeLinecap="round" style={{ cursor: "pointer" }} onClick={(ev) => { ev.stopPropagation(); onPlace?.(h.i); }} />)}
+      {/* placement targets sit above all artwork. TOUCH-wide so tapping a wall to place a
+          fixture works with a fingertip, not just a mouse pointer. */}
+      {hits.map((h) => <line key={`h${h.i}`} x1={h.ax} y1={h.ay} x2={h.bx} y2={h.by} stroke={ACCENT} strokeOpacity={0.16} strokeWidth={TOUCH} strokeLinecap="round" style={{ cursor: "pointer" }} onClick={(ev) => { ev.stopPropagation(); onPlace?.(h.i); }} />)}
 
       {/* partition placement catcher — topmost when arming, so a click anywhere in the plan
           registers a point (and hover drives the preview). */}
@@ -1720,9 +1780,9 @@ function FtIn({ valueIn, onChange }: { valueIn: number; onChange: (totalIn: numb
   });
   return (
     <span className="inline-flex items-center gap-0.5">
-      <input type="number" {...bind("ft")} className={IN_CLS} />
+      <input type="number" inputMode="numeric" {...bind("ft")} className={IN_CLS} />
       <span className="text-[11px] text-muted">&apos;</span>
-      <input type="number" min={0} max={11} {...bind("inch")} className={IN_CLS} />
+      <input type="number" inputMode="numeric" min={0} max={11} {...bind("inch")} className={IN_CLS} />
       <span className="text-[11px] text-muted">&quot;</span>
     </span>
   );
@@ -1867,7 +1927,7 @@ function PartitionPanel({ partition, ceilingIn, onThickness, onHeight, onLength,
       </div>
       {customT && (
         <div className="mt-1.5 flex items-center gap-1">
-          <input type="number" step={0.25} min={0.5} value={p.thicknessIn} onChange={(e) => onThickness(parseFloat(e.target.value) || 0.5)} className={IN_CLS} />
+          <input type="number" inputMode="decimal" step={0.25} min={0.5} value={p.thicknessIn} onChange={(e) => onThickness(parseFloat(e.target.value) || 0.5)} className={IN_CLS} />
           <span className="text-[11px] text-muted">&quot;</span>
         </div>
       )}
@@ -1879,14 +1939,14 @@ function PartitionPanel({ partition, ceilingIn, onThickness, onHeight, onLength,
       </div>
       {customH && (
         <div className="mt-1.5 flex items-center gap-1">
-          <input type="number" min={1} value={p.heightIn} onChange={(e) => onHeight(parseInt(e.target.value) || 1)} className={IN_CLS} />
+          <input type="number" inputMode="numeric" min={1} value={p.heightIn} onChange={(e) => onHeight(parseInt(e.target.value) || 1)} className={IN_CLS} />
           <span className="text-[11px] text-muted">&quot;</span>
         </div>
       )}
 
       <Field label={t("configurator.room.lengthLbl")}>
         {editingLen ? (
-          <input autoFocus defaultValue={ftin(len)}
+          <input autoFocus inputMode="numeric" defaultValue={ftin(len)}
             onKeyDown={(e) => { if (e.key === "Enter") { commitLen((e.target as HTMLInputElement).value); (e.target as HTMLInputElement).blur(); } if (e.key === "Escape") { setEditingLen(false); (e.target as HTMLInputElement).blur(); } }}
             onBlur={(e) => commitLen(e.target.value)} onFocus={(e) => e.target.select()}
             className="w-16 rounded-md border border-accent bg-card px-1 py-0.5 text-center font-mono text-xs" />
@@ -1956,7 +2016,17 @@ function Surfaces({ model, onToggleEx, onTreatment, onAllPanels, onFlooringColor
                   </select>
                 )}
               </td>
-              <td className="p-1"><input type="checkbox" checked={!model.excluded.has(i)} onChange={(ev) => onToggleEx(i, ev.target.checked)} /></td>
+              {/* The label is the tap target, not the box: a bare checkbox in a table cell is
+                  ~28px including padding, which is a miss with a fingertip. It also gives the
+                  checkbox the accessible name it previously lacked ("W2 Bill"). */}
+              <td className="p-1">
+                <label
+                  aria-label={`${wallLabel(e.side)} ${t("configurator.room.colBill")}`}
+                  className="flex min-h-11 cursor-pointer items-center justify-center"
+                >
+                  <input type="checkbox" checked={!model.excluded.has(i)} onChange={(ev) => onToggleEx(i, ev.target.checked)} />
+                </label>
+              </td>
             </tr>
           ); })}
         </tbody>
