@@ -1,0 +1,882 @@
+{
+  "brand": "Durasein",
+  "material": "Solid Surface",
+  "productUrl": "https://durasein.com/us/",
+  "collections": [
+    {
+      "id": "timeless",
+      "name": "Timeless",
+      "colors": [
+        {
+          "id": "DM1001",
+          "name": "Arctic White",
+          "patternCode": "",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2025/01/dm1001-arctic-white.png",
+          "swatchDownload": "",
+          "sheetUrl": "",
+          "pageUrl": "https://durasein.com/us/product/arctic-white/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2019/11/durasein_healthcare_boardwalk_arctic-white.jpg"
+          ]
+        },
+        {
+          "id": "DM3008",
+          "name": "Bella Vista",
+          "patternCode": "pm4874",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2025/01/dm3008-bella-vista.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2025/02/dm3008pm4874bella-vista.jpg",
+          "sheetUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2021/07/DM3008-BellaVista-Timelesspm4874_full-sheet.jpg",
+          "pageUrl": "https://durasein.com/us/product/bella-vista/",
+          "applicationPhotos": []
+        },
+        {
+          "id": "DM3016",
+          "name": "Bellingham Grey",
+          "patternCode": "pm4465",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2025/01/dm3016-bellingham-grey.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2019/11/Bellingham-Grey-DM3016-1.jpg",
+          "sheetUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2021/07/DM3016-BellinghamGrey-Timeless-pm4465_full-sheet-1.jpg",
+          "pageUrl": "https://durasein.com/us/product/bellingham-grey/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2019/11/durasein_residential_bellingham-grey_arctic-white-2.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2019/11/durasein_residential_bellingham-grey_arctic-white.jpg"
+          ]
+        },
+        {
+          "id": "DM1003",
+          "name": "Bone",
+          "patternCode": "",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2025/01/dm1003-bone.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2019/11/Bone-DM1003-1.jpg",
+          "sheetUrl": "",
+          "pageUrl": "https://durasein.com/us/product/bone/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2024/12/durasein_shower_bone.png",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2022/10/Durasein_Education_Bone_Cheerful-Yellow_Weathered-Wood_p.jpg"
+          ]
+        },
+        {
+          "id": "DM2005",
+          "name": "Chez Linen",
+          "patternCode": "pm4463",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2025/01/dm2005-chez-linen.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2019/11/Chez-Linen-DM2005-1.jpg",
+          "sheetUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2021/07/DM2005-ChezLinen-Timeless-pm4463_full-sheet-1.jpg",
+          "pageUrl": "https://durasein.com/us/product/chez-linen/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2025/02/dm2005pm4463chez-linen.jpg"
+          ]
+        },
+        {
+          "id": "DM2009",
+          "name": "Coal",
+          "patternCode": "pm811",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2025/01/dm2009-coal-2.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2019/11/Coal-DM2009-1.jpg",
+          "sheetUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2021/07/DM2009-Coal-Timeless-pm811_full-sheet.jpg",
+          "pageUrl": "https://durasein.com/us/product/coal/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2022/10/Durasein_Education_Coal_Odyssey_Concrete_p.jpg"
+          ]
+        },
+        {
+          "id": "DM3018",
+          "name": "Concrete",
+          "patternCode": "PM4479",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2025/01/dm3018-concrete.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2021/05/DM3018-PM4479-sample.jpg",
+          "sheetUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2019/11/DM3018_concrete-1.jpg",
+          "pageUrl": "https://durasein.com/us/product/concrete/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2019/11/durasein_healthcare_whiteout_concrete.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2022/10/Durasein_Education_Coal_Odyssey_Concrete_p.jpg"
+          ]
+        },
+        {
+          "id": "DM3003",
+          "name": "Cumberland",
+          "patternCode": "pm953",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2025/01/dm3003-cumberland.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2019/11/DM3003_Cumberland.jpg",
+          "sheetUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2019/11/1-3.jpg",
+          "pageUrl": "https://durasein.com/us/product/cumberland/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2025/02/dm3003pm953cumberland.jpg"
+          ]
+        },
+        {
+          "id": "DM3011",
+          "name": "Glacier Tundra",
+          "patternCode": "pm4872",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2025/01/dm3011-glacier-tundra.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2021/05/DM3011-PM4872-sample.jpg",
+          "sheetUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2021/07/DM3011-GlacierTundra-Timeless-pm4872_full-sheet-1.jpg",
+          "pageUrl": "https://durasein.com/us/product/glacier-tundra/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2019/11/dur_2023_greece_commercial_restroom_pm4872-glacier-tundra.jpg"
+          ]
+        },
+        {
+          "id": "DM1011",
+          "name": "Grey Quartz",
+          "patternCode": "",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2021/03/dm1011-grey-quartz-1.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2021/03/2.jpg",
+          "sheetUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2021/05/Grey-Quartz.png",
+          "pageUrl": "https://durasein.com/us/product/grey-quartz/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2021/03/dm1001-pm4021-arctic-whiterlf117-1.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2021/03/dm1001-pm4021-arctic-whiterlf117-2.jpg"
+          ]
+        },
+        {
+          "id": "DM3015",
+          "name": "Iceberg",
+          "patternCode": "pm4875",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2025/01/dm3015-iceberg.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2019/11/Iceberg-DM3015-1.jpg",
+          "sheetUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2021/07/DM3015-Iceberg-Timeless-pm4875_full-sheet-1.jpg",
+          "pageUrl": "https://durasein.com/us/product/iceberg/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2019/11/dur_hospitality_bar_iceberg_pm4875.jpg"
+          ]
+        },
+        {
+          "id": "DM2012",
+          "name": "Milky Sands",
+          "patternCode": "pm4370",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2021/03/dm2012-milky-sands.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2025/07/milky-sands1-4.jpg",
+          "sheetUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2025/07/milky-sands1-2.jpg",
+          "pageUrl": "https://durasein.com/us/product/milky-sands/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2025/07/dm2012-pm4370-milky-sandsrlf135-1.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2025/07/dm2012-pm4370-milky-sandsrlf135-2.jpg"
+          ]
+        },
+        {
+          "id": "DM1002",
+          "name": "Natural White",
+          "patternCode": "",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2025/01/dm1002-natural-white.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2021/05/Natural-White-DM1002-1.jpg",
+          "sheetUrl": "",
+          "pageUrl": "https://durasein.com/us/product/natural-white/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2019/11/durasein_heshowers_int4_final_2022-07-08_natural-white.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2019/11/durasein_healthcare_arctic-white_naturale_blue-mist.jpg"
+          ]
+        },
+        {
+          "id": "DM2001",
+          "name": "Oahu",
+          "patternCode": "pm174",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2025/01/dm2001-oahu.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2019/11/DM2001_Oahu.jpg",
+          "sheetUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2019/11/DM2001_Oahu1-3-copy.jpg",
+          "pageUrl": "https://durasein.com/us/product/oahu/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2019/11/dur_residential_kitchen_oahu_pm174.jpg"
+          ]
+        },
+        {
+          "id": "DM4001",
+          "name": "Obsidian",
+          "patternCode": "ts050",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2025/01/dm4001-nightfall-2.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2021/05/DM4001-TS050-sample.jpg",
+          "sheetUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2021/07/DM4001-Nightfall-Timeless-ts050_full-sheet.jpg",
+          "pageUrl": "https://durasein.com/us/product/obsidian/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2019/11/dm4001ts050-nightfall-2.jpg"
+          ]
+        },
+        {
+          "id": "DM3009",
+          "name": "Odyssey",
+          "patternCode": "pm4466",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2025/01/dm3009-odyssey.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2021/05/DM3009-PM4466-sample-1.jpg",
+          "sheetUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2021/07/DM3009-Odyssey-Timeless-pm4466_full-sheet-1.jpg",
+          "pageUrl": "https://durasein.com/us/product/odyssey/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2025/02/dm3009pm4466odyssey.jpg"
+          ]
+        },
+        {
+          "id": "DM2002",
+          "name": "Parthenon",
+          "patternCode": "pm4355",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2025/01/dm2002-parthenon.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2021/05/DM2002-PM4355-sample.jpg",
+          "sheetUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2021/07/DM2002_Parthenon1-3-copy.jpg",
+          "pageUrl": "https://durasein.com/us/product/parthenon/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2020/10/003-USA-Parthenon-CommercialHealthcareBathroom2-1.png",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2020/10/003-USA-Parthenon-CommercialHealthcareBathroom-1.png"
+          ]
+        },
+        {
+          "id": "DM3005",
+          "name": "Platinum Grey",
+          "patternCode": "pm4840",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2025/01/dm3005-platinum-grey.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2022/02/DM3005_Platinum-Grey.jpg",
+          "sheetUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2022/02/DM3005_Platinum-Grey1-3-copy.jpg",
+          "pageUrl": "https://durasein.com/us/product/platinum-grey/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2025/02/dm3005pm4840platinum-grey.jpg"
+          ]
+        },
+        {
+          "id": "DM3012",
+          "name": "Silver Falls",
+          "patternCode": "pm4768",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2025/01/dm3012-silver-falls-2.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2021/05/DM3012-PM4768-sample-1.jpg",
+          "sheetUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2021/07/DM3012-SilverFalls-Timeless-pm4768_full-sheet-1.jpg",
+          "pageUrl": "https://durasein.com/us/product/silver-falls/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2019/11/durasein_pm4768-silver-falls.jpg"
+          ]
+        },
+        {
+          "id": "DM2014",
+          "name": "Triostone",
+          "patternCode": "pm4533",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2023/06/DM2014-Triostone.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2023/06/DM2014_1-4.jpg",
+          "sheetUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2023/06/DM2014_2.jpg",
+          "pageUrl": "https://durasein.com/us/product/triostone/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2025/07/dm2014pm4533-triostone-rlf135-1.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2025/07/dm2014pm4533-triostone-rlf135-2.jpg"
+          ]
+        },
+        {
+          "id": "DM1004",
+          "name": "Whiteout",
+          "patternCode": "pm4049",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2025/01/dm1004-whiteout-2.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2022/02/dm1004_pm4049_4.jpg",
+          "sheetUrl": "",
+          "pageUrl": "https://durasein.com/us/product/whiteout/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2020/10/003-USA-Whiteout-DM1004-ResidentialBathroom2-1.png",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2020/10/003-USA-Whiteout-DM1004-ResidentialBathroom-1.png"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "brilliant",
+      "name": "Brilliant",
+      "colors": [
+        {
+          "id": "DM6003",
+          "name": "Bliss Blue",
+          "patternCode": "pm4190",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2025/01/dm6003-bliss-blue.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2019/11/Bliss-Blue-DM6003-1.jpg",
+          "sheetUrl": "",
+          "pageUrl": "https://durasein.com/us/product/bliss-blue/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2025/02/dm6003pm4190bliss-blue.jpg"
+          ]
+        },
+        {
+          "id": "DM6002",
+          "name": "Cheerful Yellow",
+          "patternCode": "",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2025/01/dm6002-cheerful-yellow.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2021/05/yellow.png",
+          "sheetUrl": "",
+          "pageUrl": "https://durasein.com/us/product/cheerful-yellow/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2021/09/Durasein-DM6002-Cheerful-Yellow-PodCladding-opt2-scaled.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2022/10/Durasein_Education_Bone_Cheerful-Yellow_Weathered-Wood_p.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2023/08/Durasein_Healthcare_Sun-Kissed_Cheerful-Yellow_p.jpg"
+          ]
+        },
+        {
+          "id": "DM6004",
+          "name": "Energy Orange",
+          "patternCode": "",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2019/11/dm6004-energy-orange-2.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2021/05/energy-orange.png",
+          "sheetUrl": "",
+          "pageUrl": "https://durasein.com/us/product/energy-orange/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2019/11/durasein_energy-orange-1.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2019/11/durasein_energy-orange-2.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2024/03/durasein_rainwall-1.jpg"
+          ]
+        },
+        {
+          "id": "DM6009",
+          "name": "Grape Green",
+          "patternCode": "",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2025/01/dm6009-grape-green.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2019/11/Grape-Green-DM6009-1.jpg",
+          "sheetUrl": "",
+          "pageUrl": "https://durasein.com/us/product/grape-green/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2022/10/Durasein_Education_Outre-White_Grape-Green_Sun-Kissed_p.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2023/08/Durasein_Healthcare_Ever-After_Grape-Green_p.jpg"
+          ]
+        },
+        {
+          "id": "DM6006",
+          "name": "Nocturne",
+          "patternCode": "",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2025/01/dm6006-nocturne.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2019/11/Nocturne-DM6006-1.jpg",
+          "sheetUrl": "",
+          "pageUrl": "https://durasein.com/us/product/nocturne/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2019/11/dur_kitchen_pm206-nocturne.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2021/08/Durasein-Nocturne-02.png"
+          ]
+        },
+        {
+          "id": "DM6005",
+          "name": "Outre White",
+          "patternCode": "",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2025/01/dm6005-outre-white.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2019/11/Outre-White-DM6005-1.jpg",
+          "sheetUrl": "",
+          "pageUrl": "https://durasein.com/us/product/outre-white/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2022/10/Durasein_Education_Outre-White_Grape-Green_Sun-Kissed_p.jpg"
+          ]
+        },
+        {
+          "id": "DM6008",
+          "name": "Sea Blue",
+          "patternCode": "",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2019/11/dm6008-sea-blue-2.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2019/11/Sea-Blue-DM6008-1.jpg",
+          "sheetUrl": "",
+          "pageUrl": "https://durasein.com/us/product/sea-blue/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2023/08/Durasein_Healthcare_Hickory_Sea-Blue_Harbor-Mist_p.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2022/10/Durasein_Education_Leaden_Bliss-Blue_p.jpg"
+          ]
+        },
+        {
+          "id": "DM6012",
+          "name": "Spiritual Purple",
+          "patternCode": "",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2025/01/dm6012-spiritual-purple.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2019/11/Spiritual-Purple-DM6012-1.jpg",
+          "sheetUrl": "",
+          "pageUrl": "https://durasein.com/us/product/spiritual-purple/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2022/09/Durasien_concept4_final_2022-08-05-Spiritual-Purple.jpg"
+          ]
+        },
+        {
+          "id": "DM6001",
+          "name": "Vitality Red",
+          "patternCode": "",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2025/01/dm6001-vitality-red-1.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2021/05/red.png",
+          "sheetUrl": "",
+          "pageUrl": "https://durasein.com/us/product/vitality-red/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2021/09/Durasein-DM6001-VitalityRed-CustomSeatingLockers-opt2.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2021/08/Durasein_Workplace_Campaign_int1_final_2021_08_03_WP_1-scaled.jpg"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "balanced",
+      "name": "Balanced",
+      "colors": [
+        {
+          "id": "DM5018",
+          "name": "Bianca Sabbia",
+          "patternCode": "paw054",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2025/01/dm5018-bianca-sabbia-1.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2021/05/DM5018-1.jpg",
+          "sheetUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2021/07/DM5018-BiancaSabbia-Balanced-paw054_full-sheet-1.jpg",
+          "pageUrl": "https://durasein.com/us/product/bianca-sabbia/",
+          "applicationPhotos": []
+        },
+        {
+          "id": "DM5017",
+          "name": "Grigio",
+          "patternCode": "",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2019/11/dm5017-grigio.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2019/11/DM5017s-1.jpg",
+          "sheetUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2021/07/1-3.jpg",
+          "pageUrl": "https://durasein.com/us/product/grigio/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2021/09/Durasein-DM5017-Grigio-TableTops-opt1.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2024/12/durasein_healthcare_brochure_int10_final_2021-04-13.jpg"
+          ]
+        },
+        {
+          "id": "DM5019",
+          "name": "Icy Grey",
+          "patternCode": "PAW095",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2022/05/dm5019-icy-grey-2.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2022/05/PAW0951-DM5019-IcyGrey_4.1.jpg",
+          "sheetUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2022/05/PAW0951-DM5019-IcyGrey_1-2.jpg",
+          "pageUrl": "https://durasein.com/us/product/icy-grey/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2022/12/icy_grey_renders_kitchen_final_2022-11-29_p.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2022/09/Durasien_consept8_Final_2022-07-151_Icy-Grey.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2022/12/icy_grey_renders_int3_final_2022-11-29_p.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2022/12/icy_grey_renders_bathroom_final_2022-11-29_p.jpg"
+          ]
+        },
+        {
+          "id": "DM5016",
+          "name": "Naturale",
+          "patternCode": "paw045",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2021/07/dm5016-naturale.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2021/05/DM5016s-1.jpg",
+          "sheetUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2021/07/DM5016-Naturale-Balanced-paw045_full-sheet.jpg",
+          "pageUrl": "https://durasein.com/us/product/naturale/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2021/09/Durasein-DM5016-Naturale-CustomForms.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2021/09/Durasein_int_1_it_05_2021.03.11_WP-Naturale-scaled.jpg"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "charming",
+      "name": "Charming",
+      "colors": [
+        {
+          "id": "DM5413",
+          "name": "Essence",
+          "patternCode": "paw050",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2025/01/dm5013-naturally.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2019/11/DM5013s-1.jpg",
+          "sheetUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2021/07/DM5013-Naturally-Charming-paw050_full-sheet.jpg",
+          "pageUrl": "https://durasein.com/us/product/essence/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2025/07/dm5013-paw050-naturallyrlt206-1.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2025/07/dm5013-paw050-naturallyrlt206-2.jpg"
+          ]
+        },
+        {
+          "id": "DM5015",
+          "name": "Eventide",
+          "patternCode": "paw053",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2019/11/dm5015-eventide-2.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2019/11/DM5015s-1.jpg",
+          "sheetUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2021/07/DM5015-Eventide-Charming-paw053_full-sheet-1.jpg",
+          "pageUrl": "https://durasein.com/us/product/eventide/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2022/02/Charming_Lobby_Final_21.11.24_people_02-1920x1200.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2021/09/Durasein_int_2_it_03_2021.03.11_WP-NaturallyEventide-scaled.jpg"
+          ]
+        },
+        {
+          "id": "DM5414",
+          "name": "Halo",
+          "patternCode": "paw051",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2025/01/dm5014-luna.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2021/05/DM5014s-1.jpg",
+          "sheetUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2019/11/DM5014-Luna-paw051_full-sheet.jpg",
+          "pageUrl": "https://durasein.com/us/product/halo/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2025/07/dm5014-paw051-lunarlf140-1.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2025/07/dm5014-paw051-lunarlf140-2.jpg"
+          ]
+        },
+        {
+          "id": "DM5011",
+          "name": "Harmony",
+          "patternCode": "paw043",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2019/11/dm5011-harmony.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2019/11/DM5011s-1.jpg",
+          "sheetUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2021/07/DM5011-Harmony-Charming-paw043_full-sheet.jpg",
+          "pageUrl": "https://durasein.com/us/product/harmony/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2022/02/Charming_cafe_Final_2021-12-02_people_02.jpg"
+          ]
+        },
+        {
+          "id": "DM5014",
+          "name": "Luna",
+          "patternCode": "paw051",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2025/01/dm5014-luna.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2021/05/DM5014s-1.jpg",
+          "sheetUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2019/11/DM5014-Luna-paw051_full-sheet.jpg",
+          "pageUrl": "https://durasein.com/us/product/luna/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2020/10/003-USA-Luna-DM5014-CommercialBathroom-1.png",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2022/05/Durasein_Sink_Promo_Int3_Final_2022-04-04.jpg"
+          ]
+        },
+        {
+          "id": "DM5013",
+          "name": "Naturally",
+          "patternCode": "paw050",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2025/01/dm5013-naturally.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2019/11/DM5013s-1.jpg",
+          "sheetUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2021/07/DM5013-Naturally-Charming-paw050_full-sheet.jpg",
+          "pageUrl": "https://durasein.com/us/product/naturally/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2022/02/Charming_Lobby_Final_21.11.24_people_02.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2022/02/Charming_interiors_bathroom_int1_final2_2021-11-23-1.jpg"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dreamy",
+      "name": "Dreamy",
+      "colors": [
+        {
+          "id": "DM5046",
+          "name": "Euphoria",
+          "patternCode": "PAW202",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2025/01/dm5046-euphoria-2.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2024/03/DM5046_PAW202_4.jpg",
+          "sheetUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2024/03/DM5046_PAW202_1_web.jpg",
+          "pageUrl": "https://durasein.com/us/product/euphoria/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2024/03/durasein_euphoria-1.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2024/03/durasein_euphoria-2.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2024/03/durasein_euphoria-3.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2024/03/durasein_euphoria-4.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2024/03/durasein_euphoria-5.jpg"
+          ]
+        },
+        {
+          "id": "DM5043",
+          "name": "Ever After",
+          "patternCode": "PAW181",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2025/01/dm5043-ever-after.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2022/08/PAW181-DM5043-EverAfter_1_4.jpg",
+          "sheetUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2022/08/PAW181-DM5043-EverAfter_1-web.jpg",
+          "pageUrl": "https://durasein.com/us/product/ever-after/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2023/05/Durasein_Scope6_int6_2022-07-15_Ever-After.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2022/08/Kitchen_Ever-AfterScene-3_a02-b.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2022/08/Durasein_Spring_Color_int2_02_final_2022-08-11_Ever-After.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2022/08/Durasein_Spring_Color_int2_01_final_2022-08-11_Ever-After.jpg"
+          ]
+        },
+        {
+          "id": "DM5066",
+          "name": "Heartfelt",
+          "patternCode": "PAW262",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2025/01/dm5066-heartfelt.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2024/03/PAW262_DM5066_4.png",
+          "sheetUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2024/03/PAW262_DM5066.png",
+          "pageUrl": "https://durasein.com/us/product/heartfelt/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2024/03/durasein_heartfelt-1.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2024/03/durasein_heartfelt-2.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2024/03/durasein_heartfelt-4.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2024/03/durasein_heartfelt-3.jpg"
+          ]
+        },
+        {
+          "id": "DM5042",
+          "name": "Light Haze",
+          "patternCode": "paw099",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2025/01/dm5042-light-haze.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2020/10/lightHazes-1.jpg",
+          "sheetUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2021/07/DM5042-LightHaze-paw099_full-sheet.jpg",
+          "pageUrl": "https://durasein.com/us/product/light-haze/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2021/09/Durasein-LightHaze-Bathroom.png",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2021/09/DuraseinLightHazeKitchen-1.png",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2024/12/durasein-dm5042-lighthaze-showersystem-view3.png",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2021/09/DuraseinLightHaze-Kitchen2.png"
+          ]
+        },
+        {
+          "id": "DM5057",
+          "name": "Spellbound",
+          "patternCode": "PAW085",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2025/01/dm5057-spellbound.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2024/03/DM505_PAW085_4-e1733244527166.jpg",
+          "sheetUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2024/03/DM505_PAW085_1_web.jpg",
+          "pageUrl": "https://durasein.com/us/product/spellbound/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2024/03/durasein_spellbound-1.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2024/03/durasein_spellbound-2.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2024/03/durasein_spellbound-3.jpg"
+          ]
+        },
+        {
+          "id": "DM5048",
+          "name": "Starstruck",
+          "patternCode": "PAW265",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2025/01/dm5048-starstruck.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2024/03/DM5048_PAW265_4.jpg",
+          "sheetUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2024/03/DM5048_PAW265_1_web.jpg",
+          "pageUrl": "https://durasein.com/us/product/starstruck/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2024/03/dm5048-starstruck-2.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2024/03/dm5048-starstruck-3.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2024/03/dm5048-starstruck-5.jpg"
+          ]
+        },
+        {
+          "id": "DM5044",
+          "name": "Sun Kissed",
+          "patternCode": "PAW198",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2025/01/dm5044-sun-kissed.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2022/05/PAW198-DM5044-SunKissed_4.jpg",
+          "sheetUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2022/05/PAW198-DM5044-SunKissed_1-2.jpg",
+          "pageUrl": "https://durasein.com/us/product/sun-kissed/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2023/06/Durasein_Spring_Color_int4_02_final_2022-10-11_Sun-Kissed.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2022/10/Durasein_Education_Outre-White_Grape-Green_Sun-Kissed_p.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2023/08/Durasein_Healthcare_Sun-Kissed_Cheerful-Yellow_p.jpg"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "lively",
+      "name": "Lively",
+      "colors": [
+        {
+          "id": "DM5027",
+          "name": "Blossoming",
+          "patternCode": "paw100",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2025/01/dm5027-blossoming.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2022/05/PAW100-DM5027-Blossoming_4.jpg",
+          "sheetUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2022/05/PAW100-DM5027-Blossoming.jpg",
+          "pageUrl": "https://durasein.com/us/product/blossoming/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2022/09/Durasein_Lively_Healthcare_int6_it03_2022-06-13_Blossoming.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2022/08/Durasein_Spring_Color_int7_02_final_2022-08-11_Blossoming.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2022/08/Durasein_Spring_Color_int7_01_final_2022-08-12_p1_Blossoming.jpg"
+          ]
+        },
+        {
+          "id": "DM5003",
+          "name": "Boardwalk",
+          "patternCode": "paw015",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2025/01/dm5003-boardwalk.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2021/05/DM5003s-1.jpg",
+          "sheetUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2021/07/DM5003-Boardwalk-Lively-paw015_full-sheet.jpg",
+          "pageUrl": "https://durasein.com/us/product/boardwalk/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2019/11/durasein_healthcare_boardwalk_arctic-white.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2020/10/003-USA-Boardwalk-CommercialHospitalityBathroom-scaled-1.jpg"
+          ]
+        },
+        {
+          "id": "DM5401",
+          "name": "Coastal",
+          "patternCode": "paw005",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2019/11/dm5001-harbor-mist.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2021/05/DM5001s-1.jpg",
+          "sheetUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2021/07/DM5001-HarborMist-Lively-paw005_full-sheet.jpg",
+          "pageUrl": "https://durasein.com/us/product/coastal/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2025/07/dm5001-paw005-harbor-mistniagararlt207-1.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2025/07/dm5001-paw005-harbor-mistniagararlt207-2.jpg"
+          ]
+        },
+        {
+          "id": "DM5005",
+          "name": "Galaxy",
+          "patternCode": "paw022",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2025/01/dm5005-galaxy-2.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2021/05/DM5005s-1.jpg",
+          "sheetUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2021/07/DM5005-Galaxy-Lively-paw022.jpg",
+          "pageUrl": "https://durasein.com/us/product/galaxy/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2019/11/dm5005-paw022-galaxy.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2019/11/dur_hospitality_bar_galaxy_paw022.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2019/11/durasein_kitchen_galaxy_gris_2.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2019/11/durasein_kitchen_galaxy_gris.jpg"
+          ]
+        },
+        {
+          "id": "DM5001",
+          "name": "Harbor Mist",
+          "patternCode": "paw005",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2019/11/dm5001-harbor-mist.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2021/05/DM5001s-1.jpg",
+          "sheetUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2021/07/DM5001-HarborMist-Lively-paw005_full-sheet.jpg",
+          "pageUrl": "https://durasein.com/us/product/harbor-mist/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2019/11/durasein_heshowers_int3_final_2022-07-08_harbor-mist.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2023/08/Durasein_Healthcare_Hickory_Sea-Blue_Harbor-Mist_p.jpg"
+          ]
+        },
+        {
+          "id": "DM5025",
+          "name": "Knight White",
+          "patternCode": "paw001",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2025/01/dm5025-knight-white-2.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2022/05/PAW001-DM5025-KnightWhite_4.jpg",
+          "sheetUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2022/05/PAW001-DM5025-KnightWhite.jpg",
+          "pageUrl": "https://durasein.com/us/product/knight-white/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2022/08/Durasein_Spring_Color_int5_final_2022-08-12_p_Knight-White.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2022/08/Durasein_Spring_Color_int5_02_final_2022-08-11_Knight-White.jpg"
+          ]
+        },
+        {
+          "id": "DM5026",
+          "name": "Leaden",
+          "patternCode": "paw103",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2025/01/dm5026-leaden.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2022/05/PAW103-DM5026-Leaden_4.jpg",
+          "sheetUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2022/05/PAW103-DM5026-Leaden.jpg",
+          "pageUrl": "https://durasein.com/us/product/leaden/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2022/08/Durasein_Spring_Color_int6_02_final_2022-08-11_Leaden.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2022/08/Durasein_Spring_Color_int6_01_final_2022-08-11_p_Leaden.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2022/09/durasein_ames_design_itfinal_18_07_2022_Leaden.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2022/10/Durasein_Education_Leaden_Bliss-Blue_p.jpg"
+          ]
+        },
+        {
+          "id": "DM5402",
+          "name": "Maple Magic",
+          "patternCode": "paw009",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2025/01/dm5002-weathered-wood.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2021/05/DM5002s-1.jpg",
+          "sheetUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2021/07/DM5002-WeatheredWood-Lively-paw009_full-sheet-1.jpg",
+          "pageUrl": "https://durasein.com/us/product/maple-magic/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2025/07/dm5002-paw009-weathered-woodrlt209-1-e1771614091984.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2025/07/dm5002-paw009-weathered-woodrlt209-2.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2025/07/dm5002-paw009-weathered-woodrlt209-3.jpg"
+          ]
+        },
+        {
+          "id": "DM5045",
+          "name": "Nimbus",
+          "patternCode": "paw074",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2025/01/dm5045-nimbus.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2024/03/dm5045_paw074-4-1.jpg",
+          "sheetUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2024/03/DM5045_PAW074-1.jpg",
+          "pageUrl": "https://durasein.com/us/product/nimbus/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2024/03/durasein_nimbus-1.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2024/03/durasein_nimbus-3.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2024/03/durasein_nimbus-4.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2024/03/durasein_nimbus-2.jpg"
+          ]
+        },
+        {
+          "id": "DM5065",
+          "name": "Rainwall",
+          "patternCode": "",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2025/01/dm5065-rainwall-2.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2024/03/dm5065_4-web.jpg",
+          "sheetUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2024/03/dm5065_1-web.jpg",
+          "pageUrl": "https://durasein.com/us/product/rainwall/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2024/03/durasein_rainwall-1.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2024/03/durasein_rainwall-2.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2024/03/durasein_rainwall-3.jpg"
+          ]
+        },
+        {
+          "id": "DM5009",
+          "name": "Royal Carrera",
+          "patternCode": "paw013",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2025/01/dm5009-royal-carrera.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2019/11/Royal-Carrera-1.jpg",
+          "sheetUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2021/07/DM5009-RoyalCarrera-Lively-paw013_full-sheet.jpg",
+          "pageUrl": "https://durasein.com/us/product/royal-carrera/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2024/12/durasein-dm5009-royal-carrera-countershowerwalls-opt1.jpg"
+          ]
+        },
+        {
+          "id": "DM5427",
+          "name": "Sprouted",
+          "patternCode": "paw100",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2025/01/dm5027-blossoming.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2022/05/PAW100-DM5027-Blossoming_4.jpg",
+          "sheetUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2022/05/PAW100-DM5027-Blossoming.jpg",
+          "pageUrl": "https://durasein.com/us/product/sprouted/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2025/07/dm5027-paw100-blossomingrlf137-1.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2025/07/dm5027-paw100-blossomingrlf137-2.jpg"
+          ]
+        },
+        {
+          "id": "DM5445",
+          "name": "Stratus",
+          "patternCode": "paw074",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2025/01/dm5045-nimbus.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2024/03/dm5045_paw074-4-1.jpg",
+          "sheetUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2024/03/DM5045_PAW074-1.jpg",
+          "pageUrl": "https://durasein.com/us/product/stratus/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2025/07/dm5045-paw074-nimbusrlf101-1.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2025/07/dm5045-paw074-nimbusrlf101-2.jpg"
+          ]
+        },
+        {
+          "id": "DM5010",
+          "name": "Victoria Falls",
+          "patternCode": "paw016",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2025/01/dm5010-victoria-falls.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2019/11/DM5010s-1.jpg",
+          "sheetUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2021/07/DM5010-VictoriaFalls-Lively-paw016_full-sheet.jpg",
+          "pageUrl": "https://durasein.com/us/product/victoria-falls/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2021/09/Durasein_int_4_it_05_2021.03.11_WP-VictoriaFalls-scaled.jpg"
+          ]
+        },
+        {
+          "id": "DM5004",
+          "name": "Volcano",
+          "patternCode": "paw021",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2025/01/dm5004-volcano.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2021/05/DM5004s-1.jpg",
+          "sheetUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2021/07/DM5004-Volcano-Lively-paw021_full-sheet-1.jpg",
+          "pageUrl": "https://durasein.com/us/product/volcano/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2019/11/durasein_residential_living-room_volcano.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2020/10/003-USA-Volcano-DM5004-ResidentialKitchen-1.jpg"
+          ]
+        },
+        {
+          "id": "DM5002",
+          "name": "Weathered Wood",
+          "patternCode": "paw009",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2025/01/dm5002-weathered-wood.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2021/05/DM5002s-1.jpg",
+          "sheetUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2021/07/DM5002-WeatheredWood-Lively-paw009_full-sheet-1.jpg",
+          "pageUrl": "https://durasein.com/us/product/weathered-wood/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2024/05/decolegno-s164-fronda-paw009-weathered-wood-keuken-4.jpg",
+            "https://durasein.com/us/wp-content/uploads/sites/3/2022/10/Durasein_Education_Bone_Cheerful-Yellow_Weathered-Wood_p.jpg"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "rooted",
+      "name": "Rooted",
+      "colors": [
+        {
+          "id": "DM5033",
+          "name": "Barnwood",
+          "patternCode": "paw075",
+          "swatchUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2020/01/dm5033-barnwood.png",
+          "swatchDownload": "https://durasein.com/us/wp-content/uploads/sites/3/2021/05/DM5033s-1.jpg",
+          "sheetUrl": "https://durasein.com/us/wp-content/uploads/sites/3/2021/07/DM5033-Barnwood-Rooted-paw075_full-sheet.jpg",
+          "pageUrl": "https://durasein.com/us/product/barnwood/",
+          "applicationPhotos": [
+            "https://durasein.com/us/wp-content/uploads/sites/3/2021/08/Durasein_Final_Barnwood_Retouched-scaled.jpg"
+          ]
+        }
+      ]
+    }
+  ]
+}

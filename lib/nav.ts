@@ -1,5 +1,6 @@
 import {
   LayoutDashboard,
+  Settings,
   GraduationCap,
   Briefcase,
   Package,
@@ -34,6 +35,8 @@ export const primaryNav: NavItem[] = [
   { key: "orders", href: "/portal/orders", icon: Package },
   { key: "projects", href: "/portal/projects", icon: FolderKanban },
   { key: "configurator", href: "/portal/configurator", icon: Wand2 },
+  // Company branding shown on every shared proposal — see app/portal/settings.
+  { key: "settings", href: "/portal/settings", icon: Settings },
 ];
 
 // Admin-only navigation, shown when the signed-in user has the admin role.

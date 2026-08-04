@@ -1,0 +1,197 @@
+{
+  "catalog_name": "Shower Component Images - Configurator Asset Catalog",
+  "purpose": "Isolated component images (valve trim, tub spout, shower head) with physical dimensions for sizing/centering layers in the hero compositor. One record per component per program.",
+  "image_url_template": "https://s3.img-b.com/image/private/t_base,c_lpad,f_auto,dpr_auto,w_{W},h_{H}/product/delta/{IMAGE_SLUG}",
+  "sizing_note": "Use physical dimensions (inches) as the scale reference: px-per-inch = rendered_height_px / height_in. The c_lpad transform letterboxes to square; request w/h at 2x display size for retina.",
+  "kitify_note": "Trimmed from the source extract for repo use: gallery_images, bonus_assets_from_page and the retailer rating/review fields are dropped because nothing reads them. Physical dimensions, variants and image slugs are verbatim, EXCEPT the three slugs corrected below.",
+  "slug_verification_2026_08_04": "Every slug in this file was requested against the CDN. All resolved HTTP 200 except in appearance: the three reconstructed Foundation tub-spout slugs (RP103716PC-B1.jpg, RP103716SS-B1.jpg, RP103716BL-B1.jpg) return 200 but serve Build.com's 'No Image Available' placeholder - byte-identical, md5 3a36dbbb52d5ee753c41b610042cf8de, 27105 bytes at w=600. Their image_slug is therefore emptied so the lookup reports them missing; a 404 check or an <img> onerror handler would BOTH have passed them and composited the placeholder card onto a shower wall.",
+  "components": [
+    {
+      "component_type": "valve_trim",
+      "collection": "Lineax",
+      "program": "Foundation",
+      "family_id": "2132514",
+      "base_model": "T14062",
+      "title": "Lineax Monitor 14 Series Single Function Pressure Balanced Valve Trim Only - Less Rough-In Valve",
+      "physical_dimensions": { "height_in": 6.5, "width_in": 6.5, "shape": "square" },
+      "variants": [
+        { "finish": "Chrome", "model": "T14062", "price_usd": 66.39, "image_slug": "delta-t14062-1222956.jpg" },
+        { "finish": "Brilliance Stainless", "model": "T14062-SS", "price_usd": 87.09, "image_slug": "delta-t14062-ss-1222956.jpg" },
+        { "finish": "Matte Black", "model": "T14062-BL", "price_usd": 87.18, "image_slug": "delta-t14062-bl-1222956.jpg" },
+        { "finish": "Champagne Bronze", "model": "T14062-CZ", "price_usd": 92.34, "image_slug": "delta-t14062-cz-1222956.jpg" }
+      ]
+    },
+    {
+      "component_type": "tub_spout",
+      "collection": "Lineax",
+      "program": "Foundation",
+      "family_id": "unknown - not captured in page (new listing)",
+      "base_model": "RP103716",
+      "title": "Lineax 6-5/8\" Diverter Tub Spout (RP component part)",
+      "physical_dimensions": { "height_in": 2.81, "width_in": 2.69, "reach_in": 6.625, "shape": "spout" },
+      "variants": [
+        { "finish": "Chrome", "model": "RP103716PC", "price_usd": 55.0, "image_slug": "", "image_note": "NO USABLE IMAGE. The reconstructed slug RP103716PC-B1.jpg returns HTTP 200 but serves the 'No Image Available' placeholder (verified 2026-08-04). Emptied so the compositor falls back to its modelled spout rather than pinning the placeholder. Source a real asset from Delta syndication." },
+        { "finish": "Brilliance Stainless", "model": "RP103716SS", "price_usd": 74.0, "image_slug": "", "image_note": "NO USABLE IMAGE - same placeholder as Chrome, byte-identical." },
+        { "finish": "Matte Black", "model": "RP103716BL", "price_usd": 75.0, "image_slug": "", "image_note": "NO USABLE IMAGE - same placeholder as Chrome, byte-identical." },
+        { "finish": "Champagne Bronze", "model": "RP103716CZ", "price_usd": 110.11, "image_slug": "delta-rp103716cz-1222956.jpg", "image_note": "The one Foundation spout finish with a real photo - standard batch slug, distinct bytes." }
+      ]
+    },
+    {
+      "component_type": "valve_trim",
+      "collection": "Woodhurst",
+      "program": "Woodhurst",
+      "family_id": "1499445",
+      "base_model": "T14032",
+      "title": "Woodhurst Pressure Balanced Valve Trim Only with Single Lever Handle - Less Rough-In",
+      "physical_dimensions": { "height_in": 6.5, "width_in": 6.5, "shape": "square" },
+      "variants": [
+        { "finish": "Chrome", "model": "T14032", "price_usd": 66.39, "image_slug": "delta-t14032-7866937.jpg" },
+        { "finish": "Brilliance Stainless", "model": "T14032-SS", "price_usd": 87.09, "image_slug": "delta-t14032-ss-7866937.jpg" },
+        { "finish": "Matte Black", "model": "T14032-BL", "price_usd": 87.18, "image_slug": "delta-t14032-bl-8867303.jpg" },
+        { "finish": "Venetian Bronze", "model": "T14032-RB", "price_usd": 92.34, "image_slug": "delta-t14032-rb-7866937.jpg" }
+      ]
+    },
+    {
+      "component_type": "tub_spout",
+      "collection": "Woodhurst",
+      "program": "Woodhurst",
+      "family_id": "1576851",
+      "base_model": "RP92932",
+      "title": "Woodhurst Integrated Diverter Tub Spout (RP component part)",
+      "physical_dimensions": { "height_in": 2.75, "width_in": 2.75, "reach_in": 5.5, "shape": "spout" },
+      "variants": [
+        { "finish": "Chrome", "model": "RP92932", "price_usd": 78.11, "image_slug": "delta-rp92932-1852991.jpg" },
+        { "finish": "Matte Black", "model": "RP92932BL", "price_usd": 105.92, "image_slug": "delta-rp92932bl-8867303.jpg" },
+        { "finish": "Brilliance Stainless", "model": "RP92932SS", "price_usd": 107.06, "image_slug": "delta_rp92932_ss.jpg", "image_note": "SS uses underscore naming - different convention than its siblings; dedicated image, just oddly named." },
+        { "finish": "Venetian Bronze", "model": "RP92932RB", "price_usd": 117.75, "image_slug": "delta-rp92932rb-1852991.jpg" }
+      ]
+    },
+    {
+      "component_type": "valve_trim",
+      "collection": "Ashlyn",
+      "program": "Ashlyn",
+      "family_id": "1064248",
+      "base_model": "T14064",
+      "title": "Ashlyn Monitor 14 Series Single Function Pressure Balanced Valve Trim Only - Less Rough-In Valve",
+      "physical_dimensions": { "height_in": 6.0, "width_in": 6.0, "shape": "square" },
+      "variants": [
+        { "finish": "Chrome", "model": "T14064", "price_usd": 114.9, "image_slug": "delta-t14064-392.jpg" },
+        { "finish": "Brilliance Stainless", "model": "T14064-SS", "price_usd": 169.9, "image_slug": "delta-t14064-ss-393.jpg" },
+        { "finish": "Matte Black", "model": "T14064-BL", "price_usd": 174.9, "image_slug": "delta-t14064-bl-4825098.jpg" },
+        { "finish": "Champagne Bronze", "model": "T14064-CZ", "price_usd": 184.9, "image_slug": "delta-t14064-cz-6222650.jpg" },
+        { "finish": "Venetian Bronze", "model": "T14064-RB", "price_usd": 184.9, "image_slug": "delta-t14064-rb-394.jpg" }
+      ]
+    },
+    {
+      "component_type": "tub_spout",
+      "collection": "Ashlyn",
+      "program": "Ashlyn",
+      "family_id": "1069111",
+      "base_model": "RP77091",
+      "title": "Ashlyn 7-15/16\" Integrated Diverter Tub Spout (RP component part)",
+      "physical_dimensions": { "height_in": 3.19, "width_in": 3.0, "reach_in": 7.938, "shape": "spout" },
+      "variants": [
+        { "finish": "Chrome", "model": "RP77091", "price_usd": 115.61, "image_slug": "delta-rp77091-868.jpg" },
+        { "finish": "Champagne Bronze", "model": "RP77091CZ", "price_usd": 137.9, "image_slug": "delta-rp77091cz-6222650.jpg" },
+        { "finish": "Matte Black", "model": "RP77091BL", "price_usd": 159.92, "image_slug": "delta-rp77091bl-4825098.jpg" },
+        { "finish": "Brilliance Stainless", "model": "RP77091SS", "price_usd": 160.61, "image_slug": "delta-rp77091ss-869.jpg" },
+        { "finish": "Venetian Bronze", "model": "RP77091RB", "price_usd": 171.34, "image_slug": "delta-rp77091rb-870.jpg" }
+      ]
+    },
+    {
+      "component_type": "valve_trim",
+      "collection": "Lahara",
+      "program": "Boheme",
+      "family_id": "719952",
+      "base_model": "T14038",
+      "title": "Lahara Monitor 14 Series Valve Trim Only - Less Rough-In Valve",
+      "physical_dimensions": { "height_in": 6.5, "width_in": 6.5, "shape": "square" },
+      "variants": [
+        { "finish": "Chrome", "model": "T14038", "price_usd": 132.93, "image_slug": "delta-t14038-368.jpg" },
+        { "finish": "Aged Pewter", "model": "T14038-PT", "price_usd": 146.55, "image_slug": "T14038PT_NEW.jpg", "image_note": "Aged Pewter is dropped from the Boheme program finish set; recorded but never selectable." },
+        { "finish": "Brilliance Stainless", "model": "T14038-SS", "price_usd": 194.92, "image_slug": "delta-t14038-ss-369.jpg" },
+        { "finish": "Champagne Bronze", "model": "T14038-CZ", "price_usd": 209.93, "image_slug": "delta-t14038-cz-367.jpg" },
+        { "finish": "Venetian Bronze", "model": "T14038-RB", "price_usd": 209.93, "image_slug": "delta-t14038-rb-370.jpg" }
+      ]
+    },
+    {
+      "component_type": "tub_spout",
+      "collection": "Lahara",
+      "program": "Boheme",
+      "family_id": "678259",
+      "base_model": "RP51303",
+      "title": "Lahara Integrated Diverter Tub Spout (RP repair/component part)",
+      "physical_dimensions": { "height_in": 3.0, "width_in": 2.75, "reach_in": 6.75, "shape": "spout" },
+      "variants": [
+        { "finish": "SpotShield Stainless", "model": "RP51303SP", "price_usd": 78.95, "image_slug": "delta-rp51303sp-2933771.jpg" },
+        { "finish": "Chrome", "model": "RP51303", "price_usd": 81.08, "image_slug": "delta-rp51303-804.jpg" },
+        { "finish": "Aged Pewter", "model": "RP51303PT", "price_usd": 99.7, "image_slug": "delta-rp51303pt-802.jpg" },
+        { "finish": "Matte Black", "model": "RP51303BL", "price_usd": 110.6, "image_slug": "", "image_note": "WRONG-FINISH IMAGE at source: the retailer serves the SpotShield Stainless photo for BL. Emptied rather than shown, so a Matte Black set never previews a stainless spout. Inert either way - BL is outside Boheme's locked finish set." },
+        { "finish": "Brilliance Stainless", "model": "RP51303SS", "price_usd": 112.43, "image_slug": "delta-rp51303ss-805.jpg" },
+        { "finish": "Brilliance Polished Nickel", "model": "RP51303PN", "price_usd": 112.76, "image_slug": "", "image_note": "WRONG-FINISH IMAGE at source: retailer serves the Brilliance Stainless photo for PN. Emptied. Inert - PN is outside Boheme's finish set." },
+        { "finish": "Venetian Bronze", "model": "RP51303RB", "price_usd": 119.74, "image_slug": "delta-rp51303rb-803.jpg" },
+        { "finish": "Champagne Bronze", "model": "RP51303CZ", "price_usd": 123.6, "image_slug": "delta-rp51303cz-801.jpg" }
+      ]
+    },
+    {
+      "component_type": "valve_trim",
+      "collection": "Trinsic",
+      "program": "Lumen",
+      "family_id": "799210",
+      "base_model": "T14059",
+      "title": "Trinsic Monitor 14 Series Single Function Pressure Balanced Valve Trim Only - Less Rough-In Valve",
+      "physical_dimensions": { "height_in": 6.5, "width_in": 6.5, "shape": "round" },
+      "shape_note": "ROUND plate (6.5 diameter) - Trinsic's trim is circular, unlike the square plates on every other program.",
+      "variants": [
+        { "finish": "Chrome", "model": "T14059", "price_usd": 142.9, "image_slug": "delta-t14059-9130060.jpg" },
+        { "finish": "Brilliance Stainless", "model": "T14059-SS", "price_usd": 199.9, "image_slug": "delta-t14059-ss-9130060.jpg" },
+        { "finish": "Brilliance Polished Nickel", "model": "T14059-PN", "price_usd": 199.9, "image_slug": "delta-t14059-pn-9130060.jpg" },
+        { "finish": "Matte Black", "model": "T14059-BL", "price_usd": 209.9, "image_slug": "delta-t14059-bl-9130060.jpg" },
+        { "finish": "Champagne Bronze", "model": "T14059-CZ", "price_usd": 214.9, "image_slug": "delta-t14059-cz-9130060.jpg" },
+        { "finish": "Venetian Bronze", "model": "T14059-RB", "price_usd": 214.9, "image_slug": "delta-t14059-rb-9130060.jpg" }
+      ]
+    },
+    {
+      "component_type": "tub_spout",
+      "collection": "Trinsic",
+      "program": "Lumen",
+      "family_id": "858020",
+      "base_model": "RP73371",
+      "title": "Trinsic 6-1/8\" Diverter Wall Mounted Tub Spout (RP component part)",
+      "physical_dimensions": { "height_in": 3.22, "width_in": 3.22, "reach_in": 5.25, "shape": "spout" },
+      "variants": [
+        { "finish": "Chrome", "model": "RP73371", "price_usd": 78.11, "image_slug": "delta-rp73371-844.jpg" },
+        { "finish": "Brilliance Stainless", "model": "RP73371SS", "price_usd": 104.93, "image_slug": "delta-rp73371ss-847.jpg" },
+        { "finish": "Matte Black", "model": "RP73371BL", "price_usd": 104.93, "image_slug": "delta-rp73371bl-1733515.jpg" },
+        { "finish": "Brilliance Polished Nickel", "model": "RP73371PN", "price_usd": 109.68, "image_slug": "delta-rp73371pn-8212396.jpg" },
+        { "finish": "Venetian Bronze", "model": "RP73371RB", "price_usd": 117.75, "image_slug": "delta-rp73371rb-846.jpg" },
+        { "finish": "Champagne Bronze", "model": "RP73371CZ", "price_usd": 123.11, "image_slug": "delta-rp73371cz-845.jpg" }
+      ]
+    },
+    {
+      "component_type": "shower_head",
+      "collection": "Universal Showering Components",
+      "program": "ALL",
+      "family_id": "1366016",
+      "base_model": "52668",
+      "title": "Universal Showering Components 1.75 GPM Multi Function Shower Head with H2Okinetic Technology",
+      "physical_dimensions": { "height_in": 3.9375, "width_in": 6.0, "shape": "round" },
+      "configurator_role": "Display-only visual for EVERY program, tagged to whichever trim kit is selected - not sold on its own. Shower arm NOT included (trim kits carry their own).",
+      "variants": [
+        { "finish": "Matte Black", "model": "52668-BL", "price_usd": 129.27, "image_slug": "delta-52668-bl-7908442.jpg" },
+        { "finish": "Chrome", "model": "52668", "price_usd": 146.4, "image_slug": "delta-52668-7908442.jpg" },
+        { "finish": "Lumicoat Chrome", "model": "52668-PR", "price_usd": 164.9, "image_slug": "delta-52668-pr-6568720.jpg" },
+        { "finish": "Brilliance Stainless", "model": "52668-SS", "price_usd": 175.6, "image_slug": "delta-52668-ss-7908442.jpg" },
+        { "finish": "Polished Nickel", "model": "52668-PN", "price_usd": 204.15, "image_slug": "delta-52668-pn-7908442.jpg" },
+        { "finish": "Lumicoat Stainless", "model": "52668-SS-PR", "price_usd": 214.9, "image_slug": "delta-52668-ss-pr-6568720.jpg" },
+        { "finish": "Lumicoat Polished Nickel", "model": "52668-PN-PR", "price_usd": 214.9, "image_slug": "delta-52668-pn-pr-9527551.jpg" },
+        { "finish": "Venetian Bronze", "model": "52668-RB", "price_usd": 219.91, "image_slug": "delta-52668-rb-7908442.jpg" },
+        { "finish": "Black Stainless", "model": "52668-KS", "price_usd": 238.15, "image_slug": "delta-52668-ks-3819696.jpg" },
+        { "finish": "Champagne Bronze", "model": "52668-CZ", "price_usd": 245.45, "image_slug": "delta-52668-cz-7908442.jpg" },
+        { "finish": "Lumicoat Champagne Bronze", "model": "52668-CZ-PR", "price_usd": 249.9, "image_slug": "delta-52668-cz-pr-9527551.jpg" },
+        { "finish": "Lumicoat Black Stainless", "model": "52668-KS-PR", "price_usd": 249.9, "image_slug": "delta-52668-ks-pr-9527551.jpg" }
+      ]
+    }
+  ],
+  "catalog_status": "Configurator v1: valve trims for all 5 programs, tub spouts for all 5 programs, universal 52668 shower head. 11 components."
+}

@@ -9,12 +9,13 @@
 // the markup percentage are never rendered.
 
 import { useEffect, useState } from "react";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, Printer } from "lucide-react";
 import { useLanguage } from "@/components/LanguageContext";
 import { RoomPlanSVG, type RoomConfig } from "@/components/room/RoomConfigurator";
 import { ShowerPreviewFromConfig, type ShowerConfig } from "@/components/shower/ShowerConfigurator";
 import { VanityPreviewFromConfig, type VanityConfig } from "@/components/vanity/VanityConfigurator";
 import { PlumbingPreviewFromConfig, type PlumbingConfig } from "@/components/plumbing/PlumbingConfigurator";
+import { HeroPreview, hasHeroContent } from "@/components/configurator/HeroPreview";
 
 export type TierView = {
   room: unknown | null;
@@ -23,9 +24,25 @@ export type TierView = {
   plumbing: unknown | null;
   dealerTotal: number;
 };
+/** A contractor-entered charge: labour, permits, disposal. Same across every tier. */
+export type ProposalLineItem = { id: string; description: string; amount: number };
+
+/** The contractor's own identity, frozen when the proposal was shared. */
+export type ProposalBranding = {
+  company: string | null;
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  logo: string | null;
+  tagline: string | null;
+  website: string | null;
+};
+
 export type ProposalData = {
   name: string;
   markupPct: number;
+  lineItems?: ProposalLineItem[];
+  branding?: ProposalBranding | null;
   tiers: { good: TierView | null; better: TierView | null; best: TierView | null };
 };
 
@@ -76,6 +93,9 @@ export function ProposalView({ payload, acceptance, token }: {
     if (payload?.name) document.title = payload.name;
   }, [payload]);
 
+  const lineItems = payload?.lineItems ?? [];
+  const branding = payload?.branding ?? null;
+
   if (!payload) {
     return (
       <Shell>
@@ -105,7 +125,7 @@ export function ProposalView({ payload, acceptance, token }: {
             <p className="mt-2 text-muted">{t("proposal.confirmMessage", { tier: tierLabel(confirmed.tier) })}</p>
             <p className="mx-auto mt-1 max-w-md text-sm leading-relaxed text-muted">{t("proposal.confirmSubnote")}</p>
           </header>
-          {tier && <TierBody tier={tier} markupPct={payload.markupPct} t={t} />}
+          {tier && <TierBody tier={tier} markupPct={payload.markupPct} lineItems={lineItems} t={t} />}
         </div>
       </main>
     );
@@ -149,10 +169,16 @@ export function ProposalView({ payload, acceptance, token }: {
       <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 sm:py-14">
         {/* Header — the contractor's proposal, no Kitify chrome */}
         <header className="mb-7 sm:mb-9">
-          <div className="font-mono text-[11px] uppercase tracking-[0.18em] text-accent">{t("proposal.eyebrow")}</div>
-          <h1 className="mt-2 font-display text-3xl font-bold leading-tight tracking-tight text-ink sm:text-4xl">
-            {payload.name}
-          </h1>
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <BrandingHead branding={branding} />
+              <div className="font-mono text-[11px] uppercase tracking-[0.18em] text-accent">{t("proposal.eyebrow")}</div>
+              <h1 className="mt-2 font-display text-3xl font-bold leading-tight tracking-tight text-ink sm:text-4xl">
+                {payload.name}
+              </h1>
+            </div>
+            <PrintButton t={t} />
+          </div>
         </header>
 
         {presentKeys.length === 0 ? (
@@ -164,7 +190,7 @@ export function ProposalView({ payload, acceptance, token }: {
         ) : (
           <>
             {/* Tier toggle — full-width segments, large tap targets, mobile-first */}
-            <div className="grid grid-cols-3 gap-1.5 rounded-xl border border-line bg-card p-1.5 shadow-sm">
+            <div className="no-print grid grid-cols-3 gap-1.5 rounded-xl border border-line bg-card p-1.5 shadow-sm">
               {tierMeta.map(({ key, label }) => {
                 const active = key === activeKey;
                 const present = !!payload.tiers[key];
@@ -191,12 +217,14 @@ export function ProposalView({ payload, acceptance, token }: {
 
             {/* Selected tier — remounts on change (key) so the fade replays */}
             <div key={activeKey} style={{ animation: "fadeIn 220ms ease-out" }} className="mt-5">
-              {activeTierData && <TierBody tier={activeTierData} markupPct={payload.markupPct} t={t} />}
+              {activeTierData && <TierBody tier={activeTierData} markupPct={payload.markupPct} lineItems={lineItems} t={t} />}
             </div>
+
+            <BrandingFoot branding={branding} t={t} />
 
             {/* Gentle comparison nudge */}
             {otherLabels.length > 0 && (
-              <p className="mt-6 text-center text-xs leading-relaxed text-muted">
+              <p className="no-print mt-6 text-center text-xs leading-relaxed text-muted">
                 {t("proposal.compareHint", { tier: tierLabel(activeKey), others: otherLabels.join(t("proposal.orSeparator")) })}
               </p>
             )}
@@ -206,12 +234,12 @@ export function ProposalView({ payload, acceptance, token }: {
               <button
                 type="button"
                 onClick={() => setAccepting(true)}
-                className="mt-6 w-full rounded-xl bg-accent px-5 py-4 text-base font-semibold text-white shadow-sm transition hover:brightness-110"
+                className="no-print mt-6 w-full rounded-xl bg-accent px-5 py-4 text-base font-semibold text-white shadow-sm transition hover:brightness-110"
               >
                 {t("proposal.acceptButton")}
               </button>
             ) : (
-              <form onSubmit={submit} className="mt-6 rounded-2xl border border-accent/40 bg-accent-soft/20 p-5 sm:p-6">
+              <form onSubmit={submit} className="no-print mt-6 rounded-2xl border border-accent/40 bg-accent-soft/20 p-5 sm:p-6">
                 <div className="font-display text-lg font-semibold text-ink">
                   {t("proposal.acceptHeading", { tier: tierLabel(activeKey) })}
                 </div>
@@ -258,8 +286,14 @@ export function ProposalView({ payload, acceptance, token }: {
 
 // Price header (retail only) + room plan + product previews for one tier. Shared by the
 // toggle view and the confirmation view.
-function TierBody({ tier, markupPct, t }: { tier: TierView; markupPct: number; t: Tr }) {
+function TierBody({ tier, markupPct, lineItems, t }: {
+  tier: TierView; markupPct: number; lineItems: ProposalLineItem[]; t: Tr;
+}) {
   const retail = tier.dealerTotal * (1 + (markupPct || 0) / 100);
+  const extras = lineItems.reduce((n, li) => n + li.amount, 0);
+  // The headline figure is what the homeowner will actually be billed. Showing the product
+  // subtotal there and burying labour further down would quote a number nobody pays.
+  const grandTotal = retail + extras;
   const room = tier.room as RoomConfig | null;
   const shower = tier.shower as ShowerConfig | null;
   const vanity = tier.vanity as VanityConfig | null;
@@ -269,9 +303,25 @@ function TierBody({ tier, markupPct, t }: { tier: TierView; markupPct: number; t
     <section className="overflow-hidden rounded-2xl border border-line bg-card shadow-sm">
       <div className="border-b border-line px-5 py-6 text-center sm:px-6">
         <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted">{t("proposal.priceLabel")}</div>
-        <div className="mt-1 font-display text-4xl font-bold tracking-tight text-ink sm:text-5xl">{money(retail)}</div>
+        <div className="mt-1 font-display text-4xl font-bold tracking-tight text-ink sm:text-5xl">{money(grandTotal)}</div>
+        {extras > 0 && (
+          <div className="mt-1.5 text-xs text-muted">
+            {t("proposal.totalBreakdown", { products: money(retail), extras: money(extras) })}
+          </div>
+        )}
       </div>
       <div className="space-y-5 p-5 sm:p-6">
+        {/* The bathroom itself, above the plan. A homeowner reads a picture of the room long
+            before they read a dimensioned floor plan, so it leads. Rendered live from the
+            quote's own configs — see HeroPreview for why nothing is snapshotted — and skipped
+            entirely when the quote has no materials to show, rather than presenting a generic
+            grey bathroom as if it were theirs. */}
+        {hasHeroContent({ room, shower, vanity, plumbing }) && (
+          <div className="hero-print">
+            <HeroPreview room={room} shower={shower} vanity={vanity} plumbing={plumbing}
+              caption={t("configurator.hero.preview")} />
+          </div>
+        )}
         {room?.selections && (
           <div className="mx-auto w-full max-w-[560px]">
             <RoomPlanSVG state={room.selections} interactive={false} showClearances={false} />
@@ -291,9 +341,33 @@ function TierBody({ tier, markupPct, t }: { tier: TierView; markupPct: number; t
             )}
             {plumbing && (
               <PreviewCard label={t("configurator.plumbingTitle")}>
-                <PlumbingPreviewFromConfig config={plumbing} />
+                {/* showHeroPhoto: same reason as the order snapshot — no product grid here to
+                    carry the faucet, so the schematic hero reads as a missing image next to
+                    the real accessory photos. */}
+                <PlumbingPreviewFromConfig config={plumbing} showHeroPhoto />
               </PreviewCard>
             )}
+          </div>
+        )}
+
+        {/* Labour & extras. Listed after the products because they are what the contractor
+            adds on top of them, and itemised rather than folded into one number so the
+            homeowner can see what they are paying for. */}
+        {lineItems.length > 0 && (
+          <div className="rounded-xl border border-line bg-paper/60 p-4 sm:p-5">
+            <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">{t("proposal.extrasTitle")}</div>
+            <dl className="mt-3 space-y-2">
+              {lineItems.map((li) => (
+                <div key={li.id} className="flex items-baseline justify-between gap-4">
+                  <dt className="text-sm text-ink">{li.description}</dt>
+                  <dd className="shrink-0 text-sm font-medium text-ink">{money(li.amount)}</dd>
+                </div>
+              ))}
+            </dl>
+            <div className="mt-3 flex items-baseline justify-between gap-4 border-t border-line pt-3">
+              <span className="text-sm font-semibold text-ink">{t("proposal.grandTotal")}</span>
+              <span className="font-display text-lg font-bold text-ink">{money(grandTotal)}</span>
+            </div>
           </div>
         )}
       </div>
@@ -324,4 +398,70 @@ function PreviewCard({ label, children }: { label: string; children: React.React
 
 function Shell({ children }: { children: React.ReactNode }) {
   return <main className="flex min-h-dvh items-center justify-center bg-paper px-6">{children}</main>;
+}
+
+// ------------------------------ branding ----------------------------------
+// The contractor's identity, read from the snapshot frozen onto the proposal at share time.
+// Everything degrades: a proposal shared before branding existed, or by a contractor who
+// never filled the fields in, renders exactly the header it always did.
+
+function BrandingHead({ branding }: { branding: ProposalBranding | null }) {
+  if (!branding || !(branding.company || branding.logo)) return null;
+  return (
+    <div className="mb-5 flex items-center gap-3">
+      {/* Plain <img>: the logo is an arbitrary contractor-supplied URL, which next/image
+          would refuse without its host in remotePatterns — and the whole point is that any
+          partner can set one. */}
+      {branding.logo && (
+        <img src={branding.logo} alt={branding.company ?? ""} className="h-11 w-auto max-w-[168px] object-contain" />
+      )}
+      <div className="min-w-0">
+        {branding.company && (
+          <div className="truncate font-display text-lg font-bold leading-tight text-ink">{branding.company}</div>
+        )}
+        {branding.tagline && <div className="truncate text-xs text-muted">{branding.tagline}</div>}
+      </div>
+    </div>
+  );
+}
+
+function BrandingFoot({ branding, t }: { branding: ProposalBranding | null; t: Tr }) {
+  if (!branding || !branding.company) return null;
+  const contact = [branding.phone, branding.email, branding.website].filter(Boolean) as string[];
+  return (
+    <footer className="mt-8 border-t border-line pt-5 text-center">
+      <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">
+        {t("proposal.preparedBy", { company: branding.company })}
+      </div>
+      {branding.name && <div className="mt-1 text-sm text-ink">{branding.name}</div>}
+      {contact.length > 0 && (
+        <div className="mt-1 text-xs text-muted">{contact.join(" · ")}</div>
+      )}
+      {/* Printed-on date. Rendered client-side only: a server-rendered date would be the
+          server's clock and, worse, would mismatch the client on hydration. */}
+      <div className="mt-2 hidden text-[10px] text-muted print:block">
+        {t("proposal.printedOn", { date: new Date().toLocaleDateString() })}
+      </div>
+    </footer>
+  );
+}
+
+/**
+ * Print / save-as-PDF. No PDF library involved: every browser's print dialog can already
+ * write a PDF, and the print stylesheet in globals.css is what turns this page into a
+ * document — tier toggle and accept button dropped, backgrounds and shadows off.
+ */
+function PrintButton({ t }: { t: Tr }) {
+  return (
+    <div className="no-print shrink-0 text-right">
+      <button
+        type="button"
+        onClick={() => window.print()}
+        className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-card px-3 py-2 text-sm font-medium text-muted transition hover:border-accent hover:text-accent"
+      >
+        <Printer className="h-4 w-4" /> {t("proposal.print")}
+      </button>
+      <div className="mt-1 max-w-[150px] text-[10px] leading-tight text-muted">{t("proposal.printHint")}</div>
+    </div>
+  );
 }

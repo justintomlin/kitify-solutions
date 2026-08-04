@@ -12,7 +12,10 @@
  * once a SKU has both confirmed pricing and approval to quote.
  */
 
-export type BaseSku = { id: string; w: number; d: number; label: string; dealerPrice: number; placeholder?: boolean };
+// `h` is the finished height in inches measured floor-to-rim — for a skirted tub that is the
+// apron face the installer sees. Optional because a shower base's curb height is a different
+// measurement that hasn't been sourced; only the tubs carry it today.
+export type BaseSku = { id: string; w: number; d: number; h?: number; label: string; dealerPrice: number; placeholder?: boolean };
 
 // PLACEHOLDER PRICING — all values nominal ($1). Real pricing to be loaded from
 // supplier spreadsheets. Do not ship to dealers with these values.
@@ -32,11 +35,17 @@ export const SHOWER_BASES: BaseSku[] = [
 
 // PLACEHOLDER PRICING — all values nominal ($1). Real pricing to be loaded from
 // supplier spreadsheets. Do not ship to dealers with these values.
+//
+// HEIGHT TO CONFIRM: the skirt height below is the one figure here NOT taken from a supplier
+// sheet — there was no height on these SKUs at all before, so nothing was overwritten. 16" is
+// the top of the range the punch list specified (14–16") and a common alcove apron height.
+// Check it against the NuVo tub spec sheet before this reaches a dealer quote.
+export const TUB_SKIRT_HEIGHT_IN = 16;
 export const TUBS: BaseSku[] = [
-  { id: "60x30", w: 60, d: 30, label: '60" × 30"', dealerPrice: 1 },
-  { id: "60x32", w: 60, d: 32, label: '60" × 32"', dealerPrice: 1 },
-  { id: "60x36", w: 60, d: 36, label: '60" × 36" (deck)', dealerPrice: 1 },
-  { id: "72x36", w: 72, d: 36, label: '72" × 36" (deck)', dealerPrice: 1 },
+  { id: "60x30", w: 60, d: 30, h: TUB_SKIRT_HEIGHT_IN, label: '60" × 30"', dealerPrice: 1 },
+  { id: "60x32", w: 60, d: 32, h: TUB_SKIRT_HEIGHT_IN, label: '60" × 32"', dealerPrice: 1 },
+  { id: "60x36", w: 60, d: 36, h: TUB_SKIRT_HEIGHT_IN, label: '60" × 36" (deck)', dealerPrice: 1 },
+  { id: "72x36", w: 72, d: 36, h: TUB_SKIRT_HEIGHT_IN, label: '72" × 36" (deck)', dealerPrice: 1 },
 ];
 
 // Base/pan color options — solid hex swatches (no images), shared by the shower

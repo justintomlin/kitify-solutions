@@ -53,6 +53,26 @@ export type Quote = {
 type ProjectInput = Omit<Project, "id" | "createdAt" | "updatedAt"> & { id?: string };
 type QuoteInput = Omit<Quote, "id" | "createdAt" | "updatedAt"> & { id?: string };
 
+/** One contractor-entered charge on a proposal - labour, permits, disposal, extras. */
+export type ProposalLineItem = { id: string; description: string; amount: number };
+
+/**
+ * The contractor's identity as it appeared when the proposal was shared.
+ *
+ * Snapshotted rather than read live from the profile, because a proposal is a document the
+ * homeowner may open months later: if the contractor renames the company or changes their
+ * phone number afterwards, the estimate they were sent must still say what it said.
+ */
+export type ContractorBranding = {
+  company: string | null;
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  logo: string | null;
+  tagline: string | null;
+  website: string | null;
+};
+
 export type Proposal = {
   id: string;
   ownerId: string;
@@ -71,6 +91,12 @@ export type Proposal = {
   acceptedAt: string | null;
   // 'ordered' = converted to an order (still resolvable publicly — not 'archived').
   status: "draft" | "shared" | "accepted" | "ordered" | "archived";
+  /** Labour and extras. Not tier-specific - demolition costs the same whichever vanity wins. */
+  customLineItems: ProposalLineItem[];
+  /** Frozen at share time; null on proposals shared before branding existed. */
+  contractorBranding: ContractorBranding | null;
+  /** When the contractor last sent the link to the homeowner, for the "sent" indicator. */
+  lastSentAt: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -81,7 +107,7 @@ export type Proposal = {
 type ProposalInput = Pick<
   Proposal,
   "ownerId" | "projectId" | "name" | "markupPct" | "tierGood" | "tierBetter" | "tierBest" | "status"
-> & { id?: string };
+> & { id?: string; customLineItems?: ProposalLineItem[] };
 
 // ------------------------------ error handling ----------------------------
 // Surface failures loudly instead of returning them as empty data — a Supabase
@@ -215,6 +241,11 @@ type ProposalRow = {
   accepted_phone: string | null;
   accepted_at: string | null;
   status: Proposal["status"];
+  // Optional in the type as well as the table: these three columns arrive with the migration
+  // in docs/migrations, and every read below tolerates their absence.
+  custom_line_items?: ProposalLineItem[] | null;
+  contractor_branding?: ContractorBranding | null;
+  last_sent_at?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -237,9 +268,50 @@ function rowToProposal(r: ProposalRow): Proposal {
     acceptedPhone: r.accepted_phone ?? null,
     acceptedAt: r.accepted_at ?? null,
     status: r.status,
+    // Defaulted rather than assumed: a row read before the migration has neither column.
+    customLineItems: Array.isArray(r.custom_line_items) ? r.custom_line_items : [],
+    contractorBranding: r.contractor_branding ?? null,
+    lastSentAt: r.last_sent_at ?? null,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   };
+}
+
+/**
+ * Columns added by the proposal-enhancements migration.
+ *
+ * Writes that touch them go through `writeProposal`, which retries without them when the
+ * migration has not been run yet. Without that, deploying this code ahead of the SQL would
+ * take out proposal saving entirely - a working feature broken by an unrelated one.
+ */
+const MIGRATED_PROPOSAL_COLUMNS = ["custom_line_items", "contractor_branding", "last_sent_at"];
+
+function isMissingColumn(error: PostgrestError | null): boolean {
+  if (!error) return false;
+  // 42703 is the Postgres undefined_column code; PGRST204 is PostgREST's schema-cache miss.
+  return error.code === "42703" || error.code === "PGRST204" ||
+    /column .* does not exist|could not find the .* column/i.test(error.message ?? "");
+}
+
+/**
+ * Run a proposal write, falling back to the pre-migration column set when the new ones are
+ * absent. Warns once so the omission is visible rather than silent.
+ */
+async function writeProposal(
+  context: string,
+  row: Record<string, unknown>,
+  run: (row: Record<string, unknown>) => PromiseLike<{ data: unknown; error: PostgrestError | null }>,
+): Promise<Proposal> {
+  let { data, error } = await run(row);
+  if (error && isMissingColumn(error)) {
+    const reduced = { ...row };
+    for (const c of MIGRATED_PROPOSAL_COLUMNS) delete reduced[c];
+    console.warn(`[store] ${context}: proposal-enhancement columns missing - run docs/migrations/2026-08-04-proposal-enhancements.sql. Saving without them.`);
+    ({ data, error } = await run(reduced));
+  }
+  if (error) fail(context, error);
+  if (!data) fail(context, null);
+  return rowToProposal(data as ProposalRow);
 }
 
 // Only the editable columns — never share_token or accepted_* (see ProposalInput).
@@ -253,6 +325,7 @@ function proposalToRow(p: ProposalInput) {
     tier_better: p.tierBetter,
     tier_best: p.tierBest,
     status: p.status,
+    custom_line_items: p.customLineItems ?? [],
   };
 }
 
@@ -391,16 +464,11 @@ export async function getProposal(id: string): Promise<Proposal | null> {
 }
 
 export async function saveProposal(p: ProposalInput): Promise<Proposal> {
-  if (p.id) {
-    const { data, error } = await supabase.from("proposals").update(proposalToRow(p)).eq("id", p.id).select().single();
-    if (error) fail("saveProposal (update)", error);
-    if (!data) fail("saveProposal (update)", null);
-    return rowToProposal(data);
-  }
-  const { data, error } = await supabase.from("proposals").insert(proposalToRow(p)).select().single();
-  if (error) fail("saveProposal (insert)", error);
-  if (!data) fail("saveProposal (insert)", null);
-  return rowToProposal(data);
+  const row = proposalToRow(p);
+  const id = p.id;
+  return id
+    ? writeProposal("saveProposal (update)", row, (r) => supabase.from("proposals").update(r).eq("id", id).select().single())
+    : writeProposal("saveProposal (insert)", row, (r) => supabase.from("proposals").insert(r).select().single());
 }
 
 export async function deleteProposal(id: string): Promise<void> {
@@ -420,17 +488,26 @@ function genShareToken(): string {
 
 // Generate a fresh share token, mark the proposal shared, and return the token. The public
 // route at /api/proposal/[token] can then resolve it.
-export async function shareProposal(id: string): Promise<string> {
+/**
+ * Share a proposal, freezing the contractor's branding onto it.
+ *
+ * Branding is captured HERE rather than read at display time so the document the homeowner
+ * receives keeps saying what it said - see ContractorBranding. Re-sharing a revoked proposal
+ * re-snapshots, which is right: that is a new link and a new send.
+ */
+export async function shareProposal(id: string, branding?: ContractorBranding | null): Promise<string> {
   const share_token = genShareToken();
-  const { data, error } = await supabase
-    .from("proposals")
-    .update({ share_token, status: "shared" })
-    .eq("id", id)
-    .select()
-    .single();
-  if (error) fail("shareProposal", error);
-  if (!data) fail("shareProposal", null);
-  return rowToProposal(data).shareToken ?? share_token;
+  const row: Record<string, unknown> = { share_token, status: "shared" };
+  if (branding) row.contractor_branding = branding;
+  const saved = await writeProposal("shareProposal", row,
+    (r) => supabase.from("proposals").update(r).eq("id", id).select().single());
+  return saved.shareToken ?? share_token;
+}
+
+/** Stamp the last time the contractor sent this proposal to a homeowner. */
+export async function markProposalSent(id: string): Promise<Proposal> {
+  return writeProposal("markProposalSent", { last_sent_at: new Date().toISOString() },
+    (r) => supabase.from("proposals").update(r).eq("id", id).select().single());
 }
 
 // Revoke sharing: null the token (so the public link 404s) and drop the status back to draft.
@@ -1049,6 +1126,10 @@ export type Profile = {
   company: string | null;
   phone: string | null;
   territory: string | null;
+  /** Company branding, shown on proposals in place of any Kitify chrome. */
+  companyLogo: string | null;
+  companyTagline: string | null;
+  companyWebsite: string | null;
   role: "contractor" | "admin";
   status: "active" | "invited" | "disabled";
   mustChangePassword: boolean;
@@ -1061,6 +1142,9 @@ export type Profile = {
 type ProfileRow = {
   id: string;
   name: string;
+  company_logo?: string | null;
+  company_tagline?: string | null;
+  company_website?: string | null;
   email: string;
   company: string | null;
   phone: string | null;
@@ -1082,6 +1166,10 @@ function rowToProfile(r: ProfileRow): Profile {
     company: r.company ?? null,
     phone: r.phone ?? null,
     territory: r.territory ?? null,
+    // Null until the branding migration runs; consumers treat null as "not set".
+    companyLogo: r.company_logo ?? null,
+    companyTagline: r.company_tagline ?? null,
+    companyWebsite: r.company_website ?? null,
     role: r.role,
     status: r.status,
     mustChangePassword: !!r.must_change_password,
@@ -1099,22 +1187,38 @@ export type ProfilePatch = Partial<{
   company: string | null;
   phone: string | null;
   territory: string | null;
+  companyLogo: string | null;
+  companyTagline: string | null;
+  companyWebsite: string | null;
   mustChangePassword: boolean;
   profileConfirmed: boolean;
   firstLoginAt: string | null;
 }>;
 const PROFILE_PATCH_COLUMNS: Record<keyof ProfilePatch, string> = {
   name: "name", company: "company", phone: "phone", territory: "territory",
+  companyLogo: "company_logo", companyTagline: "company_tagline", companyWebsite: "company_website",
   mustChangePassword: "must_change_password", profileConfirmed: "profile_confirmed",
   firstLoginAt: "first_login_at",
 };
+/** Branding columns, which land in the same migration as the proposal ones. */
+const MIGRATED_PROFILE_COLUMNS = ["company_logo", "company_tagline", "company_website"];
+
 export async function updateProfile(id: string, patch: ProfilePatch): Promise<Profile> {
   const row: Record<string, unknown> = {};
   for (const k of Object.keys(patch) as (keyof ProfilePatch)[]) row[PROFILE_PATCH_COLUMNS[k]] = patch[k];
-  const { data, error } = await supabase.from("profiles").update(row).eq("id", id).select().single();
+  const run = (r: Record<string, unknown>) => supabase.from("profiles").update(r).eq("id", id).select().single();
+  let { data, error } = await run(row);
+  if (error && isMissingColumn(error)) {
+    // Same reasoning as writeProposal: the first-login onboarding gate also calls this, and
+    // it must not break because an unrelated branding migration has not been applied.
+    const reduced = { ...row };
+    for (const c of MIGRATED_PROFILE_COLUMNS) delete reduced[c];
+    console.warn("[store] updateProfile: branding columns missing - run docs/migrations/2026-08-04-proposal-enhancements.sql. Saving without them.");
+    ({ data, error } = await run(reduced));
+  }
   if (error) fail("updateProfile", error);
   if (!data) fail("updateProfile", null);
-  return rowToProfile(data);
+  return rowToProfile(data as ProfileRow);
 }
 
 // All profiles across the network (admin only — RLS returns just the caller's own otherwise).

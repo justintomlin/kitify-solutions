@@ -6,9 +6,11 @@
 // Next.js keeps it server-side). The service client is created inside the handler and is
 // not exported, so nothing else in the app can reach it.
 //
-// It returns a deliberately minimal payload: proposal name, markup %, and per tier the
-// configurator config objects + the dealer total. It never returns owner_id, project_id,
-// quote ids, customer PII, or any other proposal's data.
+// It returns a deliberately minimal payload: proposal name, markup %, the contractor's own
+// branding and line items, and per tier the configurator config objects + the dealer total.
+// It never returns owner_id, project_id, quote ids, customer PII, or any other proposal's
+// data. Note that the dealer total is still the only money figure crossing this boundary -
+// the retail price is computed client-side from it and the markup, exactly as before.
 
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
@@ -27,6 +29,8 @@ type ProposalRow = {
   tier_good: string | null;
   tier_better: string | null;
   tier_best: string | null;
+  custom_line_items: { id: string; description: string; amount: number }[] | null;
+  contractor_branding: Record<string, string | null> | null;
 };
 type QuoteRow = {
   id: string;
@@ -63,13 +67,26 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tok
 
   // Look up the shared proposal: exact token, not archived, token not null (a revoked
   // proposal has share_token = NULL and can never match).
-  const { data: proposal, error: pErr } = await admin
-    .from("proposals")
-    .select("name, markup_pct, status, share_token, tier_good, tier_better, tier_best")
-    .eq("share_token", token)
-    .neq("status", "archived")
-    .not("share_token", "is", null)
-    .maybeSingle<ProposalRow>();
+  // Two column sets: the full one, and the pre-migration fallback. Selecting a column that
+  // does not exist is a hard 400 from PostgREST, so a public page that homeowners already
+  // hold links to would go dark the moment this deployed ahead of the SQL.
+  const BASE_COLUMNS = "name, markup_pct, status, share_token, tier_good, tier_better, tier_best";
+  const FULL_COLUMNS = `${BASE_COLUMNS}, custom_line_items, contractor_branding`;
+
+  const readProposal = (columns: string) =>
+    admin
+      .from("proposals")
+      .select(columns)
+      .eq("share_token", token)
+      .neq("status", "archived")
+      .not("share_token", "is", null)
+      .maybeSingle<ProposalRow>();
+
+  let { data: proposal, error: pErr } = await readProposal(FULL_COLUMNS);
+  if (pErr && (pErr.code === "42703" || pErr.code === "PGRST204" || /column .* does not exist/i.test(pErr.message))) {
+    console.warn("[proposal route] proposal-enhancement columns missing - run docs/migrations/2026-08-04-proposal-enhancements.sql");
+    ({ data: proposal, error: pErr } = await readProposal(BASE_COLUMNS));
+  }
 
   if (pErr) {
     console.error("[proposal route] proposal lookup failed:", pErr.message);
@@ -108,9 +125,36 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tok
     };
   };
 
+  // Line items are contractor-authored retail charges the homeowner is being asked to pay, so
+  // they go out as-is. Amounts are coerced because JSONB numerics can arrive as strings, and a
+  // string here would silently concatenate into the grand total.
+  const lineItems = Array.isArray(proposal.custom_line_items)
+    ? proposal.custom_line_items
+        .filter((li) => li && typeof li.description === "string")
+        .map((li) => ({ id: String(li.id ?? ""), description: li.description, amount: Number(li.amount) || 0 }))
+    : [];
+
+  // Branding is the frozen snapshot taken at share time. It is contractor contact detail the
+  // homeowner is meant to have - it is on the estimate precisely so they can get in touch -
+  // and carries nothing about the dealer relationship or Kitify.
+  const b = proposal.contractor_branding;
+  const branding = b
+    ? {
+        company: b.company ?? null,
+        name: b.name ?? null,
+        email: b.email ?? null,
+        phone: b.phone ?? null,
+        logo: b.logo ?? null,
+        tagline: b.tagline ?? null,
+        website: b.website ?? null,
+      }
+    : null;
+
   const body = {
     name: proposal.name,
     markupPct: Number(proposal.markup_pct),
+    lineItems,
+    branding,
     tiers: {
       good: tierView(proposal.tier_good),
       better: tierView(proposal.tier_better),

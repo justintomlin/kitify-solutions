@@ -3,25 +3,26 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Pencil, Trash2, Plus, Share2, Link2Off, Copy, Check, CheckCircle2, PackagePlus } from "lucide-react";
+import { ArrowLeft, Pencil, Trash2, Plus, Share2, Link2Off, Copy, Check, CheckCircle2, PackagePlus, Mail } from "lucide-react";
 import { useLanguage } from "@/components/LanguageContext";
 import { useAuth } from "@/components/AuthContext";
 import {
   getProject, listQuotes, deleteProject, deleteQuote,
-  listProposals, deleteProposal, shareProposal, revokeProposal,
+  listProposals, deleteProposal, shareProposal, revokeProposal, markProposalSent,
   listOrders, createOrderFromProposal,
-  type Project, type Quote, type Proposal, type Order,
+  type Project, type Quote, type Proposal, type Order, type ContractorBranding,
 } from "@/lib/store";
 import { ProjectForm } from "@/components/projects/ProjectForm";
 import { ProposalForm } from "@/components/projects/ProposalForm";
 import { ProjectStatusChip, RegChip, QuoteStatusChip, ProposalStatusChip, OrderStatusChip, relativeUpdated } from "@/components/projects/ui";
+import { HeroThumb, HeroModal, hasHeroContent, type HeroSource } from "@/components/configurator/HeroPreview";
 
 const money = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 
 export default function ProjectDetailPage() {
   const { t } = useLanguage();
   const router = useRouter();
-  const { userId } = useAuth();
+  const { userId, profile } = useAuth();
   // owner_id is the stable auth uuid (references profiles.id). Portal routes require a
   // session, so this is a real uuid; "anon" is only a defensive fallback.
   const ownerId = userId ?? "anon";
@@ -38,6 +39,7 @@ export default function ProjectDetailPage() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null); // share/unshare/convert in flight
   const [nowMs, setNowMs] = useState(0);
+  const [previewQuote, setPreviewQuote] = useState<Quote | null>(null); // quote shown in the hero modal
 
   const loadProject = useCallback(() => { getProject(id).then((p) => setProject(p)); }, [id]);
   const loadQuotes = useCallback(() => { listQuotes({ projectId: id }).then(setQuotes); }, [id]);
@@ -73,9 +75,29 @@ export default function ProjectDetailPage() {
     loadQuotes();
   }
 
+  /**
+   * The contractor's identity as it should appear on this estimate.
+   *
+   * Read from the live profile only at the moment of sharing — shareProposal freezes it onto
+   * the proposal, so an estimate already in a homeowner's inbox keeps the company name and
+   * phone number it was sent with even if the contractor changes them later.
+   */
+  function brandingSnapshot(): ContractorBranding | null {
+    if (!profile) return null;
+    return {
+      company: profile.company ?? null,
+      name: profile.name ?? null,
+      email: profile.email ?? null,
+      phone: profile.phone ?? null,
+      logo: profile.companyLogo ?? null,
+      tagline: profile.companyTagline ?? null,
+      website: profile.companyWebsite ?? null,
+    };
+  }
+
   async function onShare(pid: string) {
     setBusyId(pid);
-    try { await shareProposal(pid); } finally { setBusyId(null); }
+    try { await shareProposal(pid, brandingSnapshot()); } finally { setBusyId(null); }
     loadProposals();
   }
   async function onUnshare(pid: string) {
@@ -195,6 +217,13 @@ export default function ProjectDetailPage() {
           <div className="space-y-2">
             {quotes.map((q) => (
               <div key={q.id} className="flex items-center justify-between gap-3 rounded-xl border border-line/70 bg-paper/70 px-4 py-3 transition hover:border-accent">
+                {/* Thumbnail, only where the quote actually has materials to show — an empty
+                    one would put an identical grey bathroom on every row and identify none of
+                    them. It's a button rather than part of the link so that tapping it opens
+                    the preview instead of navigating away to the configurator. */}
+                {hasHeroContent(quoteSource(q)) && (
+                  <HeroThumb src={quoteSource(q)} label={t("configurator.hero.viewPreview")} onOpen={() => setPreviewQuote(q)} />
+                )}
                 <Link href={`/portal/configurator?quote=${q.id}`} title={t("projects.openInConfigurator")} className="min-w-0 flex-1">
                   <div className="truncate text-sm font-semibold text-ink">{q.name}</div>
                   <div className="mt-0.5 flex items-center gap-2 text-[10px] text-muted">
@@ -330,6 +359,18 @@ export default function ProjectDetailPage() {
                             {copiedId === p.id ? <><Check className="h-3.5 w-3.5" /> {t("projects.copied")}</> : <><Copy className="h-3.5 w-3.5" /> {t("projects.copy")}</>}
                           </button>
                         </div>
+                        {/* Hand the link to the homeowner. See SendPanel for why this opens
+                            the contractor's own email client rather than sending server-side. */}
+                        <SendPanel
+                          proposal={p}
+                          link={link}
+                          customerName={project?.customer.name ?? ""}
+                          customerEmail={project?.customer.email ?? ""}
+                          companyName={profile?.company ?? profile?.name ?? ""}
+                          projectName={project?.name ?? ""}
+                          onSent={() => { markProposalSent(p.id).catch(() => {}); loadProposals(); }}
+                          t={t}
+                        />
                         {/* Locked proposals stay live (the homeowner sees their confirmation)
                             and can't be unshared — the accept, then the order, are one-way. */}
                         {locked ? (
@@ -367,6 +408,124 @@ export default function ProjectDetailPage() {
           <Trash2 className="h-4 w-4" /> {t("projects.deleteProject")}
         </button>
       </div>
+
+      {previewQuote && (
+        <HeroModal
+          src={quoteSource(previewQuote)}
+          title={previewQuote.name}
+          closeLabel={t("configurator.hero.close")}
+          onClose={() => setPreviewQuote(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * A stored quote's configs, in the shape the hero expects.
+ *
+ * The store types these as `unknown` — it persists whatever the configurators emit without
+ * knowing their shapes — so the cast happens here, once, rather than at each call site.
+ */
+function quoteSource(q: Quote): HeroSource {
+  return {
+    room: q.room as HeroSource["room"],
+    shower: q.shower as HeroSource["shower"],
+    vanity: q.vanity as HeroSource["vanity"],
+    plumbing: q.plumbing as HeroSource["plumbing"],
+  };
+}
+
+/**
+ * Hand the estimate link to the homeowner.
+ *
+ * This opens the contractor's own email client with everything pre-filled rather than sending
+ * server-side, and that is a deliberate choice, not a placeholder. An automated send would
+ * arrive from a noreply@ address the homeowner has never seen, which is exactly the shape of
+ * a phishing message asking them to click a link about money. From the contractor's own
+ * address it lands in a thread they may already have going, replies come back to them, and
+ * it costs no infrastructure, no API key and no per-message quota.
+ *
+ * Swapping in a transactional sender later is contained: this component would POST to a route
+ * instead of assigning window.location, and everything around it stays as it is.
+ */
+function SendPanel({ proposal, link, customerName, customerEmail, companyName, projectName, onSent, t }: {
+  proposal: Proposal;
+  link: string;
+  customerName: string;
+  customerEmail: string;
+  companyName: string;
+  projectName: string;
+  onSent: () => void;
+  t: (k: string, v?: Record<string, string>) => string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [to, setTo] = useState(customerEmail);
+  const [who, setWho] = useState(customerName);
+  const [note, setNote] = useState("");
+
+  const sentOn = proposal.lastSentAt ? new Date(proposal.lastSentAt).toLocaleDateString() : null;
+
+  function send() {
+    if (!to.trim()) return;
+    const subject = t("projects.sendSubject", { company: companyName || "", project: projectName || "" });
+    const greeting = who.trim() ? t("projects.sendGreeting", { name: who.trim() }) : "";
+    const body = [greeting, note.trim() || t("projects.sendDefaultBody"), "", link, "", companyName]
+      .filter((line, i, all) => !(line === "" && all[i - 1] === ""))
+      .join("\n");
+    // encodeURIComponent, not encodeURI: the body contains newlines and the subject may carry
+    // an ampersand from a company name, either of which would truncate the mailto otherwise.
+    window.location.href =
+      `mailto:${encodeURIComponent(to.trim())}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    onSent();
+    setOpen(false);
+  }
+
+  if (!open) {
+    return (
+      <div className="flex flex-wrap items-center gap-3">
+        <button onClick={() => setOpen(true)}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs font-medium transition hover:border-accent hover:text-accent">
+          <Mail className="h-3.5 w-3.5" /> {t("projects.sendToCustomer")}
+        </button>
+        {sentOn && <span className="text-xs text-muted">{t("projects.sentOn", { date: sentOn })}</span>}
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-lg border border-line bg-card p-3">
+      <div className="mb-2 font-mono text-[10px] uppercase tracking-[0.12em] text-muted">{t("projects.sendTitle")}</div>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <label className="block">
+          <span className="mb-1 block text-[10px] uppercase tracking-wide text-muted">{t("projects.sendRecipientName")}</span>
+          <input value={who} onChange={(e) => setWho(e.target.value)}
+            className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none" />
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-[10px] uppercase tracking-wide text-muted">{t("projects.sendRecipientEmail")}</span>
+          <input type="email" value={to} onChange={(e) => setTo(e.target.value)}
+            className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none" />
+        </label>
+      </div>
+      <label className="mt-2 block">
+        <span className="mb-1 block text-[10px] uppercase tracking-wide text-muted">{t("projects.sendMessage")}</span>
+        <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3}
+          placeholder={t("projects.sendMessagePlaceholder")}
+          className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm text-ink placeholder:text-muted focus:border-accent focus:outline-none" />
+      </label>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <button onClick={send} disabled={!to.trim()}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-white transition hover:brightness-110 disabled:opacity-50">
+          <Mail className="h-3.5 w-3.5" /> {t("projects.sendOpen")}
+        </button>
+        <button onClick={() => setOpen(false)}
+          className="rounded-lg border border-line px-3 py-2 text-xs font-medium text-muted transition hover:text-ink">
+          {t("projects.cancel")}
+        </button>
+        {!to.trim() && <span className="text-xs text-muted">{t("projects.sendMissingEmail")}</span>}
+      </div>
+      <p className="mt-2 text-xs leading-relaxed text-muted">{t("projects.sendHint")}</p>
     </div>
   );
 }

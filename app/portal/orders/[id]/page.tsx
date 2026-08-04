@@ -15,6 +15,7 @@ import { RoomPlanSVG, type RoomConfig } from "@/components/room/RoomConfigurator
 import { ShowerPreviewFromConfig, type ShowerConfig } from "@/components/shower/ShowerConfigurator";
 import { VanityPreviewFromConfig, type VanityConfig } from "@/components/vanity/VanityConfigurator";
 import { PlumbingPreviewFromConfig, type PlumbingConfig } from "@/components/plumbing/PlumbingConfigurator";
+import { HeroPreview, hasHeroContent } from "@/components/configurator/HeroPreview";
 
 const money = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 const fmtDate = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString() : "—");
@@ -207,6 +208,12 @@ export default function OrderDetailPage() {
           </div>
         </div>
         <div className="space-y-5">
+          {/* Same placement and reasoning as the proposal: the picture of the room leads, the
+              dimensioned plan follows. Rendered from the frozen snapshot's own configs. */}
+          {hasHeroContent({ room, shower, vanity, plumbing }) && (
+            <HeroPreview room={room} shower={shower} vanity={vanity} plumbing={plumbing}
+              caption={t("configurator.hero.preview")} />
+          )}
           {room?.selections && (
             <div className="mx-auto w-full max-w-[560px]">
               <RoomPlanSVG state={room.selections} interactive={false} showClearances={false} />
@@ -216,7 +223,10 @@ export default function OrderDetailPage() {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               {shower && <PreviewCard label={t("configurator.showerTitle")}><ShowerPreviewFromConfig config={shower} /></PreviewCard>}
               {vanity && <PreviewCard label={t("configurator.vanityTitle")}><VanityPreviewFromConfig config={vanity} /></PreviewCard>}
-              {plumbing && <PreviewCard label={t("configurator.plumbingTitle")}><PlumbingPreviewFromConfig config={plumbing} /></PreviewCard>}
+              {/* showHeroPhoto: this card has no separate product grid to hold the faucet, so
+                  without it the accessories render as real photos while the faucet alone falls
+                  back to the schematic — it reads as a missing image. */}
+              {plumbing && <PreviewCard label={t("configurator.plumbingTitle")}><PlumbingPreviewFromConfig config={plumbing} showHeroPhoto /></PreviewCard>}
             </div>
           )}
         </div>

@@ -11,15 +11,20 @@
  * Real data (ThermaGlass/NuVo): bases, tubs, doors, accessories + dealer (KD) prices.
  * Real data (Nature Panel): the HPL wall palette — 21 catalogued decors with swatch
  * photography, via lib/naturepanel-catalog.ts. Carries no pricing.
- * PLACEHOLDER (flagged): SPC and Solid-Surface wall palettes (seeded with the 6 real
- * NuVo composite colors as a stand-in) and wall-kit pricing for every tier.
+ * Real data (Durasein): the Solid-Surface wall palette — 64 catalogued colors across 7
+ * collections with swatch imagery, via lib/durasein-catalog.ts. Carries no pricing.
+ * PLACEHOLDER (flagged): the SPC wall palette (seeded with the 6 real NuVo composite
+ * colors as a stand-in) and wall-kit pricing for every tier.
  * Drain options are data-driven per size (L/R/Center aren't offered on every size).
  */
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import { Check, RotateCcw, Plus, Minus, DoorOpen, Square } from "lucide-react";
 import { SHOWER_BASES, TUBS as CATALOG_TUBS, SHOWER_BASE_COLORS, type BaseSku } from "@/lib/catalog";
 import { getPanelCollections, getPanelImage, getPanelSpecs, getPanel } from "@/lib/naturepanel-catalog";
+import { getDuraseinCollections, getDuraseinColor, getAllDuraseinColors } from "@/lib/durasein-catalog";
+import { resolveDefault, DEFAULT_FINISH_ID, INCLUDED_QTY, OPT_IN_QTY } from "@/lib/defaults";
 import { useLanguage } from "@/components/LanguageContext";
 
 // Price-line display text is resolved at render (never stored) so a quote saved in
@@ -39,20 +44,36 @@ export type Drain = "left" | "right" | "center" | "end";
 // CDN image can't load, so nothing downstream has to branch on which kind of swatch it holds.
 export type Swatch = {
   id: string; name: string; hex: string;
-  imageUrl?: string;      // real product image (Nature Panel HPL only, today)
+  imageUrl?: string;      // real product image, for thumbnails (Nature Panel + Durasein)
   style?: string;         // decor style — "Wood Slat", "Shiplap", "Subway", "Large Tile", "Pure"
-  collection?: string;    // collection id — "wood" | "tile" | "pure"
-  // True only when imageUrl is a flat material crop. The Tile/Pure decors currently point
-  // at room photography, which is usable as a thumbnail but not as a wall texture.
-  isSwatch?: boolean;
+  collection?: string;    // collection id — "wood" | "tile" | "pure" | "timeless" | …
+  /**
+   * A flat, edge-to-edge image of the material itself — the only kind that may be tiled
+   * across the preview walls. Set only where such an asset genuinely exists, because the
+   * two catalogues fail this test in different ways: Nature Panel's Tile and Pure decors
+   * publish room photography, and Durasein's swatch masters are angled slab renders complete
+   * with shadows. Repeating either across a shower reads as a rendering bug, so they stay
+   * thumbnails and the wall falls back to the flat tint.
+   */
+  textureUrl?: string;
 };
 
 export type BaseItem = {
-  id: string; label: string; w: number; d: number; drains: Drain[];
+  id: string; label: string; w: number; d: number;
+  h?: number;   // finished floor-to-rim height in inches — carried by the tubs (skirt/apron)
+  drains: Drain[];
   colors: Swatch[]; doorWidth: 48 | 60 | 0; price: number; noteKey?: string; placeholder?: boolean;
 };
 export type Material = { id: string; name: string; tier: "Good" | "Better" | "Best"; kitPrice: number; colors: Swatch[] };
-export type DoorSeries = { id: string; series: string; w: 48 | 60; finishes: Record<string, number> };
+/**
+ * `rank` positions a series within the range: 1 is the entry model, higher is more premium.
+ *
+ * It exists because every price in this module is still a $1 placeholder, so "cheapest" can't
+ * be read off `finishes` — sorting by price today would pick an arbitrary series. Rank encodes
+ * the product positioning directly and stays correct once real pricing lands, at which point
+ * price-based selection becomes an option rather than a necessity.
+ */
+export type DoorSeries = { id: string; series: string; w: 48 | 60; rank: number; finishes: Record<string, number> };
 export type ShowerCatalog = {
   bases: BaseItem[];
   tubs: BaseItem[];
@@ -105,15 +126,54 @@ export type ShowerConfig = {
   label: string;
 };
 
+/**
+ * Which wall materials a dealer may actually pick.
+ *
+ * SPC and Solid Surface are unfinished — SPC still shows the NuVo stand-in palette rather
+ * than its own, and neither has wall-kit pricing — so on a deployed build they are visible
+ * but not selectable, and HPL is the only live tier. Set NEXT_PUBLIC_SHOW_ALL_MATERIALS=true
+ * in .env.local to work on them locally.
+ *
+ * Read from the env rather than sniffing window.location.hostname: the value is inlined at
+ * build time, so it is identical on the server and the first client render and cannot cause a
+ * hydration mismatch, and a preview deployment behaves like production without anyone having
+ * to remember that its hostname is not "localhost".
+ */
+const SHOW_ALL_MATERIALS = process.env.NEXT_PUBLIC_SHOW_ALL_MATERIALS === "true";
+
+/** The one tier that is finished. Everything else is gated unless the flag is set. */
+const LIVE_MATERIAL_ID = "hpl";
+
+export function materialAvailable(materialId: string): boolean {
+  return SHOW_ALL_MATERIALS || materialId === LIVE_MATERIAL_ID;
+}
+
 // --------------------------- Sample catalog -------------------------------
+// Chrome leads the row because it's the portal-wide default finish (see DEFAULT_FINISH_ID)
+// — the same one the plumbing trim and the shower door hardware land on, so an untouched
+// build reads as one coordinated set rather than three different metals.
 const FINISHES: Swatch[] = [
+  { id: "chrome", name: "Chrome", hex: "#c9ccd1" },
   { id: "brushed-nickel", name: "Brushed Nickel", hex: "#b8b6b0" },
   { id: "polished", name: "Polished", hex: "#d9dade" },
   { id: "matte-black", name: "Matte Black", hex: "#2a2c2f" },
 ];
 
-// PLACEHOLDER wall palette — the 6 real NuVo composite colors, used as a stand-in
-// for each material tier until the real SPC / HPL / Solid-Surface palettes arrive.
+/**
+ * Next's image optimizer, addressed by URL rather than through <Image>.
+ *
+ * The wall texture is painted by an SVG <pattern><image href>, which next/image can't
+ * render, and Durasein's sheet scans are 1–2 MB apiece — far more than a texture drawn a
+ * couple of hundred pixels wide needs. `w` must be one of Next's configured widths (the
+ * default deviceSizes/imageSizes lists); 640 is the smallest deviceSize. Only durasein.com
+ * is allowlisted for this (see next.config.mjs), so it's used solely on those URLs.
+ */
+function optimizedImage(url: string, w: number): string {
+  return `/_next/image?url=${encodeURIComponent(url)}&w=${w}&q=75`;
+}
+
+// PLACEHOLDER wall palette — the 6 real NuVo composite colors, still standing in for
+// the SPC tier until its own palette arrives.
 const NUVO_COLORS: Swatch[] = [
   { id: "amber-beige", name: "Amber Beige", hex: "#cdb48f" },
   { id: "carrara-bronze", name: "Carrara Bronze", hex: "#d6cdbe" },
@@ -123,21 +183,40 @@ const NUVO_COLORS: Swatch[] = [
   { id: "winter-white", name: "Winter White", hex: "#eeeee9" },
 ];
 
-// HPL is the one tier with a real catalogue behind it: the 21-panel Nature Panel lineup,
-// swatch photography served from Grant Westfield's CDNs (see lib/naturepanel-catalog.ts).
-// SPC and Solid Surface stay on the NuVo stand-in above until their palettes arrive.
+// Two tiers have a real catalogue behind them: HPL is the 21-panel Nature Panel lineup with
+// swatch photography from Grant Westfield's CDNs (lib/naturepanel-catalog.ts), and Solid
+// Surface is the 64-color Durasein US range served from durasein.com (lib/durasein-catalog.ts).
+// SPC stays on the NuVo stand-in above until its palette arrives.
 //
-// `hex` is a single neutral for every panel rather than a guessed per-decor colour — the
-// real appearance comes from the swatch image, and inventing hex values for products whose
-// colours aren't published would put made-up data in front of dealers. It shows only as the
-// wall tint if the CDN image fails.
+// `hex` is a single neutral per catalogue rather than a guessed per-decor colour — the real
+// appearance comes from the swatch image, and inventing hex values for products whose colours
+// aren't published would put made-up data in front of dealers. It shows only as the wall tint
+// if the CDN image fails.
 const HPL_PANEL_FALLBACK_HEX = "#dad6cd";
 const HPL_PANELS: Swatch[] = getPanelCollections().flatMap((c) =>
   c.panels.map((p) => ({
     id: p.id, name: p.name, hex: HPL_PANEL_FALLBACK_HEX,
-    imageUrl: p.imageUrl, style: p.style, collection: p.collection, isSwatch: p.isSwatch,
+    imageUrl: p.imageUrl, style: p.style, collection: p.collection,
+    // Only the Wood Decors point at flat swatch crops; the rest are room photography.
+    textureUrl: p.isSwatch ? p.imageUrl : undefined,
   })),
 );
+
+// Durasein publishes two different images per color and they are NOT interchangeable: the
+// swatch master is an angled render of a slab corner (great thumbnail, unusable as a
+// repeating texture) while the full-sheet scan is a flat edge-to-edge capture of the
+// material. So the thumbnail comes from one and the wall texture from the other.
+//
+// 13 of the 64 — the solid Brilliant colors plus the plain whites — have no sheet scan at
+// all, so they preview as the flat tint. That tint is one neutral for the whole range
+// rather than a guessed per-color hex: Durasein publishes no color values, and inventing
+// them would put made-up data in front of dealers. Same rule the HPL palette follows.
+const SS_COLOR_FALLBACK_HEX = "#e3ded5";
+const SS_COLORS: Swatch[] = getAllDuraseinColors().map((c) => ({
+  id: c.id, name: c.name, hex: SS_COLOR_FALLBACK_HEX,
+  imageUrl: c.swatchUrl, collection: c.collection,
+  textureUrl: c.sheetUrl ? optimizedImage(c.sheetUrl, 640) : undefined,
+}));
 
 // Style label → dictionary key. Keyed off the catalogue's own style strings so a new decor
 // style surfaces as a missing key rather than silently rendering English.
@@ -220,7 +299,7 @@ const TUB_META: Record<string, ShowerMeta> = {
 };
 function toBaseItem(sku: BaseSku, meta: ShowerMeta | undefined, colors: Swatch[]): BaseItem {
   const m = meta ?? { drains: ["center"] as Drain[], doorWidth: 0 as const };
-  return { id: sku.id, label: sku.label, w: sku.w, d: sku.d, price: sku.dealerPrice, placeholder: sku.placeholder, drains: m.drains, colors, doorWidth: m.doorWidth, noteKey: m.noteKey };
+  return { id: sku.id, label: sku.label, w: sku.w, d: sku.d, h: sku.h, price: sku.dealerPrice, placeholder: sku.placeholder, drains: m.drains, colors, doorWidth: m.doorWidth, noteKey: m.noteKey };
 }
 
 // PLACEHOLDER PRICING — all values nominal ($1). Real pricing to be loaded from
@@ -231,21 +310,24 @@ export const SAMPLE_SHOWER_CATALOG: ShowerCatalog = {
   materials: [
     { id: "spc", name: "SPC", tier: "Good", kitPrice: 1, colors: NUVO_COLORS },
     { id: "hpl", name: "HPL", tier: "Better", kitPrice: 1, colors: HPL_PANELS },
-    { id: "ss", name: "Solid Surface", tier: "Best", kitPrice: 1, colors: NUVO_COLORS },
+    { id: "ss", name: "Solid Surface", tier: "Best", kitPrice: 1, colors: SS_COLORS },
   ],
+  // Ranks: Pacific (entry slider) 1 → Rainier Deluxe 2 → frameless (Salishan 48" / Tetherow
+  // 60") 3 → Trillium Slider + Panel 4. Salishan isn't a separate tier — it's the 48"
+  // frameless answering Tetherow's 60", so it shares rank 3.
   doors: [
-    { id: "pac-48", series: "Pacific Frameless Slider", w: 48, finishes: { "chrome": 1, "brushed-nickel": 1, "matte-black": 1 } },
-    { id: "ran-48", series: "Rainier Deluxe Slider", w: 48, finishes: { "chrome": 1, "brushed-nickel": 1, "matte-black": 1 } },
-    { id: "sal-48", series: "Salishan Frameless", w: 48, finishes: { "chrome": 1, "brushed-nickel": 1, "matte-black": 1 } },
-    { id: "pac-60", series: "Pacific Frameless Slider", w: 60, finishes: { "chrome": 1, "brushed-nickel": 1, "matte-black": 1 } },
-    { id: "ran-60", series: "Rainier Deluxe Slider", w: 60, finishes: { "chrome": 1, "brushed-nickel": 1, "matte-black": 1 } },
-    { id: "tet-60", series: "Tetherow Frameless", w: 60, finishes: { "chrome": 1, "brushed-nickel": 1, "matte-black": 1 } },
-    { id: "tri-60", series: "Trillium Slider + Panel", w: 60, finishes: { "chrome": 1, "brushed-nickel": 1, "matte-black": 1 } },
+    { id: "pac-48", series: "Pacific Frameless Slider", w: 48, rank: 1, finishes: { "chrome": 1, "brushed-nickel": 1, "matte-black": 1 } },
+    { id: "ran-48", series: "Rainier Deluxe Slider", w: 48, rank: 2, finishes: { "chrome": 1, "brushed-nickel": 1, "matte-black": 1 } },
+    { id: "sal-48", series: "Salishan Frameless", w: 48, rank: 3, finishes: { "chrome": 1, "brushed-nickel": 1, "matte-black": 1 } },
+    { id: "pac-60", series: "Pacific Frameless Slider", w: 60, rank: 1, finishes: { "chrome": 1, "brushed-nickel": 1, "matte-black": 1 } },
+    { id: "ran-60", series: "Rainier Deluxe Slider", w: 60, rank: 2, finishes: { "chrome": 1, "brushed-nickel": 1, "matte-black": 1 } },
+    { id: "tet-60", series: "Tetherow Frameless", w: 60, rank: 3, finishes: { "chrome": 1, "brushed-nickel": 1, "matte-black": 1 } },
+    { id: "tri-60", series: "Trillium Slider + Panel", w: 60, rank: 4, finishes: { "chrome": 1, "brushed-nickel": 1, "matte-black": 1 } },
   ],
   tubDoors: [
-    { id: "pac-tub-60", series: "Pacific Frameless Tub Slider", w: 60, finishes: { "chrome": 1, "brushed-nickel": 1, "matte-black": 1 } },
-    { id: "ran-tub-60", series: "Rainier Deluxe Tub Slider", w: 60, finishes: { "chrome": 1, "brushed-nickel": 1, "matte-black": 1 } },
-    { id: "tet-tub-60", series: "Tetherow Frameless Tub", w: 60, finishes: { "chrome": 1, "brushed-nickel": 1, "matte-black": 1 } },
+    { id: "pac-tub-60", series: "Pacific Frameless Tub Slider", w: 60, rank: 1, finishes: { "chrome": 1, "brushed-nickel": 1, "matte-black": 1 } },
+    { id: "ran-tub-60", series: "Rainier Deluxe Tub Slider", w: 60, rank: 2, finishes: { "chrome": 1, "brushed-nickel": 1, "matte-black": 1 } },
+    { id: "tet-tub-60", series: "Tetherow Frameless Tub", w: 60, rank: 3, finishes: { "chrome": 1, "brushed-nickel": 1, "matte-black": 1 } },
   ],
   accessories: {
     cornerShelf: { finishes: FINISHES, price: 1 },
@@ -263,10 +345,32 @@ const money = (n: number) => n.toLocaleString("en-US", { style: "currency", curr
 export function itemsForPath(catalog: ShowerCatalog, path?: Path): BaseItem[] {
   return path === "tub" ? catalog.tubs : path === "shower" ? catalog.bases : [];
 }
+/**
+ * The door to select when the dealer ticks "add a matching door": the lowest-ranked series
+ * that fits the current opening, in the portal default finish, falling back to whatever the
+ * series does carry if it somehow doesn't list Chrome.
+ *
+ * Returns null when nothing fits, which reads as "no door" — the same state as unticked.
+ */
+export function defaultDoor(avail: DoorSeries[]): { seriesId: string; finish: string } | null {
+  const series = avail[0];   // doorsForItem sorts by rank, so entry model first
+  if (!series) return null;
+  const finishes = Object.keys(series.finishes);
+  const finish = resolveDefault(undefined, finishes, (f) => f, (f) => f === DEFAULT_FINISH_ID);
+  return finish ? { seriesId: series.id, finish } : null;
+}
+
+/**
+ * The door series that fit this base's stock opening, ordered entry-model first.
+ *
+ * Sorting by rank here rather than at the call sites means the list the picker renders and
+ * the list the default is drawn from are the same one, so "the default" is always simply the
+ * first entry — the top of the list a dealer is already looking at.
+ */
 export function doorsForItem(catalog: ShowerCatalog, path: Path | undefined, item?: BaseItem): DoorSeries[] {
   if (!item || item.doorWidth === 0) return [];
   const pool = path === "tub" ? catalog.tubDoors : catalog.doors;
-  return pool.filter((d) => d.w === item.doorWidth);
+  return pool.filter((d) => d.w === item.doorWidth).sort((a, b) => a.rank - b.rank);
 }
 
 export function computeShowerPrice(catalog: ShowerCatalog, s: ShowerSelections): { total: number; lines: PriceLine[] } {
@@ -323,8 +427,11 @@ function buildLabel(catalog: ShowerCatalog, s: ShowerSelections, t: Tr): string 
   // differ from the back.
   const named = (i: number) => mat?.colors.find((c) => c.id === s.wallColors[i]);
   const one = named(0);
+  // The style qualifier only exists on the Nature Panel decors — a Durasein color carries no
+  // style, so it reads as its name alone rather than trailing an empty pair of parentheses.
+  const style = one?.style ? styleLabel(t, one.style) : "";
   const decor = wallMode(s) === "all"
-    ? (one?.imageUrl ? `${one.name} (${styleLabel(t, one.style)})` : "")
+    ? (one?.imageUrl ? (style ? `${one.name} (${style})` : one.name) : "")
     : WALL_INDEX.map((i) => named(i)?.name ?? "—").join(" / ");
   return `${item.label} ${kind}${drain ? " · " + drain : ""}${walls ? " · " + walls : ""}${decor ? " · " + decor : ""}`.trim();
 }
@@ -343,14 +450,19 @@ function buildShowerMedia(catalog: ShowerCatalog, s: ShowerSelections): ShowerMe
 }
 
 // ---------------------------- Component -----------------------------------
+// Corner shelf and niche are standard fittings, so they arrive on the quote at qty 1 in the
+// default Chrome and the dealer steps one to 0 to drop it. The grab bar stays opt-in: it's an
+// accessibility/preference call, and pre-selecting one would put a decision on the quote that
+// nobody made. See INCLUDED_QTY / OPT_IN_QTY in lib/defaults.
+// (The grab bar carries its own two-finish range — no chrome — so it keeps "brushed".)
 const initial: ShowerSelections = {
   baseColor: "white",
   wallColors: [undefined, undefined, undefined],
   door: null,
   accessories: {
-    cornerShelf: { finish: "brushed-nickel", qty: 0 },
-    niche: { finish: "brushed-nickel", qty: 0 },
-    grabBar: { finish: "brushed", size: "24", qty: 0 },
+    cornerShelf: { finish: DEFAULT_FINISH_ID, qty: INCLUDED_QTY },
+    niche: { finish: DEFAULT_FINISH_ID, qty: INCLUDED_QTY },
+    grabBar: { finish: "brushed", size: "24", qty: OPT_IN_QTY },
   },
 };
 
@@ -376,6 +488,7 @@ export function ShowerConfigurator({
   mode = "dealer",
   onComplete,
   onChange,
+  onPreview,
   initialBaseId,
   initialKind,
   initialBaseColor,
@@ -385,6 +498,16 @@ export function ShowerConfigurator({
   mode?: "dealer" | "customer";
   onComplete?: (config: ShowerConfig) => void;
   onChange?: (shared: { kind: Path; baseId: string; baseColor: string } | null) => void;
+  /**
+   * The whole in-progress config, on every change — distinct from `onChange`, which reports
+   * only the bath size the other modules need to stay in step, and from `onComplete`, which
+   * fires once the dealer commits.
+   *
+   * For consumers that show the selection rather than act on it: the hub's hero preview
+   * repaints from this while the module is open, so a decor reads on the wall as it is
+   * picked rather than at Add-to-quote. The config may be incomplete; `isComplete` says so.
+   */
+  onPreview?: (config: ShowerConfig) => void;
   initialBaseId?: string;
   initialKind?: Path;
   initialBaseColor?: string;
@@ -399,6 +522,16 @@ export function ShowerConfigurator({
   // Report the current bath size to the hub whenever base/kind changes (last-edit-wins).
   const onChangeRef = useRef(onChange); onChangeRef.current = onChange;
   useEffect(() => { if (s.path && s.baseId) onChangeRef.current?.({ kind: s.path, baseId: s.baseId, baseColor: s.baseColor ?? "white" }); }, [s.path, s.baseId, s.baseColor]);
+
+  // Live config for preview consumers. Held in a ref like the callback above so a parent that
+  // re-creates the handler each render can't re-fire the effect. `t` is deliberately not a
+  // dependency: the label is rebuilt on the next real selection change, and re-emitting the
+  // whole config on a language switch would push a draft over a committed quote.
+  const onPreviewRef = useRef(onPreview); onPreviewRef.current = onPreview;
+  useEffect(() => {
+    onPreviewRef.current?.({ selections: s, media: buildShowerMedia(catalog, s), price, isComplete: isComplete(s), label: buildLabel(catalog, s, t) });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [s, price, catalog]);
 
   // Adopt a bath size chosen elsewhere (e.g. placed in the room) even while
   // already mounted — swapping only the base/kind, keeping wall + door + accessory
@@ -436,9 +569,17 @@ export function ShowerConfigurator({
   const baseColor = SHOWER_BASE_COLORS.find((c) => c.id === (s.baseColor ?? "white"))?.hex ?? SHOWER_BASE_COLORS[0].hex;
   const wallHex = (i: number) => palette.find((c) => c.id === s.wallColors[i])?.hex ?? "#dad6cd";
   const isHpl = s.materialId === "hpl";
+  const isSs = s.materialId === "ss";
   const wMode = wallMode(s);
   // Which wall the per-wall picker is editing. Local UI state — never part of the quote.
   const [activeWall, setActiveWall] = useState(0);
+  // Id of a gated tier the dealer just tapped, for the transient "coming soon" note.
+  const [comingSoon, setComingSoon] = useState<string | null>(null);
+  useEffect(() => {
+    if (!comingSoon) return;
+    const id = setTimeout(() => setComingSoon(null), 3200);
+    return () => clearTimeout(id);
+  }, [comingSoon]);
   const activeSelection = wMode === "all" ? s.wallColors[0] : s.wallColors[activeWall];
   // Resolve the door once for the preview: its series decides the schematic, its finish the
   // hardware colour. Undefined whenever no door is on the quote, which is what hides it.
@@ -447,14 +588,17 @@ export function ShowerConfigurator({
     const series = (s.path === "tub" ? catalog.tubDoors : catalog.doors).find((d) => d.id === s.door!.seriesId);
     return { kind: doorKind(series?.series), finishHex: DOOR_FINISH_HEX[s.door.finish] ?? "#9aa0a6" };
   }, [s.door, s.path, catalog]);
-  // Wall imagery for the preview: the real panel photo tiles the walls when one is picked.
-  // Only a true swatch may tile the walls — a room photograph repeated across a shower
-  // reads as a rendering bug, so those fall back to the flat tint.
+  // Wall imagery for the preview: the real material tiles the walls when a decor is picked.
+  // Only a flat material image may do so (see Swatch.textureUrl) — a room photo or an angled
+  // slab render repeated across a shower reads as a rendering bug, so decors without one
+  // fall back to the flat tint.
   const wallImage = (i: number) => {
     const sw = palette.find((c) => c.id === s.wallColors[i]);
-    return sw?.isSwatch ? sw.imageUrl : undefined;
+    return sw?.textureUrl;
   };
-  const selectedPanel = isHpl ? palette.find((c) => c.id === s.wallColors[0]) : undefined;
+  // Both catalogued tiers get the enlarged decor card under the preview; the flat-colour
+  // SPC tier has nothing to show there.
+  const selectedDecor = isHpl || isSs ? palette.find((c) => c.id === s.wallColors[0]) : undefined;
 
   function choosePath(p: Path) { setS({ ...initial, path: p }); }
   function chooseBase(id: string) {
@@ -467,8 +611,19 @@ export function ShowerConfigurator({
   // an id that resolves to nothing while still counting the build as complete. Clear it.
   function chooseMaterial(id: string) {
     if (id === s.materialId) return;
+    // Gated tiers are inert rather than hidden: a dealer should see the range is coming.
+    if (!materialAvailable(id)) { setComingSoon(id); return; }
     set({ materialId: id, wallColors: [undefined, undefined, undefined] });
   }
+  // With only one tier selectable there is nothing to choose, so pick it. Guarded on the
+  // field being EMPTY, never overwriting a value: a quote saved on a dev build with Solid
+  // Surface must keep it when reopened, or the dealer's own choice would be silently
+  // rewritten and the quote would price something they never picked.
+  useEffect(() => {
+    if (SHOW_ALL_MATERIALS || s.materialId || !s.path || !s.baseId) return;
+    setS((prev) => (prev.materialId ? prev : { ...prev, materialId: LIVE_MATERIAL_ID }));
+  }, [s.materialId, s.path, s.baseId]);
+
   function setWall(i: number, colorId: string) {
     const next = [...s.wallColors]; next[i] = colorId; set({ wallColors: next });
   }
@@ -505,7 +660,7 @@ export function ShowerConfigurator({
             wallImages={[wallImage(0), wallImage(1), wallImage(2)]}
             door={doorViz} niche={s.accessories.niche.qty > 0} shelf={s.accessories.cornerShelf.qty > 0} bar={s.accessories.grabBar.qty > 0} />
           {/* Selected decor, at a size a dealer can actually judge the pattern from. */}
-          {selectedPanel && <SelectedPanelCard swatch={selectedPanel} />}
+          {selectedDecor && <SelectedDecorCard swatch={selectedDecor} solidSurface={isSs} />}
           <div className="border-t border-line p-4">
             <div className="mb-2 flex items-center justify-between">
               <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">{mode === "dealer" ? t("configurator.dealerPrice") : t("configurator.estimate")}</span>
@@ -551,6 +706,14 @@ export function ShowerConfigurator({
                 </button>
               ))}
             </div>
+            {/* Skirt height — a tub spec the dealer needs for the rough-in but that the size
+                label can't carry. Rendered from the catalog value, so it can never drift from
+                the SKU data the way a hardcoded caption would. */}
+            {item?.h != null && s.path === "tub" && (
+              <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.1em] text-muted">
+                {t("configurator.shower.skirtHeight", { h: String(item.h) })}
+              </p>
+            )}
             {/* Base color — solid swatches, applies to the shower base and the skirted tub. */}
             <div className="mt-4">
               <div className="mb-1.5 flex items-center gap-2">
@@ -585,15 +748,44 @@ export function ShowerConfigurator({
         {item && (
           <Step n={4} title={t("configurator.shower.stepWallMaterial")} hint={t("configurator.shower.onePerShower")}>
             <div className="grid grid-cols-3 gap-2">
-              {catalog.materials.map((m) => (
-                <button key={m.id} onClick={() => chooseMaterial(m.id)}
-                  className={`rounded-xl border px-3 py-3 text-center transition ${s.materialId === m.id ? "border-accent bg-accent-soft/50" : "border-line hover:bg-ink/5"}`}>
-                  <div className="text-sm font-semibold">{m.name}</div>
-                  <div className="font-mono text-[9px] uppercase tracking-wide text-muted">{t(m.tier === "Good" ? "configurator.shower.tierGood" : m.tier === "Better" ? "configurator.shower.tierBetter" : "configurator.shower.tierBest")}</div>
-                </button>
-              ))}
+              {catalog.materials.map((m) => {
+                const live = materialAvailable(m.id);
+                const selected = s.materialId === m.id;
+                return (
+                  <button key={m.id} type="button" onClick={() => chooseMaterial(m.id)}
+                    aria-disabled={!live}
+                    title={live ? undefined : t("configurator.shower.comingSoon")}
+                    className={`relative min-h-[64px] rounded-xl border px-3 py-3 text-center transition ${
+                      selected ? "border-accent bg-accent-soft/50"
+                        : live ? "border-line hover:bg-ink/5"
+                          : "cursor-not-allowed border-dashed border-line bg-ink/[0.03]"
+                    }`}>
+                    {/* Gated: the one live tier is named in full and drops its Good/Better/Best
+                        line, because a ladder rung with nothing above or below it is noise. */}
+                    <div className={`text-sm font-semibold ${live || selected ? "" : "text-muted"}`}>
+                      {!SHOW_ALL_MATERIALS && live ? t("configurator.shower.hplName") : m.name}
+                    </div>
+                    {(SHOW_ALL_MATERIALS || !live) && (
+                      <div className="font-mono text-[9px] uppercase tracking-wide text-muted">
+                        {live || selected
+                          ? t(m.tier === "Good" ? "configurator.shower.tierGood" : m.tier === "Better" ? "configurator.shower.tierBetter" : "configurator.shower.tierBest")
+                          : t("configurator.shower.comingSoon")}
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
             </div>
-            <p className="mt-2 text-xs text-muted">{t("configurator.shower.materialNote")}</p>
+            {/* Transient acknowledgement rather than a modal: the tap is a dead end, and the
+                dealer only needs to know why. */}
+            {comingSoon && (
+              <p className="mt-2 rounded-lg bg-amber/10 px-3 py-2 text-xs text-amber" role="status">
+                {t(comingSoon === "spc" ? "configurator.shower.spcComingSoon" : "configurator.shower.ssComingSoon")}
+              </p>
+            )}
+            <p className="mt-2 text-xs text-muted">
+              {SHOW_ALL_MATERIALS ? t("configurator.shower.materialNote") : t("configurator.shower.materialNoteLive")}
+            </p>
           </Step>
         )}
 
@@ -620,7 +812,10 @@ export function ShowerConfigurator({
                       <button key={i} type="button" onClick={() => setActiveWall(i)}
                         className={`flex min-w-0 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 transition ${activeWall === i ? "border-accent bg-accent-soft/50" : "border-line hover:bg-ink/5"}`}>
                         <span className="h-4 w-4 shrink-0 overflow-hidden rounded-full border border-line" style={{ background: picked?.hex ?? "#dad6cd" }}>
-                          {picked?.imageUrl && <img src={picked.imageUrl} alt="" className="h-full w-full object-cover" />}
+                          {/* Durasein's masters are megabytes each — far too much for a 16px
+                              dot — so those go through the optimizer; Nature Panel's URLs
+                              are already CDN-sized. */}
+                          {picked?.imageUrl && <SwatchImage src={picked.imageUrl} name="" px={isSs ? 32 : undefined} className="h-full w-full" />}
                         </span>
                         <span className="min-w-0">
                           <span className="block font-mono text-[9px] uppercase tracking-wide text-muted">{t(WALL_KEYS[i])}</span>
@@ -636,6 +831,8 @@ export function ShowerConfigurator({
 
             {isHpl ? (
               <PanelPicker selectedId={activeSelection} onSelect={assignWall} />
+            ) : isSs ? (
+              <SolidSurfacePicker selectedId={activeSelection} onSelect={assignWall} />
             ) : (
               <div className="flex flex-wrap gap-2">
                 {palette.map((c) => (
@@ -655,8 +852,10 @@ export function ShowerConfigurator({
             ) : (
               <>
                 <label className="mb-2 flex items-center gap-2 text-sm">
+                  {/* Ticking the box lands on the entry-rank series that fits this opening,
+                      in the default Chrome — both deselectable from the controls below. */}
                   <input type="checkbox" checked={!!s.door}
-                    onChange={(e) => set({ door: e.target.checked ? { seriesId: availDoors[0].id, finish: "chrome" } : null })} />
+                    onChange={(e) => set({ door: e.target.checked ? defaultDoor(availDoors) : null })} />
                   {t("configurator.shower.addMatchingDoor")}
                 </label>
                 {s.door && (
@@ -801,7 +1000,7 @@ function PanelPicker({ selectedId, onSelect }: { selectedId?: string; onSelect: 
           return (
             <button key={p.id} type="button" onClick={() => onSelect(p.id)} title={`${p.name} · ${styleLabel(t, p.style)}`}
               className={`overflow-hidden rounded-xl border text-left transition ${chosen ? "border-accent ring-2 ring-accent/30" : "border-line hover:border-ink/30"}`}>
-              <PanelSwatchImage panelId={p.id} name={p.name} />
+              <SwatchImage src={getPanelImage(p.id, 200, 200)} name={p.name} />
               <div className="p-1.5">
                 <div className="truncate text-[11px] font-medium leading-tight text-ink">{p.name}</div>
                 <div className="truncate font-mono text-[9px] uppercase tracking-wide text-muted">{styleLabel(t, p.style)}</div>
@@ -818,43 +1017,115 @@ function PanelPicker({ selectedId, onSelect }: { selectedId?: string; onSelect: 
   );
 }
 
+// ----------------------- Durasein solid-surface picker ---------------------
+// The 64-color Durasein US range, grouped by collection behind tabs — same shape as the
+// panel picker above, but the tile's second line is the SKU (what a dealer orders by)
+// rather than a decor style, which solid surface doesn't have.
+//
+// Collection names are Durasein's own product-line names and render straight from the
+// catalogue in both languages, exactly like the panel and door-series names elsewhere.
+function SolidSurfacePicker({ selectedId, onSelect }: { selectedId?: string; onSelect: (colorId: string) => void }) {
+  const { t } = useLanguage();
+  const collections = getDuraseinCollections();
+  // Open on the collection holding the current pick, so reopening the step doesn't hide it.
+  const [openId, setOpenId] = useState(() => getDuraseinColor(selectedId)?.collection ?? collections[0]?.id);
+  const active = collections.find((c) => c.id === openId) ?? collections[0];
+  const total = useMemo(() => collections.reduce((n, c) => n + c.colors.length, 0), [collections]);
+
+  return (
+    <div>
+      <div className="mb-3 flex flex-wrap gap-1.5">
+        {collections.map((c) => (
+          <button key={c.id} type="button" onClick={() => setOpenId(c.id)}
+            className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${c.id === active?.id ? "border-accent bg-accent-soft/50 text-ink" : "border-line text-muted hover:bg-ink/5"}`}>
+            {c.name} <span className="font-mono text-[10px] text-muted">{c.colors.length}</span>
+          </button>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+        {active?.colors.map((c) => {
+          const chosen = c.id === selectedId;
+          return (
+            <button key={c.id} type="button" onClick={() => onSelect(c.id)} title={`${c.name} · ${c.id}`}
+              className={`overflow-hidden rounded-xl border text-left transition ${chosen ? "border-accent ring-2 ring-accent/30" : "border-line hover:border-ink/30"}`}>
+              <SwatchImage src={c.swatchUrl} name={c.name} px={200} />
+              <div className="p-1.5">
+                <div className="truncate text-[11px] font-medium leading-tight text-ink">{c.name}</div>
+                <div className="truncate font-mono text-[9px] uppercase tracking-wide text-muted">{c.id}</div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      <p className="mt-3 text-[11px] text-muted">
+        {t("configurator.shower.surface.rangeNote", { n: String(total), c: String(collections.length) })}
+      </p>
+    </div>
+  );
+}
+
 // A swatch tile. Falls back to the neutral tint if the CDN can't serve the image, so the
 // grid keeps its shape rather than collapsing to broken-image icons.
-function PanelSwatchImage({ panelId, name }: { panelId: string; name: string }) {
-  const src = getPanelImage(panelId, 200, 200);
+//
+// `px` routes the image through next/image at that pixel size. Durasein's swatches need it —
+// they're raw WordPress masters of 1–8 MB with no sizing parameters available, so a tab of
+// them is unusable on a tablet unless something resizes them. Nature Panel's URLs already
+// carry width/height for its CDN, so those stay on a plain <img> and skip the optimizer.
+function SwatchImage({ src, name, px, className = "aspect-square w-full" }: {
+  src: string | null; name: string; px?: number; className?: string;
+}) {
   const [failed, setFailed] = useState(false);
   useEffect(() => { setFailed(false); }, [src]);
+  const imgClass = "h-full w-full object-cover";
   return (
-    <div className="aspect-square w-full overflow-hidden bg-ink/5">
-      {src && !failed && (
-        <img src={src} alt={name} loading="lazy" onError={() => setFailed(true)} className="h-full w-full object-cover" />
+    <div className={`overflow-hidden bg-ink/5 ${className}`}>
+      {src && !failed && (px
+        ? <Image src={src} alt={name} width={px} height={px} loading="lazy" onError={() => setFailed(true)} className={imgClass} />
+        : <img src={src} alt={name} loading="lazy" onError={() => setFailed(true)} className={imgClass} />
       )}
     </div>
   );
 }
 
 // The chosen decor at a size the pattern actually reads at, under the shower preview.
-function SelectedPanelCard({ swatch }: { swatch: Swatch }) {
+// Serves both catalogued tiers: Nature Panel decors carry a style, shadow line and SKU ref;
+// Durasein colors carry a SKU, pattern code and a link back to the product page.
+function SelectedDecorCard({ swatch, solidSurface }: { swatch: Swatch; solidSurface: boolean }) {
   const { t } = useLanguage();
-  const panel = getPanel(swatch.id);
-  const src = getPanelImage(swatch.id, 200, 200);
-  const [failed, setFailed] = useState(false);
-  useEffect(() => { setFailed(false); }, [src]);
+  const panel = solidSurface ? null : getPanel(swatch.id);
+  const color = solidSurface ? getDuraseinColor(swatch.id) : null;
+  const src = solidSurface ? color?.swatchUrl ?? null : getPanelImage(swatch.id, 200, 200);
   return (
     <div className="flex items-center gap-3 border-t border-line bg-paper/40 p-3">
-      <div className="h-[76px] w-[76px] shrink-0 overflow-hidden rounded-lg border border-line bg-ink/5">
-        {src && !failed && (
-          <img src={src} alt={swatch.name} loading="lazy" onError={() => setFailed(true)} className="h-full w-full object-cover" />
-        )}
-      </div>
+      <SwatchImage src={src} name={swatch.name} px={solidSurface ? 152 : undefined}
+        className="h-[76px] w-[76px] shrink-0 rounded-lg border border-line" />
       <div className="min-w-0">
-        <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-muted">{t("configurator.shower.panel.brand")}</div>
+        <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-muted">
+          {t(solidSurface ? "configurator.shower.surface.brand" : "configurator.shower.panel.brand")}
+        </div>
         <div className="truncate text-sm font-semibold text-ink">{swatch.name}</div>
-        <div className="truncate text-xs text-muted">{styleLabel(t, swatch.style)}</div>
-        {panel?.shadowLine && (
-          <div className="truncate text-[11px] text-muted">{t("configurator.shower.panel.shadowLine")}: {panel.shadowLine}</div>
+        {panel && (
+          <>
+            <div className="truncate text-xs text-muted">{styleLabel(t, swatch.style)}</div>
+            {panel.shadowLine && (
+              <div className="truncate text-[11px] text-muted">{t("configurator.shower.panel.shadowLine")}: {panel.shadowLine}</div>
+            )}
+            {panel.skuRef && <div className="font-mono text-[10px] uppercase tracking-wide text-muted">{panel.skuRef}</div>}
+          </>
         )}
-        {panel?.skuRef && <div className="font-mono text-[10px] uppercase tracking-wide text-muted">{panel.skuRef}</div>}
+        {color && (
+          <>
+            <div className="font-mono text-[10px] uppercase tracking-wide text-muted">
+              {color.id}{color.patternCode ? ` · ${color.patternCode}` : ""}
+            </div>
+            <a href={color.pageUrl} target="_blank" rel="noopener noreferrer"
+              className="text-[11px] text-accent underline-offset-2 hover:underline">
+              {t("configurator.shower.surface.viewProduct")}
+            </a>
+          </>
+        )}
       </div>
     </div>
   );
@@ -992,11 +1263,12 @@ export function ShowerPreviewFromConfig({ config, className }: { config: ShowerC
   const material = catalog.materials.find((m) => m.id === s.materialId);
   const palette = material?.colors ?? NUVO_COLORS;
   const wallHex = (i: number) => palette.find((c) => c.id === s.wallColors[i])?.hex ?? "#dad6cd";
-  // Only a true swatch may tile the walls — a room photograph repeated across a shower
-  // reads as a rendering bug, so those fall back to the flat tint.
+  // Only a flat material image may tile the walls (see Swatch.textureUrl) — a room photo or
+  // an angled slab render repeated across a shower reads as a rendering bug, so decors
+  // without one fall back to the flat tint.
   const wallImage = (i: number) => {
     const sw = palette.find((c) => c.id === s.wallColors[i]);
-    return sw?.isSwatch ? sw.imageUrl : undefined;
+    return sw?.textureUrl;
   };
   const baseColor = SHOWER_BASE_COLORS.find((c) => c.id === (s.baseColor ?? "white"))?.hex ?? SHOWER_BASE_COLORS[0].hex;
   // Same door resolution the configurator does, so a read-only preview shows the identical
@@ -1022,4 +1294,24 @@ export function showerWallPanel(config: ShowerConfig): { id: string; name: strin
   const swatch = material?.colors.find((c) => c.id === s.wallColors[0]);
   if (!swatch?.imageUrl) return null;
   return { id: swatch.id, name: swatch.name, style: swatch.style, imageUrl: swatch.imageUrl };
+}
+
+/**
+ * The wall decor as a TILEABLE texture, for the hero compositor.
+ *
+ * Deliberately separate from showerWallPanel above, which answers a different question. That
+ * one returns the thumbnail — the image that identifies the decor in a chip or a card, and
+ * every catalogued decor has one. This one returns only `textureUrl`, the flat edge-to-edge
+ * material capture, which is the single kind of image that may be repeated across a surface.
+ * Roughly half the range has no such asset (Nature Panel's Tile and Pure decors publish room
+ * photography; 13 Durasein colors have no sheet scan), and tiling a photographed bathroom
+ * across a wall of the previewed bathroom is unmistakably a bug. Those return null, and the
+ * compositor leaves the alcove as the base scene.
+ */
+export function showerWallTexture(config: ShowerConfig): { textureUrl: string; name: string } | null {
+  const s = config.selections;
+  const material = SAMPLE_SHOWER_CATALOG.materials.find((m) => m.id === s.materialId);
+  const swatch = material?.colors.find((c) => c.id === s.wallColors[0]);
+  if (!swatch?.textureUrl) return null;
+  return { textureUrl: swatch.textureUrl, name: swatch.name };
 }

@@ -20,6 +20,7 @@ import {
   type PlumbingFinishId, type PlumbingComponentKey, type PlumbingFinish,
 } from "@/lib/plumbing-catalog";
 import { getProductImage, getProductPrice, getProductTitle, hasProduct } from "@/lib/delta-catalog";
+import { resolveDefault, DEFAULT_FINISH_ID, INCLUDED_QTY } from "@/lib/defaults";
 
 // Price-line display text is resolved at render (never stored) so a quote saved in one
 // language reads correctly when reopened in another. See lib/i18n.ts.
@@ -75,12 +76,21 @@ export type PlumbingConfig = {
   label: string;
 };
 
+// Every accessory ships included at qty 1 and the dealer steps one to 0 to drop it — see
+// INCLUDED_QTY in lib/defaults. Built from ACCESSORY_KEYS rather than written out, so a
+// sixth accessory in the catalog is included automatically instead of silently starting at 0.
+const includedAccessories = (): Partial<Record<PlumbingComponentKey, number>> =>
+  Object.fromEntries(ACCESSORY_KEYS.map((k) => [k, INCLUDED_QTY]));
+
 // Foundations is the default package: it's first in PLUMBING_PACKAGES, which is ordered
 // Good -> Better -> Best, and pre-selecting it means the finish step is reachable immediately
 // instead of the dealer facing an empty panel. A restored quote overwrites this wholesale.
+// The finish is left unset here and resolved to Chrome by the effect below, which has to run
+// anyway whenever the package changes — one resolver rather than a seed plus a correction.
 const initial: PlumbingSelections = {
   packageId: PLUMBING_PACKAGES[0].id,
-  faucetQty: 1, roughIn: "standard", dualShower: false, wasteOverflow: false, accessories: {},
+  faucetQty: 1, roughIn: "standard", dualShower: false, wasteOverflow: false,
+  accessories: includedAccessories(),
 };
 
 // ------------------------------ Engine ------------------------------------
@@ -136,7 +146,7 @@ const ALL_COMPONENT_KEYS: PlumbingComponentKey[] = [
   "faucet1cc", "faucet8cc", "showerTrim", "tubShowerTrim", ...ACCESSORY_KEYS,
 ];
 
-/** Components this package actually sells — Lineax has no single-hole faucet, so it has none. */
+/** Components this package actually sells, judged by whether any finish resolves to a SKU. */
 function catalogued(packageId: string): PlumbingComponentKey[] {
   return ALL_COMPONENT_KEYS.filter((k) =>
     PLUMBING_FINISHES.some((f) => hasProduct(plumbingSku(packageId, k, f.id))),
@@ -178,8 +188,13 @@ export function availableFinishes(packageId?: string): PlumbingFinish[] {
 }
 
 /**
- * True when the package simply doesn't sell this component — Lineax and the single-hole
- * faucet. Distinct from "not catalogued yet": there is no SKU to order in any finish.
+ * True when the package simply doesn't sell this component. Distinct from "not catalogued
+ * yet": there is no SKU to order in any finish.
+ *
+ * No package trips this today — Foundations was the only one, for the single-hole faucet,
+ * until Lineax's 562-MPU-DST was catalogued. The check and its notice stay because the
+ * condition is a property of the SKU table, not of that one gap: a future program added
+ * without a full nine-family set would hit it again.
  */
 export function componentUnavailable(packageId: string | undefined, k: PlumbingComponentKey): boolean {
   if (!packageId) return false;
@@ -306,11 +321,18 @@ export function PlumbingConfigurator({
 
   // Swatches this package is actually sold in.
   const finishes = useMemo(() => availableFinishes(s.packageId), [s.packageId]);
-  // Switching packages can strand a finish the new collection doesn't carry (Bohème in
-  // Polished Nickel → Terra). Drop it rather than leave an invisible selection driving
-  // SKUs, which would price and image a set the dealer can't see selected.
+  // Resolve the finish against what this package actually sells. Two jobs, one pass:
+  //   • unset → Chrome, so the set arrives dressed and priced instead of stalling the
+  //     dealer on an empty panel before any other step is reachable;
+  //   • a finish the newly-picked collection doesn't carry (Bohème in Polished Nickel →
+  //     Terra) → Chrome as well, rather than left as an invisible selection driving SKUs
+  //     the dealer can't see selected.
+  // A finish the package DOES sell is never touched — see resolveDefault's governing rule.
   useEffect(() => {
-    setS((prev) => (prev.finishId && !finishes.some((f) => f.id === prev.finishId) ? { ...prev, finishId: undefined } : prev));
+    setS((prev) => {
+      const next = resolveDefault(prev.finishId, finishes, (f) => f.id, (f) => f.id === DEFAULT_FINISH_ID);
+      return next === prev.finishId ? prev : { ...prev, finishId: next };
+    });
   }, [finishes]);
 
   // Adopt shared-state changes while mounted, unless the user has overridden that field.
@@ -399,17 +421,19 @@ export function PlumbingConfigurator({
         </div>
       </div>
 
-      <div className="space-y-5">
+      {/* min-w-0: the accessory rows in step 5 hold nowrap labels, so this column's
+          min-content is wider than a phone viewport. Without this the grid column refuses to
+          shrink and every card on the page — preview included — overhangs by ~22px. It only
+          started showing once the Chrome default made steps 3–5 reachable on first paint;
+          the rows' own `truncate` then does the rest. */}
+      <div className="min-w-0 space-y-5">
         <Step n={1} title={t("configurator.plumbing.stepPackage")}>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {PLUMBING_PACKAGES.map((p) => (
-              <button key={p.id} onClick={() => set({ packageId: p.id })}
-                className={`rounded-xl border p-3 text-left transition ${s.packageId === p.id ? "border-accent bg-accent-soft/50" : "border-line hover:bg-ink/5"}`}>
-                <div className="font-display text-sm font-semibold">{p.name}</div>
-                <div className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-muted">{p.lane} · {p.family}</div>
-              </button>
-            ))}
-          </div>
+          <PackagePicker
+            selectedId={s.packageId}
+            finishId={s.finishId}
+            faucetType={s.faucetType}
+            onSelect={(id) => set({ packageId: id })}
+          />
         </Step>
 
         {s.packageId && (
@@ -559,6 +583,107 @@ export function PlumbingConfigurator({
         )}
       </div>
     </div>
+  );
+}
+
+// --------------------------- Package picker --------------------------------
+/**
+ * The selected package sits large on the left with its hero faucet; the rest stack to the
+ * right as compact cards. Clicking one promotes it and demotes the incumbent, which gives
+ * the step a clear visual hierarchy — the active set is what the dealer is reading, the
+ * alternatives stay one tap away.
+ *
+ * Layout: single column on phone/tablet (selected on top, alternatives below in a 2×2
+ * grid), splitting into two columns from `lg`. Every card is a button at or above the 44px
+ * touch minimum.
+ */
+function PackagePicker({ selectedId, finishId, faucetType, onSelect }: {
+  selectedId?: string;
+  finishId?: PlumbingFinishId;
+  faucetType?: FaucetType;
+  onSelect: (id: string) => void;
+}) {
+  const { t } = useLanguage();
+  const selected = pkgById(selectedId) ?? PLUMBING_PACKAGES[0];
+  const others = PLUMBING_PACKAGES.filter((p) => p.id !== selected.id);
+  const finish = finishById(finishId);
+
+  return (
+    // min-w-0 throughout: a grid item defaults to min-width:auto, so without it the cards'
+    // intrinsic width becomes the floor for the whole step column — and because the step
+    // column and the preview panel share the outer grid, that pushed every OTHER card on the
+    // page 22px past the viewport on a phone.
+    <div className="grid min-w-0 gap-3 lg:grid-cols-[1.3fr_1fr]">
+      {/* Selected — re-keyed so the fade replays on every swap. */}
+      <div key={selected.id} style={{ animation: "fadeIn 240ms ease-out" }}
+        className="min-w-0 rounded-xl border-2 border-accent bg-accent-soft/40 p-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <div className="font-display text-lg font-semibold leading-tight">{selected.name}</div>
+            <div className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-muted">
+              {selected.lane} · {selected.family}
+            </div>
+          </div>
+          {/* The finish reads as part of the package identity here, so it's shown as soon as
+              one is resolved — which, with the Chrome default, is immediately. */}
+          {finish && (
+            <span className="flex shrink-0 items-center gap-1.5 rounded-full border border-line bg-card px-2 py-1">
+              <span className="h-4 w-4 rounded-full border border-line" style={{ background: finish.hex }} />
+              <span className="text-[11px] font-medium">{finish.name}</span>
+            </span>
+          )}
+        </div>
+        <p className="mt-1.5 text-xs leading-relaxed text-muted">{t(`configurator.plumbing.laneDesc.${selected.id}`)}</p>
+        <PackageFaucet packageId={selected.id} finishId={finishId} faucetType={faucetType} px={320}
+          className="mt-2 h-[132px] w-full rounded-lg border border-line bg-white" />
+      </div>
+
+      {/* Alternatives — 2×2 on phone/tablet, a single column alongside from lg. */}
+      <div className="grid min-w-0 grid-cols-2 gap-2 lg:grid-cols-1">
+        {others.map((p) => (
+          <button key={p.id} type="button" onClick={() => onSelect(p.id)}
+            className="flex min-h-[56px] min-w-0 items-center gap-2.5 rounded-xl border border-line p-2 text-left transition duration-200 hover:border-ink/30 hover:bg-ink/5">
+            <PackageFaucet packageId={p.id} finishId={finishId} faucetType={faucetType} px={96}
+              className="h-11 w-11 shrink-0 rounded-md border border-line bg-white" />
+            <span className="min-w-0">
+              <span className="block truncate font-display text-[13px] font-semibold leading-tight">{p.name}</span>
+              <span className="block truncate font-mono text-[9px] uppercase tracking-[0.1em] text-muted">{p.lane} · {p.family}</span>
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * A package's faucet photo, for the picker cards.
+ *
+ * The type shown follows the dealer's own faucet choice once made; before that (and for
+ * Lineax, which sells no single-hole faucet) it falls back to the widespread, which every
+ * collection carries. The finish likewise falls back to Chrome when the card's package
+ * doesn't sell the currently-selected one — these tiles identify the collection, so showing
+ * the piece in a stand-in finish beats showing an empty box.
+ */
+function PackageFaucet({ packageId, finishId, faucetType, px, className }: {
+  packageId: string; finishId?: PlumbingFinishId; faucetType?: FaucetType; px: number; className?: string;
+}) {
+  const order: FaucetType[] = faucetType === "faucet1cc" ? ["faucet1cc", "faucet8cc"] : ["faucet8cc", "faucet1cc"];
+  const finishOrder = ([finishId, DEFAULT_FINISH_ID as PlumbingFinishId].filter(Boolean) as PlumbingFinishId[]);
+  let sku: string | undefined;
+  for (const f of finishOrder) {
+    for (const k of order) { const found = plumbingSku(packageId, k, f); if (found && hasProduct(found)) { sku = found; break; } }
+    if (sku) break;
+  }
+  const src = sku ? getProductImage(sku, px, px) : null;
+  const [failed, setFailed] = useState(false);
+  useEffect(() => { setFailed(false); }, [src]);
+  return (
+    <span className={`block overflow-hidden ${className ?? ""}`}>
+      {src && !failed && (
+        <img src={src} alt="" loading="lazy" onError={() => setFailed(true)} className="h-full w-full object-contain p-1" />
+      )}
+    </span>
   );
 }
 

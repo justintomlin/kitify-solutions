@@ -68,10 +68,12 @@ export const PLUMBING_PACKAGES: PlumbingPackage[] = [
     lane: "Essential",
     family: "Lineax",
     skus: {
-      // Lineax has NO single-hole faucet — the collection ships widespread only. Left empty
-      // rather than pointed at another collection's SKU; the configurator surfaces the gap
-      // when a vanity specifies 1cc drilling.
-      faucet1cc: {},
+      // Lineax shipped widespread-only in the first extract, which left this empty and made
+      // Foundations unusable against a 1cc vanity. The 562-MPU-DST single-hole faucet landed
+      // with the completed Foundation catalog and closes that gap; it carries the same four
+      // finishes as the rest of the package, so the shared-finish rule in availableFinishes()
+      // is unaffected.
+      faucet1cc: { "chrome": "562-MPU-DST", "stainless": "562-SSMPU-DST", "matte-black": "562-BLMPU-DST", "champagne-bronze": "562-CZMPU-DST" },
       faucet8cc: { "chrome": "3562LF-MPU", "stainless": "3562LF-SSMPU", "matte-black": "3562LF-BLMPU", "champagne-bronze": "3562LF-CZMPU" },
       showerTrim: { "chrome": "T14262", "stainless": "T14262-SS", "matte-black": "T14262-BL", "champagne-bronze": "T14262-CZ" },
       tubShowerTrim: { "chrome": "T14462", "stainless": "T14462-SS", "matte-black": "T14462-BL", "champagne-bronze": "T14462-CZ" },

@@ -10,6 +10,7 @@ import { useMediaQuery } from "@/lib/useMediaQuery";
 import { loadCurrentQuote, saveCurrentQuote, clearCurrentQuote } from "@/lib/quoteStorage";
 import { getQuote, getProject, saveQuote, type Quote } from "@/lib/store";
 import { SaveQuotePanel } from "@/components/configurator/SaveQuotePanel";
+import { HeroPreview } from "@/components/configurator/HeroPreview";
 import { VanityConfigurator, VanityPreviewFromConfig, type VanityConfig } from "@/components/vanity/VanityConfigurator";
 import { ShowerConfigurator, ShowerPreviewFromConfig, showerWallPanel, type ShowerConfig } from "@/components/shower/ShowerConfigurator";
 import { RoomConfigurator, RoomPlanSVG, type RoomConfig } from "@/components/room/RoomConfigurator";
@@ -55,6 +56,14 @@ export default function Page() {
 
   const [sharedBath, setSharedBath] = useState<SharedBath | null>(null);
   const [sharedVanity, setSharedVanity] = useState<SharedVanity | null>(null);
+
+  // In-progress configs, emitted by each module on every selection. They feed the hero
+  // preview only — never the quote, never persistence — so the picture moves as the dealer
+  // picks a decor instead of waiting for Add-to-quote. A committed slot is the fallback, so
+  // closing a module without committing leaves the hero showing the last committed state.
+  const [draftShower, setDraftShower] = useState<ShowerConfig | null>(null);
+  const [draftVanity, setDraftVanity] = useState<VanityConfig | null>(null);
+  const [draftPlumbing, setDraftPlumbing] = useState<PlumbingConfig | null>(null);
 
   // Configurators mount lazily on first open and then stay mounted (hidden when
   // inactive) so in-progress work — and the room's placed fixtures — survive
@@ -228,6 +237,9 @@ export default function Page() {
     if (typeof window !== "undefined" && !window.confirm(t("configurator.confirmClear"))) return;
     setRoom(null); setShower(null); setVanity(null); setPlumbing(null);
     setSharedBath(null); setSharedVanity(null);
+    // Drafts too, or a module left open would keep repainting the hero from work the dealer
+    // just cleared. A still-mounted module re-emits its own state on the next edit.
+    setDraftShower(null); setDraftVanity(null); setDraftPlumbing(null);
     clearCurrentQuote(userKey);
     setSavedAt(null);
     setActiveQuote(null); setSavePanelOpen(false); setShowSaved(false);
@@ -296,6 +308,18 @@ export default function Page() {
   const flooringLabel = flooringColor
     ? `${FLOORING_LINE.brand} ${FLOORING_LINE.name} · ${flooringColor.name}${flooringCartons > 0 ? " · " + t(flooringCartons === 1 ? "configurator.room.cartonsOne" : "configurator.room.cartonsMany", { n: String(flooringCartons) }) : ""}`
     : null;
+
+  // ---- hero preview ---------------------------------------------------------
+  // Drafts win over committed slots so an open module drives the picture live; everything
+  // else — turning configs into textures, hexes and product photos — lives in HeroPreview,
+  // which the proposal, order and quote-list views share so all four agree on what a quote
+  // looks like.
+  const heroSource = {
+    room,
+    shower: draftShower ?? shower,
+    vanity: draftVanity ?? vanity,
+    plumbing: draftPlumbing ?? plumbing,
+  };
 
   // The quote panel, built once and placed in exactly one of two spots (see wideQuote).
   const quoteSummary = (
@@ -510,6 +534,12 @@ export default function Page() {
             push the grid column past its track and squeeze the quote column. */}
         <div className="min-w-0 space-y-5">
 
+          {/* Hero preview. Sits above the module content and stays visible while a module is
+              open, because its whole point is to react as selections are made. Unlike the
+              proposal and order views it is never hidden for an empty quote — here the base
+              scene is the starting canvas the dealer configures against. */}
+          <HeroPreview {...heroSource} caption={t("configurator.hero.caption")} />
+
           {/* Open configurator area. Each configurator mounts on first open and
               stays mounted (hidden when inactive) so its state persists and it
               can keep seeding from / feeding the shared sizes. */}
@@ -538,6 +568,7 @@ export default function Page() {
                   initialBaseId={sharedBath?.baseId}
                   initialBaseColor={sharedBath?.baseColor}
                   onChange={applyBath}
+                  onPreview={setDraftShower}
                   onComplete={onShowerComplete}
                   primaryLabel={shower ? t("configurator.updateShower") : t("configurator.addToQuote")}
                 />
@@ -552,6 +583,7 @@ export default function Page() {
                   initialDrilling={sharedVanity?.drilling}
                   initialSinkShape={sharedVanity?.sinkShape}
                   onChange={applyVanity}
+                  onPreview={setDraftVanity}
                   onComplete={onVanityComplete}
                   primaryLabel={vanity ? t("configurator.updateVanity") : t("configurator.addToQuote")}
                 />
@@ -564,6 +596,7 @@ export default function Page() {
                   lockedDrilling={sharedVanity?.drilling}
                   lockedBathKind={plumbingBathKind}
                   initialFaucetQty={plumbingFaucetQty}
+                  onChange={setDraftPlumbing}
                   onComplete={onPlumbingComplete}
                   primaryLabel={plumbing ? t("configurator.updatePlumbing") : t("configurator.addToQuote")}
                 />

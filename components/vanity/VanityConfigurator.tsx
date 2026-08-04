@@ -23,7 +23,21 @@ export type Drilling = "1cc" | "8cc";
 export type SinkShape = "oval" | "rectangle";
 export type DoorStyle = { id: string; name: string; motif: "slab" | "shaker" | "slimshaker" | "raised" | "glass"; group: string };
 export type Swatch = { id: string; name: string; hex: string };
-export type Backsplash = { back: boolean; left: boolean; right: boolean };
+/**
+ * Backsplash: which edges get one, and how tall.
+ *
+ * `heightIn` is the standard 4" or the taller 6". "None" isn't a height — it's all three
+ * edges off — so the picker maps None onto clearing the sides and leaves the last height in
+ * place, which is what lets a dealer toggle a splash off and back on without re-choosing it.
+ * Optional so a quote saved before heights existed still loads; readers fall back to 4".
+ */
+export type Backsplash = { back: boolean; left: boolean; right: boolean; heightIn?: SplashHeight };
+export type SplashHeight = 4 | 6;
+export const SPLASH_HEIGHTS: SplashHeight[] = [4, 6];
+export const DEFAULT_SPLASH_HEIGHT: SplashHeight = 4;
+/** Any edge on = there is a splash. Single place the "None" state is defined. */
+export const hasSplash = (b: Backsplash): boolean => b.back || b.left || b.right;
+export const splashHeight = (b: Backsplash): SplashHeight => b.heightIn ?? DEFAULT_SPLASH_HEIGHT;
 
 // Cabinet face layout types
 export type FaceSection =
@@ -307,13 +321,14 @@ function buildVanityMedia(catalog: VanityCatalog, s: VanitySelections): VanityMe
   };
 }
 
-const initial: VanitySelections = { sinks: 1, drilling: "1cc", sinkShape: "oval", backsplash: { back: true, left: false, right: false } };
+const initial: VanitySelections = { sinks: 1, drilling: "1cc", sinkShape: "oval", backsplash: { back: true, left: false, right: false, heightIn: DEFAULT_SPLASH_HEIGHT } };
 
 export function VanityConfigurator({
   catalog = SAMPLE_VANITY_CATALOG,
   mode = "dealer",
   onComplete,
   onChange,
+  onPreview,
   initialSize,
   initialSinks,
   initialDrilling,
@@ -324,6 +339,12 @@ export function VanityConfigurator({
   mode?: "dealer" | "customer";
   onComplete?: (config: VanityConfig) => void;
   onChange?: (shared: { size: number; sinks: 1 | 2; drilling: Drilling; sinkShape: SinkShape } | null) => void;
+  /**
+   * The whole in-progress config, on every change — see the matching prop on
+   * ShowerConfigurator. For consumers that display the selection (the hub's hero preview)
+   * rather than act on it. May be incomplete; `isComplete` says so.
+   */
+  onPreview?: (config: VanityConfig) => void;
   initialSize?: number;
   initialSinks?: 1 | 2;
   initialDrilling?: Drilling;
@@ -346,6 +367,14 @@ export function VanityConfigurator({
   // Report the current cabinet size/sinks/drilling/sink-shape to the hub whenever they change (last-edit-wins).
   const onChangeRef = useRef(onChange); onChangeRef.current = onChange;
   useEffect(() => { if (s.size != null) onChangeRef.current?.({ size: s.size, sinks: s.sinks, drilling: s.drilling, sinkShape: s.sinkShape }); }, [s.size, s.sinks, s.drilling, s.sinkShape]);
+
+  // Live config for preview consumers. `t` is intentionally not a dependency — see the same
+  // effect in ShowerConfigurator.
+  const onPreviewRef = useRef(onPreview); onPreviewRef.current = onPreview;
+  useEffect(() => {
+    onPreviewRef.current?.({ selections: s, media: buildVanityMedia(catalog, s), price, isComplete: isComplete(s), label: buildLabel(catalog, s, t) });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [s, price, catalog]);
 
   // Adopt a size chosen elsewhere (e.g. placed in the room) even while already
   // mounted — keeping door-style/finish work. No-op once in sync (prevents loops).
@@ -517,14 +546,35 @@ export function VanityConfigurator({
                 </div>
                 <div>
                   <div className="mb-1.5 font-mono text-[10px] uppercase tracking-[0.1em] text-muted">{t("configurator.vanity.backsplashLabel")}</div>
+                  {/* Height first: None / 4" / 6". None clears every edge; picking a height
+                      brings the standard back splash with it, so the row can't land in a state
+                      where a height is set but nothing is splashed. */}
                   <div className="flex flex-wrap gap-2">
-                    {([["back", "configurator.vanity.bsBack"], ["left", "configurator.vanity.bsLeft"], ["right", "configurator.vanity.bsRight"]] as [keyof Backsplash, string][]).map(([k, lk]) => (
-                      <button key={k} onClick={() => set({ backsplash: { ...s.backsplash, [k]: !s.backsplash[k] } })}
-                        className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition ${s.backsplash[k] ? "border-accent bg-accent-soft/50" : "border-line hover:bg-ink/5"}`}>
-                        {t(lk)}{k === "back" ? " · " + t("configurator.vanity.std") : ""}
-                      </button>
-                    ))}
+                    <button onClick={() => set({ backsplash: { ...s.backsplash, back: false, left: false, right: false } })}
+                      className={`min-h-11 rounded-lg border px-3 py-1.5 text-sm font-medium transition ${!hasSplash(s.backsplash) ? "border-accent bg-accent-soft/50" : "border-line hover:bg-ink/5"}`}>
+                      {t("configurator.vanity.bsNone")}
+                    </button>
+                    {SPLASH_HEIGHTS.map((h) => {
+                      const on = hasSplash(s.backsplash) && splashHeight(s.backsplash) === h;
+                      return (
+                        <button key={h} onClick={() => set({ backsplash: { ...s.backsplash, heightIn: h, back: hasSplash(s.backsplash) ? s.backsplash.back : true } })}
+                          className={`min-h-11 rounded-lg border px-3 py-1.5 text-sm font-medium transition ${on ? "border-accent bg-accent-soft/50" : "border-line hover:bg-ink/5"}`}>
+                          {h}&quot;{h === DEFAULT_SPLASH_HEIGHT ? " · " + t("configurator.vanity.std") : ""}
+                        </button>
+                      );
+                    })}
                   </div>
+                  {/* Which edges — only meaningful once there IS a splash. */}
+                  {hasSplash(s.backsplash) && (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {([["back", "configurator.vanity.bsBack"], ["left", "configurator.vanity.bsLeft"], ["right", "configurator.vanity.bsRight"]] as [("back" | "left" | "right"), string][]).map(([k, lk]) => (
+                        <button key={k} onClick={() => set({ backsplash: { ...s.backsplash, [k]: !s.backsplash[k] } })}
+                          className={`min-h-11 rounded-lg border px-3 py-1.5 text-sm font-medium transition ${s.backsplash[k] ? "border-accent bg-accent-soft/50" : "border-line hover:bg-ink/5"}`}>
+                          {t(lk)}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </Step>
@@ -647,9 +697,18 @@ function VanityPreview({ mount, size, color, topColor, colorImage, topImage, sin
         </pattern>}
       </defs>
 
-      {backsplash.back && <rect x={x - 4} y={topY - 26} width={w + 8} height={26} fill={topFill} stroke="#00000012" />}
-      {backsplash.left && <rect x={x - 4} y={topY - 26} width={6} height={topH + 26} fill={topFill} stroke="#00000012" />}
-      {backsplash.right && <rect x={x + w - 2} y={topY - 26} width={6} height={topH + 26} fill={topFill} stroke="#00000012" />}
+      {/* Splash height in view units: the drawing kept 26 for the 4" standard, so a 6" reads
+          proportionally taller off the same scale rather than off a second magic number. */}
+      {(() => {
+        const bsH = 26 * (splashHeight(backsplash) / DEFAULT_SPLASH_HEIGHT);
+        return (
+          <>
+            {backsplash.back && <rect x={x - 4} y={topY - bsH} width={w + 8} height={bsH} fill={topFill} stroke="#00000012" />}
+            {backsplash.left && <rect x={x - 4} y={topY - bsH} width={6} height={topH + bsH} fill={topFill} stroke="#00000012" />}
+            {backsplash.right && <rect x={x + w - 2} y={topY - bsH} width={6} height={topH + bsH} fill={topFill} stroke="#00000012" />}
+          </>
+        );
+      })()}
 
       {Array.from({ length: sinks }).map((_, i) => {
         const cx = w >= 210 && sinks === 2 ? x + w * (i === 0 ? 0.3 : 0.7) : x + w / 2;

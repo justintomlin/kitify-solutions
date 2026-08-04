@@ -15,6 +15,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { RotateCcw, Undo2 } from "lucide-react";
 import { SHOWER_BASES as BASES, TUBS, VANITY_SIZES, VANITY_DEPTH as VANITY_D, WALL_PANEL, wallPanelTakeoff, FLOORING_COLORS, FLOORING_LINE, flooringTakeoff, WALL_BASE_COLORS, WALL_BASE_HEIGHTS, wallBaseTakeoff, type FlooringColor } from "@/lib/catalog";
+import { resolveDefault } from "@/lib/defaults";
 import { useLanguage } from "@/components/LanguageContext";
 
 // All user-facing copy comes from the shared i18n dictionary (lib/i18n.ts). Numeric
@@ -113,6 +114,10 @@ type Kind = "door" | "toilet" | "bath" | "vanity";
 
 // ============================== Constants =================================
 const DOOR_SIZES = [24, 28, 30, 32, 36], RO = 2, TOILET_W = 20, TOILET_D = 30; // RO: rough opening = door size + 2"
+// Starting width for a newly placed bathroom entry door. 28" is the IRC minimum for a
+// bathroom; ADA mode starts at 36" because anything narrower can't deliver the 32" clear
+// width ANSI A117.1 requires (RULES.ada.doorClear), which checkClearances would then flag.
+const DEFAULT_DOOR_W = 28, ADA_DOOR_W = 36;
 const roOf = (w: number) => w + RO;
 // SKU footprints (BASES, TUBS) and vanity sizing come from the shared catalog
 // (@/lib/catalog) so the room editor can never disagree with the shower/vanity
@@ -316,6 +321,24 @@ function checkClearances(verts: Pt[], edges: Edge[], cen: Pt, ada: boolean, fx: 
       test(f, zoneOn(edges, f.o, f.w, f.d, f.d + R.showerFront, cen), t("configurator.room.clrEntry"), R.showerFront);
     }
   }
+  // ---- partition bodies vs fixture footprints ----
+  // A partition is anchored to a wall by {side, offsetIn} and projects into the room, so
+  // dragging or lengthening one can run it straight through a fixture. Warn, never block —
+  // the same philosophy as the fixture-vs-fixture overlap pass: the dealer may be mid-edit,
+  // and refusing the placement hides WHY it was refused.
+  //
+  // A fixture anchored TO a partition face is deliberately exempt from its OWN partition:
+  // the face sits half a thickness off the centreline and the footprint projects away from
+  // the body, so the two legitimately meet. It's still checked against every other partition.
+  for (const g of partGeoms) {
+    const pb = aabb(g.corners);
+    for (const f of list) {
+      if (edges[f.o.edge]?.partId === g.p.id) continue;
+      if (!overlaps(pb, rectOf(f))) continue;
+      issues.push(t("configurator.room.partitionOverlap", { fixture: fxName(t, f.name) }));
+    }
+  }
+
   // ---- ADA-only checks ----
   let turnCircle: { x: number; y: number; r: number } | null = null;
   if (ada) {
@@ -993,8 +1016,15 @@ export function RoomConfigurator({ mode = "dealer", onComplete, onChange, initia
   function placeOnWall(i: number) {
     const m = modelRef.current; const { verts, surfaces, cen } = m; const surf = surfaces[i]; if (!surf) return; const L = edgeVec(surf).L;
     if (armed === "door") {
-      const allow = DOOR_SIZES.filter((w) => roOf(w) <= L); if (!allow.length) return;
-      const pref = ada ? 36 : 30; const w = allow.includes(pref) ? pref : Math.max(...allow);
+      // Widest-first, so when the preferred size doesn't fit this wall resolveDefault's
+      // fall-through lands on the largest that does — the long-standing behaviour.
+      const allow = DOOR_SIZES.filter((w) => roOf(w) <= L).sort((a, b) => b - a);
+      if (!allow.length) return;
+      // 28" is the IRC-minimum bathroom door and the standard default; ADA still needs 36"
+      // to clear the 32" required clear width, which the ADA check below flags if it's short.
+      // Editable from the door panel either way — this is the starting point, not a lock.
+      const pref = ada ? ADA_DOOR_W : DEFAULT_DOOR_W;
+      const w = resolveDefault(undefined, allow, (x) => x, (x) => x === pref)!;
       commit((prev) => ({ ...prev, door: { edge: i, side: surf.side, t: 0.5, w, type: "opening", swing: "in-r" } })); setSel("door");
     } else if (armed === "toilet") {
       // Land in clear space on this surface (freeFit approach for a fixed-size fixture).

@@ -108,9 +108,10 @@
           "style": "Subway",
           "sku_ref": "MP638",
           "image_source": "multipanel",
-          "image_hash": "xk0nbzzj",
-          "image_slug": "9487_08_m1_sagegreen",
-          "swatch_asset": false
+          "image_hash": "1sjfi43u",
+          "image_slug": "sage-green-metro-600",
+          "swatch_asset": false,
+          "image_note": "Room photography (basin, mirror, plant) despite the metro-600 filename. Thumbnail only - must never tile a wall."
         },
         {
           "id": "white-grey-subway",
@@ -118,9 +119,10 @@
           "style": "Subway",
           "sku_ref": "MP775",
           "image_source": "multipanel",
-          "image_hash": "nvebrc1e",
-          "image_slug": "monumentgrey_800x800",
-          "swatch_asset": false
+          "image_hash": "b1nj0rqv",
+          "image_slug": "white-grey-tile-product-detail",
+          "swatch_asset": false,
+          "image_note": "Room photography. The handoff flagged this one as unverified and the flag was right: it is a full bathroom shot, not a metro swatch. Thumbnail only."
         },
         {
           "id": "crystal-marble-large",
@@ -128,9 +130,10 @@
           "style": "Large Tile",
           "sku_ref": "MP0800",
           "image_source": "multipanel",
-          "image_hash": "ntwn1a4c",
-          "image_slug": "levanto-marble-plain-gallery",
-          "swatch_asset": false
+          "image_hash": "x2gacyzj",
+          "image_slug": "crystal-marble-tile-600x600-swatch-2-copy",
+          "swatch_asset": false,
+          "image_note": "A clean isolated tile swatch, but a NEW marketing roundel is burned into it. Fine as a thumbnail; tiling it would repeat the badge across the wall."
         },
         {
           "id": "white-terrazzo-large",
@@ -138,9 +141,10 @@
           "style": "Large Tile",
           "sku_ref": "MP020",
           "image_source": "multipanel",
-          "image_hash": "vsugx3df",
-          "image_slug": "white-terrazzo-plain-gallery",
-          "swatch_asset": false
+          "image_hash": "yxbplslu",
+          "image_slug": "gallery_whiteterazzo_tilecollection",
+          "swatch_asset": false,
+          "image_note": "Room photography (gallery asset). Thumbnail only."
         },
         {
           "id": "cremona-marble-large",
@@ -148,9 +152,10 @@
           "style": "Large Tile",
           "sku_ref": "MP0229",
           "image_source": "multipanel",
-          "image_hash": "padjd2yk",
-          "image_slug": "monumentgreyplainandlevantomarbletile800x800",
-          "swatch_asset": false
+          "image_hash": "a5nloyqg",
+          "image_slug": "cremona-marble-large-tile-600x600-product-detail",
+          "swatch_asset": false,
+          "image_note": "Room photography despite the product-detail filename. Thumbnail only."
         },
         {
           "id": "white-gypsum-large",
@@ -158,9 +163,10 @@
           "style": "Large Tile",
           "sku_ref": "MP637",
           "image_source": "multipanel",
-          "image_hash": "jydoejox",
-          "image_slug": "whitemineral800x800",
-          "swatch_asset": false
+          "image_hash": "sy0pjbz4",
+          "image_slug": "gallery_whitechromix_tilecollection",
+          "swatch_asset": false,
+          "image_note": "Room photography (gallery asset). Thumbnail only."
         },
         {
           "id": "valmasino-marble-large",
@@ -168,9 +174,10 @@
           "style": "Large Tile",
           "sku_ref": "MP074",
           "image_source": "multipanel",
-          "image_hash": "v4nisno0",
-          "image_slug": "9478_10_m1_valmasinomarbleandtaupegrey",
-          "swatch_asset": false
+          "image_hash": "ju2dobzn",
+          "image_slug": "gallery_lightgreyvalmasino_tilecollection",
+          "swatch_asset": false,
+          "image_note": "Room photography (gallery asset). Thumbnail only."
         }
       ]
     },
@@ -187,7 +194,8 @@
           "image_source": "multipanel",
           "image_hash": "xk0nbzzj",
           "image_slug": "9487_08_m1_sagegreen",
-          "swatch_asset": false
+          "swatch_asset": false,
+          "image_note": "Room photography (doorway view). Thumbnail only."
         },
         {
           "id": "white-grey-pure",
@@ -195,9 +203,9 @@
           "style": "Pure",
           "sku_ref": "MP775",
           "image_source": "multipanel",
-          "image_hash": "nvebrc1e",
-          "image_slug": "monumentgrey_800x800",
-          "swatch_asset": false
+          "image_hash": "sprj14er",
+          "image_slug": "white-grey-600-x-600",
+          "swatch_asset": true
         },
         {
           "id": "crystal-marble-pure",
@@ -205,9 +213,10 @@
           "style": "Pure",
           "sku_ref": "MP0800",
           "image_source": "multipanel",
-          "image_hash": "ntwn1a4c",
-          "image_slug": "levanto-marble-plain-gallery",
-          "swatch_asset": false
+          "image_hash": "lylpuwxr",
+          "image_slug": "crystal-marble-pure-800x800",
+          "swatch_asset": false,
+          "image_note": "Room photography despite the pure-800x800 filename. Thumbnail only."
         },
         {
           "id": "white-terrazzo-pure",
@@ -217,7 +226,8 @@
           "image_source": "multipanel",
           "image_hash": "vsugx3df",
           "image_slug": "white-terrazzo-plain-gallery",
-          "swatch_asset": false
+          "swatch_asset": false,
+          "image_note": "Room photography (gallery asset). Thumbnail only."
         },
         {
           "id": "cremona-marble-pure",
@@ -225,9 +235,10 @@
           "style": "Pure",
           "sku_ref": "MP0229",
           "image_source": "multipanel",
-          "image_hash": "padjd2yk",
-          "image_slug": "monumentgreyplainandlevantomarbletile800x800",
-          "swatch_asset": false
+          "image_hash": "phsaai0m",
+          "image_slug": "cremona-marble-pure",
+          "swatch_asset": false,
+          "image_note": "Room photography despite the clean filename. Thumbnail only."
         },
         {
           "id": "white-gypsum-pure",
@@ -235,9 +246,9 @@
           "style": "Pure",
           "sku_ref": "MP637",
           "image_source": "multipanel",
-          "image_hash": "jydoejox",
-          "image_slug": "whitemineral800x800",
-          "swatch_asset": false
+          "image_hash": "gb5lbkgl",
+          "image_slug": "white-gypsum-600-x-600",
+          "swatch_asset": true
         },
         {
           "id": "valmasino-marble-pure",
@@ -245,11 +256,12 @@
           "style": "Pure",
           "sku_ref": "MP074",
           "image_source": "multipanel",
-          "image_hash": "v4nisno0",
-          "image_slug": "9478_10_m1_valmasinomarbleandtaupegrey",
-          "swatch_asset": false
+          "image_hash": "nkkpv2lw",
+          "image_slug": "valmasino-marble-plain-600-x-600",
+          "swatch_asset": true
         }
       ]
     }
-  ]
+  ],
+  "asset_audit_2026_08_04": "Tile and Pure image slugs replaced from the Multipanel asset handoff, then every file was fetched and looked at. Ten of the fourteen are room photography rather than isolated swatches, and one (crystal-marble-large) carries a NEW marketing roundel - so swatch_asset is true for only three. That flag is what stops the hero compositor tiling an image across a shower wall, so it is set from what the file actually shows, not from the filename or the handoff summary. Every URL returns HTTP 200 with distinct bytes; the previous data had Tile and Pure pointing at the same files as each other, which these fix regardless."
 }

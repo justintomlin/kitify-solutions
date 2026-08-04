@@ -143,3 +143,95 @@ body {
     transition-duration: 0.001ms !important;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Print — aimed at the public proposal, which homeowners do print and hand to a
+   spouse, a lender or a second contractor.
+
+   Two things here are load-bearing rather than cosmetic:
+
+   1. print-color-adjust. The hero preview is a <canvas>, and browsers drop a
+      canvas's pixels from print output by default the same way they drop
+      background images — treated as decoration and stripped to save ink. Without
+      this the estimate prints a blank rectangle where the bathroom should be.
+
+   2. .no-print on the interactive controls. A tier toggle and an Accept button are
+      meaningless on paper; worse, the toggle prints all three tier labels with no
+      indication of which one the figures below belong to.
+   --------------------------------------------------------------------------- */
+@media print {
+  html,
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    background: #fff;
+  }
+
+  /* US Letter with a conventional margin. The proposal column is capped at 3xl on
+     screen; on paper the page itself is the container, so the cap comes off. */
+  @page {
+    size: letter;
+    margin: 0.6in;
+  }
+
+  main {
+    min-height: 0 !important;
+    background: #fff !important;
+  }
+
+  main > div {
+    max-width: none !important;
+    padding: 0 !important;
+  }
+
+  /* Anything the reader cannot act on from a sheet of paper. */
+  .no-print {
+    display: none !important;
+  }
+
+  /* Flatten the screen chrome: cards become sections separated by rules rather than
+     by shadow and radius, which print as grey smudges and wasted toner. */
+  .rounded-2xl,
+  .rounded-xl,
+  .rounded-lg {
+    border-radius: 0 !important;
+  }
+
+  .shadow-sm,
+  .shadow-lg,
+  .shadow-2xl {
+    box-shadow: none !important;
+  }
+
+  /* Keep a figure and its caption together, and never split the picture itself. */
+  .hero-print,
+  .hero-print canvas,
+  canvas,
+  svg,
+  img {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .hero-print canvas {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+
+  /* Section-level grouping: the price block, the hero, the plan, the product cards
+     and the extras table each stay whole. */
+  section,
+  footer,
+  dl,
+  .grid {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Print-only elements (the "printed on" stamp) opt in via `hidden print:block`,
+     which Tailwind emits as this rule; declared here too so it survives regardless
+     of class ordering. */
+  .print\:block {
+    display: block !important;
+  }
+}
