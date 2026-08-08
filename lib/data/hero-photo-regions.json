@@ -13,126 +13,104 @@
   },
   "_geometry_note": "Coordinates are PERCENTAGES of the plate (0-100), x rightward, y downward. lib/hero-regions.ts divides by 100 to reach the 0-1 fractions the compositor works in. Percentages because that is the unit the mapping grid prints, and hand-editing 41.4 is less error-prone than 0.414. Quads are topLeft, topRight, bottomRight, bottomLeft in TEXTURE order (corner i of the quad is corner i of the texture).",
   "faces": {
-    "_alcove_edges": "Top edge measured along the soffit line at ZOOM=14: y=7.0 at x=22, 7.6 at x=26, 8.0 at x=29, 8.9 at x=36, 9.3 at x=39, 9.6 at x=42 — it FALLS to the right at about 0.13% per 1% of x. Bottom edge (wall meets pan) measured at ZOOM=8: y=85.0 at x=26, 84.5 at x=32, 84.0 at x=38, 83.4 at x=42, a fall of about 0.10% per 1% of x.",
-    "_alcove_corners": "Found by scanning horizontal luminance profiles across the alcove rather than by eye, because an interior corner between two matte planes is a gradient minimum, not a hard edge. INTERIOR CORNER: darkest column sits at x=23.56% at y=12/20/30 and 23.69% at y=40/60 — near vertical, leaning 0.2% right over the wall's height. Left of it the profile falls steeply (174 at x=17.5 down to 131 at x=24) which is the return raking away from the light; right of it the profile is flat at ~132 across to x=42, which is the back wall facing us. ALCOVE RIGHT EDGE: darkest column at x=42.54% (y=12) to 42.67% (y=20-78). The previous single-plane region ran to 43.2 and overhung onto the bright partition face beyond it. OUTER LEFT EDGE of the return is the luminance PEAK at x=17.5% — a convex corner catching light, where the return meets the room wall.",
-    "_alcove_scale": "Real kit dimensions, and the reason these two planes are separate regions rather than one warped sheet. Back wall 60in over a measured 19.05% of plate width; left return 32in over 6.1%. That is 0.317%/in against 0.191%/in — the return is foreshortened to 60% of the back wall's scale, so a single quad spanning both cannot tile a 24in panel correctly on either. Panel height 94.5in maps to the wall's full measured height. At 24in panels: the back wall is 2.5 panels, giving seams at 40% and 80% across it; the return is 1-1/3 panels, giving one seam. The return's quad is deliberately ordered CORNER-FIRST (topLeft is the interior corner, not the outer edge) so tiling starts at the corner and a full panel terminates there, which is how the kit actually installs — the offcut lands at the outer edge where it is least visible.",
-    "_panel_top_derivation": "The panel top is a PERSPECTIVE-LEVEL line at the top of the alcove — deliberately not the plate's soffit, and deliberately not the product's honest 94.5in either. Both were tried. Following the soffit read crooked, because the plate's soffit genuinely IS crooked: it falls 2.5% left-to-right where true perspective for a level line on this camera is 1.1%, an artifact of how the plate was generated. Stopping at 94.5in was geometrically honest but left a band of bare wall above the panels and stranded the plate's baked-in shower head (about 100in above the pan) floating on it. DEPARTURE FROM SCALE, ON PURPOSE: the field now renders about 103.2in against a real 94.5in panel, because this plate's alcove measures roughly 105in pan-to-soffit and full-height is the look that reads right — to be resolved by the next plate, not by tilting this line. METHOD: the same solve as before. With a level camera screen y is linear in real height, so every horizontal line on a plane is the pan line scaled away from the horizon by a constant. Horizon y=36.45 from the pan's own two edges; camera 65.9in above the pan from the back wall's 60in width. Anchored at the soffit's LOWEST point, the right corner, set to y=9.90 rather than the measured 9.68 so antialiasing cannot poke above it. That fixes the factor at -0.5660 and gives y_top = 36.45 + (y_pan - 36.45) * -0.5660 per plane, applied to each plane's own pan line so all three tops meet exactly at both corners. VERIFIED below the measured soffit at every x: clearance 1.62% at the interior corner, 1.22 at x=29, 0.93 at 33, 0.71 at 36, 0.49 at 39, 0.27 at 42, 0.22 at the right corner. The wedge of bare plate that leaves at the left — 1.6% tapering to nothing at the right — is expected and reads as the soffit's own reveal.",
+    "_plate2_perspective": "THE SOLVE FOR THIS PLATE, in one place, because every wall number below is derived from it rather than eyeballed. Measured with a bilinear luminance probe, not read off a zoom. (1) BACK WALL CEILING LINE: strongest downward-brightening gradient in 13 columns from x=23.5 to 43, least squares y = 4.9885 + 0.11627x, max residual 0.12% — this plate's ceiling is genuinely straight, unlike the previous one's. (2) BACK WALL PAN LINE: darkest row per column, x=27..43.5, y = 89.0014 - 0.097911x, residuals under one pixel. (3) HORIZON is where those two meet: y = 50.60, vanishing point x = 392.2. The plate is 336px tall so its centre row is y=50.0 — the camera is level and its principal point is the frame centre, which is the assumption everything else leans on, and it falls out of the measurement rather than being imposed on it. (4) LEFT RETURN CEILING LINE: the diagonal running up and left out of the top of the frame, 10 columns x=19.4..22.1, slope 2.36552, max residual 0.18. It meets the horizon at x=40.39, so VP2 = (40.39, 50.60). (5) FOCAL LENGTH from those two vanishing points being perpendicular about the principal point: f^2 = (392.2-50)(50-40.39), so f = 56.7% of plate width, a horizontal field of 82.8deg. Wide, but that is what an interior plate looks like. (6) CAMERA HEIGHT above the pan, anchored on the back wall being 60in: project both of its pan corners onto the ground plane and set their separation to 60in, giving D = 42.15in. (7) VERTICAL MODEL, which is all the compositor actually needs: y = 50.60 + (y_pan - 50.60) * (1 - h/42.15) for a height h above the pan, on any plane, applied to that plane's own pan line. CONSISTENCY TEST: the ceiling solves to h/D = 2.18751 at the interior corner and 2.18753 at the right edge — two independently measured lines agreeing to five figures, which is not something that happens by accident. Ceiling height 92.2in above the pan.",
+    "_plate2_span_assignment": "WHICH SPAN IS 60in AND WHICH IS 32in, settled by geometry rather than assumed. The alcove has three vertical boundaries: the room corner at x=15.05, the interior corner at x=22.2 and the right edge at x=44.49, so the candidates are 22.2->44.49 (22.29% of plate width) and 15.05->22.2 (7.15%). ASSIGNMENT A, back wall = the wide span: 0.371%/in against the return's 0.225%/in, the return foreshortened to 61%, an ordinary oblique view. ASSIGNMENT B, back wall = the narrow span: the return would be foreshortened to 17% of the back wall, a 10deg grazing angle, which contradicts its ceiling line falling at 2.37%y per %x — that is a steep recession, not a grazing one. B also fails outright on height: the back wall measures 79.2% of plate height pan-to-ceiling against 22.29% of plate width, a ratio of 1.53 once the 2.333 aspect is taken out, so a 32in-wide back wall would stand 48in tall. A gives 92in. A WINS. THE 32in IS THEN CONFIRMED THREE TIMES OVER, none of them the anchor: (i) the door's bottom rail at (38, 93.45) projects to 31.2in in front of the back wall; (ii) the pan's own front threshold projects to a depth of 31.4in; (iii) the pan is therefore 60 x 31.4in, which is a catalogue 60x32 base. The wall plane carries on PAST the enclosure to the room corner at 15.05, and that extra span is room, not shower — which is why showerWallLeft stops at the door post.",
+    "_alcove_corners": "All four vertical boundaries found by sub-pixel darkest-column search, sampled at 13-17 heights each and reported with their spread, because a boundary that moves between samples is a shading contour and not a corner. INTERIOR CORNER: x=22.19 to 22.32 over y=4..62, a spread of 0.13%, so the whole line lives inside one pixel. Least squares gives 22.22 at the ceiling drifting to 22.34 at the pan — a lean of 0.12% over the wall's height, under a pixel, honoured only because it keeps the seam on the plate's own dark column at every height. Cross-check: the two ceiling lines intersect at x=22.09, 0.13% from the luminance corner. ALCOVE RIGHT EDGE: 44.486-44.500 at every height from y=26 to 82, dead vertical, no drift at all. (Rows y=58 and 62 read 44.27 and are excluded — that is the door handle, luminance 24 against the edge's 140.) ROOM CORNER, outside the enclosure: a thin dark line at 15.04-15.07 from y=2 to 62, also dead vertical. DOOR POST: left edge 15.82-15.94, right edge 16.44-16.46, core luminance 7-12. A vertical world line projects vertical only under a camera with no roll, and all four of these are vertical — the fourth independent confirmation of the solve above. WHAT THE PREVIOUS PASS GOT WRONG: it recorded the interior corner at x=31.2. There is a narrow dark line there, 1% wide with matched shoulders, constant at every height — but it is the sliding door's leading glass edge, not a corner. The real corner is 9% further left, and the broad luminance fall from x=18 to 22.5 that surrounds it (187 down to 91 at y=7) is the return raking away from the light, exactly the signature the previous plate had at its own corner.",
+    "_alcove_scale": "Why these are separate planes rather than one warped sheet. Back wall 60in over 22.29% of plate width, left return 40in over 6.10%: 0.371%/in against 0.152%/in, so the return is foreshortened to 41% of the back wall's scale and one quad spanning both could not tile a 24in panel correctly on either. At 24in panels the back wall is 2.5 panels, giving joints at 24in and 48in from the corner; the return is 1-2/3 panels, giving one joint at 24in from the corner. The return's quad is ordered CORNER-FIRST — topLeft is the interior corner, not the outer edge — so tiling starts at the corner, a full panel terminates there, and the offcut falls at the outer end where the door post covers it. That is how the kit installs.",
+    "_panel_top_derivation": "THE PANEL TOP FOLLOWS THE CEILING, at a fixed 0.30% clearance below the measured line, and that is a decision the numbers forced. 94.5in above the pan projects to y=5.61 at the interior corner and y=8.31 at the right edge; the ceiling there is 7.57 and 10.16. So a full-height panel overshoots this plate's alcove by 1.96% and 1.86% of plate height respectively — it would end ABOVE the ceiling. The alcove is 92.2in tall, so the honest install cuts 2.7in off a 94.5in panel, and the rendered field is 91.8in with the cut edge at the ceiling. This is the outcome the previous plate made impossible (there the panel fell short and stranded a band of bare wall), and it needs no departure from scale: heightIn is 91.8 on both planes and the vertical model reproduces it at the corner (91.87in), the right edge (91.83in) and the return's outer end (91.58in), all within a quarter inch. The 0.30% clearance is there so antialiasing on the top line cannot poke above the ceiling; at this plate's resolution it is one pixel. All plane tops meet at the shared corner vertex (22.20, 7.87) — one point, no step.",
     "showerWallBack": [
       {
         "quad": [
           [
-            23.56,
-            8.82
+            22.2,
+            7.87
           ],
           [
-            42.62,
-            9.9
+            44.49,
+            10.46
           ],
           [
-            42.67,
-            83.36
+            44.49,
+            84.65
           ],
           [
-            23.76,
-            85.26
+            22.34,
+            86.81
           ]
         ],
         "widthIn": 60,
-        "heightIn": 103.2
+        "heightIn": 91.8
       }
     ],
+    "_left_return_extent": "showerWallLeft runs from the interior corner OUT TO THE DOOR POST at x=16.10, not to the room corner at 15.05. The post occupies 15.85-16.44, so terminating the plane at 16.10 puts the panel's outer edge underneath it: the post hides the termination and no sliver of bare plate can open beside it. Stopping at the honest 32in instead would land at x=17.42 and leave a full 1% of plate width of untinted wall standing between the panel and the post, which reads as a gap. So the plane spans 40in of this plate's 44in-deep wall — the same trade already made on panel height, for the same reason, and widthIn says 40 so the 24in joint still lands at true scale. ITS TOP RUNS OFF THE FRAME, and this time that is measured rather than worked around: the return's ceiling line has a real fitted slope of 2.366 and crosses y=0 at x=18.87. The previous plate used y=-17 because no ceiling could be found above the return at all; here the ceiling is found, fitted to 0.18% residuals, and simply leaves the top of a 2.33:1 crop. paintPanelTopEdge now clips the edge at the frame instead of dropping the whole segment, so the part still in shot is drawn as a product edge and the join at the corner reads.",
     "showerWallLeft": [
       {
         "quad": [
           [
-            23.56,
-            8.82
+            22.2,
+            7.87
           ],
           [
-            17.5,
-            -17.0
+            16.1,
+            -6.56
           ],
           [
-            17.5,
-            85.87
+            16.1,
+            99.34
           ],
           [
-            23.76,
-            85.26
+            22.34,
+            86.81
           ]
         ],
-        "widthIn": 32,
-        "heightIn": 103.2
+        "widthIn": 40,
+        "heightIn": 91.8
       }
     ],
-    "_left_return_top_note": "The return's top does NOT stop at a level line, and it does not follow a ceiling either — because there is no ceiling above it to follow. MEASURED: vertical luminance columns at x=20.5, 21.0, 21.5, 22.0, 22.5, 23.0 and 23.4 all brighten monotonically downward from y=0 to y=12 with no step anywhere (150->191, 143->189, 130->180, 119->172, 105->151, 90->129, 78->114); the strongest downward gradient in any of them is +5, i.e. noise. What LOOKS like a ceiling line running down to the corner is the corner's own ambient occlusion: each column darkens sharply as x approaches the corner while every column brightens with y, so the iso-luminance contours run diagonally and read as an edge. They are not an edge. The wall simply runs off the top of the frame. So the panels do too: the outer end is set to y=-17.0, off frame, and the canvas clips it. What remains visible is the edge descending from about (21.5, 0) to the corner, which is the slope of that shading contour and therefore agrees with the plate. The corner vertex is shared with showerWallBack at exactly (23.56, 8.82) — one point, no step. The back wall's line could NOT be re-anchored to meet a higher return: it is already anchored at its tightest soffit constraint (0.22% clearance at the right corner), and raising the corner end to 7.40 would put it 1.2% ABOVE the soffit at x=42. heightIn stays 103.2 to match the other planes, which is the field height AT THE CORNER; at the outer edge the field spans about 137in of the return's own scale. That is not a rectangle in the world, and it is the honest consequence of following a shading contour instead of a ceiling that this plate does not have.",
-    "_right_return_note": "The third wall. Measured by fine luminance profile across x=42.0-45.5: the strip is a bright band (171.4 average against the back wall's 163.8 — it faces the window) bounded on the left by the back wall's corner at 42.65 and on the right by a hard dark line at x=44.00, constant at every height sampled. It is only 1.35% of plate width for 32in of real depth, so its scale is 0.042%/in against the back wall's 0.317% — roughly a seventh, which is what near-edge-on looks like. Its base drops steeply as it approaches the camera (83.2 at x=42.85, 85.3 at 43.2, 88.8 at 43.6); the bottom-right is set to 90.0 rather than the extrapolated 91.4 because under-reaching leaves a sliver of plate and over-reaching paints panel onto the pan. Quad is ordered CORNER-FIRST like the left return, so the panel terminates at the interior corner. At this compression its single seam (32in over 24in panels) lands around x=43.6 and is all but invisible, which is correct — you would not see a joint on a wall viewed this close to edge-on.",
-    "showerWallRight": [
-      {
-        "quad": [
-          [
-            42.62,
-            9.9
-          ],
-          [
-            43.95,
-            6.14
-          ],
-          [
-            43.95,
-            90.0
-          ],
-          [
-            42.67,
-            83.36
-          ]
-        ],
-        "widthIn": 32,
-        "heightIn": 103.2
-      }
-    ],
+    "_right_return_dropped": "THERE IS NO THIRD WALL ON THIS PLATE, and the strip that looks like one is measured out rather than argued away. Profiles across x=43.8..47.0 at nine heights show the back wall's tone running flat to a shallow minimum at x=44.50, then a BRIGHT band rising to a peak of 180 at x=45.14 (against the back wall's 150 in the same row), then a hard dark line at x=45.92 that does not move by more than 0.02% between y=6 and y=84, then the vanity wall. That band is the brightest thing anywhere in the alcove, so it is lit from the vanity side, not from inside the shower. GEOMETRY AGREES: the partition's shower-facing plane sits at world X = -0.38 to -0.26 in camera-height units, entirely to the LEFT of the camera axis, while its outward normal points further left still — the camera is on its back side and that face cannot be visible at all. Whatever the band is (the partition's corner radius catching light, or the slider's right jamb), it is not shower interior, and multiplying a dark panel colour over 0.9% of the plate's brightest highlight would draw a black stripe down the edge of the shower. So wallColors[2] is a no-op on the photo plate: PHOTO_FACES still lists showerWallRight, this key is simply absent, the region resolves to zero faces and the compositor's own faces.length guard skips it. The Three.js plate is untouched and still paints all three.",
+    "_floor_perimeter": "PAN OUTLINE, corrected in this pass. It is not the parallelogram the previous pass authored. The pan's back-left corner is the INTERIOR CORNER (22.34, 86.81), not x=17: left of the corner there is no back wall for the pan to meet, only the return, and the pan's left edge runs from that corner down and toward the camera along the return's own base line. FRONT THRESHOLD: measured at x=26 and x=30, the two columns the sliding door does not cover — the pan floor ends at y=94.75 and 94.45 respectively, and the line through them toward the back wall's vanishing point is y = 98.082 - 0.12106x. The previous quad ran (17,99.30)->(44.8,94.55), a slope of -0.171, which put the front edge 2.63% of plate height too low at x=30 and painted pan across the curb and onto the room floor. For x>32 the threshold is hidden under the door's bottom rail (a black bar falling from y=93.85 at x=34 to 92.65 at x=44), so it is projected rather than measured there, which is why the perspective solve had to come first. CORNERS: back-left (22.34, 86.81), back-right (44.49, 84.65), front-right (45.45, 92.58) where the front line meets the partition's base, front-left (17.80, 95.93) where it meets the return's base — behind the plant, so projected. The pan then measures 60 x 31.4in, i.e. a 60x32 base, and heightIn is corrected from 34 to 32.",
     "showerFloor": [
       {
         "quad": [
           [
-            17.0,
-            87.75
+            22.34,
+            86.81
           ],
           [
-            44.8,
-            84.81
+            44.49,
+            84.65
           ],
           [
-            44.8,
-            94.55
+            45.45,
+            92.58
           ],
           [
-            17.0,
-            99.3
+            17.8,
+            95.93
           ]
         ],
         "widthIn": 60,
-        "heightIn": 34
+        "heightIn": 32
       }
     ],
     "floor": [
       {
         "quad": [
           [
-            45.0,
+            45,
             90.5
           ],
           [
-            100.0,
+            100,
             91.5
           ],
           [
-            112.0,
-            105.0
+            112,
+            105
           ],
           [
-            8.0,
-            106.0
+            8,
+            106
           ]
         ],
         "widthIn": 120,
@@ -148,27 +126,27 @@
           ],
           [
             77.3,
-            59.0
+            59
           ],
           [
             77.3,
-            85.3
+            84.87
           ],
           [
             49.6,
-            87.3
+            87.64
           ]
         ],
         "widthIn": 60,
         "heightIn": 31
       }
     ],
-    "_counter_ends": "Measured at ZOOM=16 on both ends: the wood band starts at x=47.0 (a hard vertical edge, wall to its left) and stops at x=71.0. It was previously carried as 45.9-69.8, so the material started on bare wall and stopped a full 1.2% short of the counter's right end — both ends the user circled.",
+    "_counter_ends": "Left end re-measured this pass at three rows by sub-pixel step search: the wall-to-counter step sits at x=49.15 on the counter surface (y=56.5), 49.15 in the splash band (53.5) and 49.25 at the nosing (57.5). The counter's own left end is a vertical plane whose top edge is further from the camera, so that 0.1% lean is real and the quads now carry it. Right end unchanged at 77.3. The previous 47.0-71.0 reading in this note was the OLD plate and is gone.",
     "vanityTop": [
       {
         "quad": [
           [
-            49.4,
+            49.15,
             55.8
           ],
           [
@@ -180,7 +158,7 @@
             58.2
           ],
           [
-            49.4,
+            49.25,
             58.3
           ]
         ],
@@ -194,7 +172,7 @@
       {
         "quad": [
           [
-            49.4,
+            49.1,
             51.8
           ],
           [
@@ -206,7 +184,7 @@
             55.4
           ],
           [
-            49.4,
+            49.15,
             55.8
           ]
         ],
@@ -246,120 +224,92 @@
     "showerWallBack": [
       [
         [
-          23.56,
-          8.82
+          22.2,
+          7.87
         ],
         [
-          42.62,
-          9.9
+          44.49,
+          10.46
         ],
         [
-          42.67,
-          83.36
+          44.49,
+          84.65
         ],
         [
-          23.76,
-          85.26
+          22.34,
+          86.81
         ]
       ]
     ],
     "showerWallLeft": [
       [
         [
-          23.56,
-          8.82
+          22.2,
+          7.87
         ],
         [
-          17.5,
-          -17.0
+          16.1,
+          -6.56
         ],
         [
-          17.5,
-          85.87
+          16.1,
+          99.34
         ],
         [
-          23.76,
-          85.26
-        ]
-      ]
-    ],
-    "showerWallRight": [
-      [
-        [
-          42.62,
-          9.9
-        ],
-        [
-          43.95,
-          6.14
-        ],
-        [
-          43.95,
-          90.0
-        ],
-        [
-          42.67,
-          83.36
+          22.34,
+          86.81
         ]
       ]
     ],
     "showerFloor": [
       [
         [
-          17.0,
-          87.75
+          22.34,
+          86.81
         ],
         [
-          44.8,
-          84.81
+          44.49,
+          84.65
         ],
         [
-          44.8,
-          94.55
+          45.45,
+          92.58
         ],
         [
-          17.0,
-          99.3
+          17.8,
+          95.93
         ]
       ]
     ],
     "floor": [
       [
         [
-          45.8,
-          91.2
+          17.1,
+          97.16
+        ],
+        [
+          45.45,
+          93.73
         ],
         [
           49.5,
-          90.0
+          90
         ],
         [
           77.3,
-          90.0
+          90
         ],
         [
-          101.0,
+          101,
           92.5
         ],
         [
-          101.0,
-          105.0
+          101,
+          105
         ],
         [
-          16.0,
-          105.0
-        ],
-        [
-          16.0,
-          99.8
-        ],
-        [
-          44.8,
-          94.8
-        ],
-        [
-          45.3,
-          95.2
+          10,
+          105
         ]
       ]
     ],
@@ -371,22 +321,22 @@
         ],
         [
           77.3,
-          59.0
+          59
         ],
         [
           77.3,
-          85.3
+          84.87
         ],
         [
           49.6,
-          87.3
+          87.64
         ]
       ]
     ],
     "vanityTop": [
       [
         [
-          49.4,
+          49.15,
           55.8
         ],
         [
@@ -398,7 +348,7 @@
           58.2
         ],
         [
-          49.4,
+          49.25,
           58.3
         ]
       ]
@@ -406,7 +356,7 @@
     "vanityBacksplash": [
       [
         [
-          49.4,
+          49.1,
           51.8
         ],
         [
@@ -418,7 +368,7 @@
           55.4
         ],
         [
-          49.4,
+          49.15,
           55.8
         ]
       ]
@@ -444,29 +394,56 @@
       ]
     ]
   },
-  "_seams_note": "Ambient occlusion the compositor paints along a corner AFTER the materials land. The plate already carries its own corner darkening and multiply passes that straight through, so these are deliberately WEAKER than the plate's own: measured, the interior corner dips from shoulders of ~171 to 151 at the darkest column, a 12% drop over roughly 2% of plate width each side. Painting that again on top would double it, so `strength` is set near half the measured depth — enough to keep the joint reading once a dark panel texture has flattened the plate's own gradient, not enough to draw a black stripe. `from`/`to` are the corner's endpoints and `halfWidthPct` the fade distance either side, both in plate percent.",
+  "_seams_note": "Ambient occlusion the compositor paints along a corner AFTER the materials land. The plate already carries its own corner darkening and multiply passes it straight through, so these are deliberately WEAKER than what is measured. MEASURED ON THIS PLATE, at y=30: the interior corner reads 150.2 at its darkest column against a smooth interpolation of its immediate neighbours at ~154, so the LOCAL crease is only about 4 units, 3% — the big fall from 178 at x=20 is the return's own shading, which multiply already carries. The right edge reads 147 against shoulders of 150 and 154, also about 4 units but over 0.3% of width rather than 3%. Strengths below are set near those measurements rather than imported from the previous plate, whose corner was three times deeper. `from`/`to` are the corner's endpoints and `halfWidthPct` the fade distance either side, both in plate percent. NOTE: only alcoveInterior, alcoveRight and partitionFloor are painted by the compositor; the vanity and pan entries are kept as the measurement record.",
   "seams": {
     "alcoveInterior": {
+      "_measured": "Soft. Darkest column 22.19-22.32 at every height. TWO components: a narrow crease about 4 units deep on a 154 shoulder, and the broad V of the return raking away from the light, 178 at x=20 down to 150 at 22.5. Multiply carries most of the broad one through; strength is set between the two because at the narrow crease's own value the corner did not read once a slat texture flattened it.",
       "from": [
-        23.56,
-        8.6
+        22.2,
+        7.6
       ],
       "to": [
-        23.76,
-        86.0
+        22.34,
+        87.2
       ],
       "halfWidthPct": 1.6,
-      "strength": 0.07
+      "strength": 0.065
+    },
+    "alcoveRight": {
+      "_measured": "Hard and narrow. Darkest column 44.486-44.500 at every height, depth ~4 units over 0.3%.",
+      "from": [
+        44.49,
+        10.2
+      ],
+      "to": [
+        44.49,
+        85
+      ],
+      "halfWidthPct": 0.35,
+      "strength": 0.05
+    },
+    "panWallLeft": {
+      "_measured": "Pan meeting the back wall, along the fitted junction y = 89.0014 - 0.097911x.",
+      "from": [
+        22.34,
+        86.81
+      ],
+      "to": [
+        44.49,
+        84.65
+      ],
+      "halfWidthPct": 0.45,
+      "strength": 0.06
     },
     "vanityLeft": {
       "_measured": "Hard dark line at x=49.5 between wall and cabinet face.",
       "from": [
         49.5,
-        59.0
+        59
       ],
       "to": [
         49.5,
-        90.0
+        90
       ],
       "halfWidthPct": 0.3,
       "strength": 0.07
@@ -479,33 +456,20 @@
       ],
       "to": [
         77.45,
-        86.0
+        86
       ],
       "halfWidthPct": 0.28,
       "strength": 0.07
     },
-    "panWallLeft": {
-      "_measured": "Pan meeting the alcove walls along its back edge.",
-      "from": [
-        17.0,
-        87.75
-      ],
-      "to": [
-        44.8,
-        84.81
-      ],
-      "halfWidthPct": 0.45,
-      "strength": 0.06
-    },
     "vanityToe": {
-      "_measured": "Toe recess: cabinet face ends 87.3 at x=50, 85.8 at x=70; floor begins 90.",
+      "_measured": "Toe line re-measured this pass at four columns: 87.4 at x=52, 86.8 at 58, 86.3 at 64, 85.6 at 70 — slope -0.100, the same slope as the pan's back edge, which is what two horizontal floor lines parallel to the back wall must share.",
       "from": [
-        50.0,
-        87.3
+        49.6,
+        87.64
       ],
       "to": [
         77.3,
-        85.3
+        84.87
       ],
       "halfWidthPct": 0.5,
       "strength": 0.06
@@ -564,8 +528,8 @@
     },
     "tubSpout": {
       "at": [
-        24.0,
-        78.0
+        24,
+        78
       ],
       "unitPerIn": 0.01077,
       "_covers": "nothing — this plate has a walk-in shower, no tub. Callers only pin a spout when the dealer picked a tub path, which this plate cannot depict; the anchor exists to satisfy the AnchorId union and puts the spout somewhere plausible rather than at 0,0."
@@ -581,8 +545,8 @@
       26.7
     ],
     "unitPerIn": 0.007443,
-    "armIn": 5.0,
-    "headIn": 6.0,
+    "armIn": 5,
+    "headIn": 6,
     "thicknessIn": 0.95
   },
   "_phase2_survey": "PHASE 2 measurements, all zoom-verified on the NEW plate before use. PAN: back edge (24.5,87.8)->(44.5,84.5), slope -0.165/%x; front threshold, a hard dark line, (30,94.8)->(44.5,92.3), slope -0.172/%x; curb face runs about 2.3% below that. Left edge is behind the plant so it is extrapolated to x=17.0 along both lines — the polygon is the pan's TRUE outline, not what is unobscured. CABINET: left junction a hard dark line at x=49.5 with the face starting 50.0; right edge at x=77.3 with its own dark line to 77.6; top under the counter shadow at y=59.3; toe line (where the face ends and the recess begins) 87.3 at x=50 falling to 85.8 at x=70; floor begins y=90.0. COUNTER BAND splits in two and the earlier survey read them as one: the BACKSPLASH is the upper band, top (49.4,51.8)->(77.3,52.6), bottom 55.8->55.4; the COUNTER surface plus its nosing runs 55.8->58.2. There is also a RIGHT SIDE SPLASH, a narrow wood strip at x 77.3-78.1 from y 50.6 to 58.2, which the old plate did not have. PAN CORRECTION: the back-edge slope is -0.106/%x fitted across all four measured profile points, not the -0.165 first read off a zoom crop; that error put the top-left corner 1.25% too low and left a strip of untinted pan showing along the wall.",
