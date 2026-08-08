@@ -858,13 +858,20 @@ const PANEL_EDGE_HIGHLIGHT = "rgba(255,255,255,0.16)";
 
 function paintPanelTopEdge(frame: CanvasRenderingContext2D, quad: Quad, fit: Fit) {
   const [tl, tr] = quad;
-  // An edge that starts above the frame is not a product edge — it is where the photograph
-  // stops. The left return is like this: the plate shows no ceiling above it, so its panels run
-  // out of shot, and ruling a highlight along that boundary would draw a diagonal line across
-  // the wall that nothing in the room justifies.
-  if (tl[1] < 0 || tr[1] < 0) return;
-  const [ax, ay] = toPx(tl, fit);
-  const [bx, by] = toPx(tr, fit);
+  // CLIPPED at the top of the frame, not skipped. The left return's top is a real product edge
+  // on this plate — it follows a measured ceiling line — but that line rises steeply as the wall
+  // comes toward the camera and this 2.33:1 crop cuts it off at about x=18.9. Dropping the whole
+  // segment because one end is off-plate left the return's panels meeting the back wall's edge
+  // at the corner and then simply stopping, which is the one place the join has to read.
+  if (tl[1] < 0 && tr[1] < 0) return;
+  let a: Point = tl, b: Point = tr;
+  if (a[1] < 0 || b[1] < 0) {
+    const t = -a[1] / (b[1] - a[1]);
+    const cut: Point = [a[0] + (b[0] - a[0]) * t, 0];
+    if (a[1] < 0) a = cut; else b = cut;
+  }
+  const [ax, ay] = toPx(a, fit);
+  const [bx, by] = toPx(b, fit);
   const px = (SCENE.height * fit.scale) / SCENE.height;   // one plate pixel, in canvas pixels
   const w = Math.max(1, px);
 

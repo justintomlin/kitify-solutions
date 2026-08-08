@@ -333,10 +333,10 @@ const PCT = 1 / 100;
  * wall, ceiling and vanity nook are not offered as selectable surfaces, so nothing may paint
  * them.
  *
- * There is no right return. The 2%-wide strip between the back wall and the partition reads
- * as a return at a glance, but composited it puts wall material across the top-right of the
- * shower pan — the pan's back-right corner is at x=41.5, not at the partition edge. Whatever
- * that strip is, it is not alcove, so it stays as plate.
+ * There is no right return on the CURRENT photo plate — see _right_return_dropped in the JSON
+ * for the profiles that rule it out. The id stays listed here so the render plate, which does
+ * have one, keeps working: with the key absent from the JSON the region resolves to zero faces
+ * and the compositor skips it, which is what makes wallColors[2] a no-op rather than an error.
  */
 const PHOTO_FACES: Record<RegionId, string[]> = {
   backWall: [],
