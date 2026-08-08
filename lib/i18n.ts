@@ -581,6 +581,11 @@ export const dictionary: Record<Lang, Record<string, any>> = {
         alt: "Bathroom preview with your selected materials",
         loading: "Loading materials",
         unavailable: "Preview unavailable",
+        // Sits on the render itself, so it travels with the picture onto a proposal or an
+        // order. The distinction it draws is the honest one: the materials ARE the customer's
+        // selections, composited from the same product imagery the quote is priced from; the
+        // fixtures are shown in the selected finish but not in the selected style.
+        disclaimer: "Conceptual rendering — materials shown are actual selections; fixture styles representative",
       },
       roomTitle: "Room",
       roomDesc: "Lay out the room and measure walls & floor.",
@@ -1879,6 +1884,7 @@ export const dictionary: Record<Lang, Record<string, any>> = {
         alt: "Vista previa del baño con los materiales seleccionados",
         loading: "Cargando materiales",
         unavailable: "Vista previa no disponible",
+        disclaimer: "Representación conceptual — los materiales mostrados son las selecciones reales; los estilos de grifería son representativos",
       },
       openRoomEditor: "Abrir el editor del cuarto",
       openConfigurator: "Abrir configurador de {item}",

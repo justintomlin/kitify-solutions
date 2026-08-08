@@ -1308,10 +1308,46 @@ export function showerWallPanel(config: ShowerConfig): { id: string; name: strin
  * across a wall of the previewed bathroom is unmistakably a bug. Those return null, and the
  * compositor leaves the alcove as the base scene.
  */
-export function showerWallTexture(config: ShowerConfig): { textureUrl: string; name: string } | null {
+export function showerWallTexture(config: ShowerConfig): ShowerWallTexture | null {
+  return showerWallTextureAt(config, 0);
+}
+
+/** What the hero needs to tile a wall honestly: the image, and how the product is made. */
+export type ShowerWallTexture = {
+  textureUrl: string;
+  name: string;
+  /**
+   * Panel width in inches, or null for sheet goods.
+   *
+   * SPC and HPL ship as panels and a real install shows a joint every panel width. Solid
+   * surface ships as sheet — 30"x144" — which covers an alcove wall whole, so it must NOT be
+   * drawn with joints or it reads as the wrong product.
+   */
+  panelWidthIn: number | null;
+};
+
+/** Nominal panel width for the panelled tiers. Solid surface is excluded deliberately. */
+const PANEL_WIDTH_IN = 24;
+const PANELLED_MATERIALS = new Set(["spc", "hpl"]);
+
+/**
+ * The wall texture for ONE wall of the enclosure — 0 back, 1 left, 2 right.
+ *
+ * `wallColors` has always been a three-slot array; what changed is that the hero now paints
+ * the back wall and the left return as separate planes and can therefore honour a per-wall
+ * selection. Falls back to slot 0 whenever the enclosure is in shared-material mode or the
+ * requested slot is unset, which is what keeps every quote saved before this render the same.
+ */
+export function showerWallTextureAt(config: ShowerConfig, wall: 0 | 1 | 2): ShowerWallTexture | null {
   const s = config.selections;
   const material = SAMPLE_SHOWER_CATALOG.materials.find((m) => m.id === s.materialId);
-  const swatch = material?.colors.find((c) => c.id === s.wallColors[0]);
+  if (!material) return null;
+  const colorId = wallMode(s) === "perWall" ? s.wallColors[wall] ?? s.wallColors[0] : s.wallColors[0];
+  const swatch = material.colors.find((c) => c.id === colorId);
   if (!swatch?.textureUrl) return null;
-  return { textureUrl: swatch.textureUrl, name: swatch.name };
+  return {
+    textureUrl: swatch.textureUrl,
+    name: swatch.name,
+    panelWidthIn: PANELLED_MATERIALS.has(material.id) ? PANEL_WIDTH_IN : null,
+  };
 }

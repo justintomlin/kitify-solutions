@@ -1,20 +1,35 @@
 // Region geometry for the hero compositor's base bathroom scene.
 //
-// The numbers come from lib/data/hero-scene.json, which scripts/render-base-scene.mjs writes
-// at the same time it renders public/hero/base-modern.png. Both are produced by one pass of
-// one camera, so the polygons cannot drift out of register with the picture — re-run the
-// script and the geometry follows the render. Nothing here is hand-measured, and the JSON
-// should never be hand-edited.
+// There are two plates, and they are registered in completely different ways.
+//
+// THE THREE.JS PLATE (public/hero/base-modern.png) is generated. Its numbers come from
+// lib/data/hero-scene.json, which scripts/render-base-scene.mjs writes at the same time it
+// renders the image, so the polygons cannot drift out of register with the picture — re-run
+// the script and the geometry follows the render. That JSON is not hand-editable. Occlusion
+// comes from a second render pass, an ID map in which every paintable surface is a flat
+// colour, so the depth buffer sorts fixtures out for free.
+//
+// THE PHOTO PLATE (public/hero/base-photo.png) is an AI-generated photograph. There is no
+// camera to project from and no way to render an ID pass, so lib/data/hero-photo-regions.json
+// is measured off the image by hand and IS meant to be edited by hand. Occlusion is a
+// hand-traced clip polygon per region instead of a mask image. It is also not dimensionally
+// honest — a generative plate puts a shower head wherever it looks right — so its anchors are
+// sized from measured pixels rather than from inches of room.
 //
 // COORDINATES are fractions of the image, x rightward and y downward, with (0,0) at the top
 // left and (1,1) at the bottom right. They are deliberately NOT clamped: a side wall runs
 // well past the frame in both directions, and clamping its corners would bend the surface it
-// describes. Consumers clip to the canvas instead.
+// describes. Consumers clip to the canvas instead. (The photo JSON stores percentages for
+// legibility while hand-editing; they are divided down to fractions on the way in here, so
+// everything downstream of this module speaks one unit.)
 
 import scene from "./data/hero-scene.json";
+import photo from "./data/hero-photo-regions.json";
 
 export type Point = readonly [number, number];
 export type Quad = readonly [Point, Point, Point, Point];
+/** A closed outline. Not required to be convex; consumers fill it even-odd. */
+export type Polygon = readonly Point[];
 
 /**
  * One flat surface of a region, as it appears in the scene.
@@ -30,7 +45,10 @@ export type Quad = readonly [Point, Point, Point, Point];
  */
 export type Face = { quad: Quad; widthIn: number; heightIn: number };
 
-export type RegionId = "backWall" | "leftWall" | "rightWall" | "floor" | "showerArea" | "vanityArea" | "vanityTop";
+export type RegionId =
+  | "backWall" | "leftWall" | "rightWall"
+  | "floor" | "showerArea" | "showerWallBack" | "showerWallLeft" | "showerWallRight"
+  | "showerFloor" | "vanityArea" | "vanityTop" | "vanityBacksplash" | "vanitySideSplash";
 
 export type Region = {
   id: RegionId;
@@ -68,43 +86,132 @@ export type Anchor = {
 
 export type AnchorId = "faucet" | "showerTrim" | "showerHead" | "tubSpout";
 
-type RawFace = { quad: number[][]; widthIn: number; heightIn: number };
-type RawScene = {
-  scene: { id: string; image: string; mask: string; width: number; height: number };
+/**
+ * A box around a fixture already present in the plate, as image fractions [x, y, w, h].
+ *
+ * The counterpart to an Anchor, for the opposite strategy: an anchor says where to PIN a
+ * product photograph, a FixtureBox says where to RECOLOUR what the plate already shows.
+ */
+export type FixtureBox = readonly [number, number, number, number];
+export type FixtureId = "valveTrim" | "faucet" | "faucetSpout";
+
+/**
+ * Everything the compositor needs to paint one plate.
+ *
+ * Occlusion arrives as EITHER `maskColors` (decode the ID render named by `maskSrc`) or
+ * `clips` (fill these polygons), never both and never neither. The two plates are registered
+ * by different means and this is where that difference is declared, so the compositor can
+ * branch once on which field is present rather than knowing anything about plates.
+ */
+export type SceneBundle = {
+  scene: {
+    id: string;
+    src: string;
+    /** The region ID render. Only present on a generated plate. */
+    maskSrc: string | null;
+    /**
+     * Foreground objects that stand in front of paintable surfaces, as an alpha mask.
+     *
+     * Photo plate only, and the counterpart to `maskSrc` rather than a duplicate of it: an ID
+     * render says which surface each pixel BELONGS to, this says which pixels belong to no
+     * surface at all because something is in the way. Built by scripts/build-occlusion-mask.mjs.
+     */
+    occlusionSrc: string | null;
+    width: number;
+    height: number;
+    /** Needed to letterbox/cover-fit the scene into a container of a different shape. */
+    aspect: number;
+  };
+  /** Interior dimensions of the modelled room, in inches. */
   room: { widthIn: number; heightIn: number; depthIn: number };
-  maskColors: Record<string, string>;
-  regions: Record<string, RawFace[]>;
-  anchors: Record<string, { at: number[]; unitPerIn: number }>;
-};
-
-const DATA = scene as unknown as RawScene;
-
-/** The base scene image these regions are registered against. */
-export const HERO_SCENE = {
-  id: DATA.scene.id,
-  src: DATA.scene.image,
+  regions: Record<RegionId, Region>;
+  /** Flat colour each region is painted in within the mask, as "#rrggbb". Generated plate only. */
+  maskColors: Record<string, string> | null;
   /**
-   * The region ID map: the same camera re-rendered with each paintable surface in a flat
-   * colour and everything else black.
+   * Where each region's paint is allowed to land, as image-fraction outlines. Photo plate only.
    *
-   * A region's quad says how a texture warps onto a surface; this says where it is allowed
-   * to land. The two are not interchangeable, because the scene has fixtures standing in
-   * front of its surfaces — the floor quad covers ground the toilet is standing on, and the
-   * alcove quad covers wall the shower head hangs over. Painting a quad without consulting
-   * the mask puts flooring across the toilet.
+   * Filled with the even-odd rule, which is what makes one list do two jobs: disjoint outlines
+   * (the alcove's back wall and its two returns) all fill, while an outline nested inside
+   * another (the faucet's footprint on the countertop) punches a hole. No separate
+   * outer/holes structure, and no ordering requirement.
    */
-  maskSrc: DATA.scene.mask,
-  width: DATA.scene.width,
-  height: DATA.scene.height,
-  /** Needed to letterbox/cover-fit the scene into a container of a different shape. */
-  aspect: DATA.scene.width / DATA.scene.height,
+  clips: Partial<Record<RegionId, Polygon[]>> | null;
+  anchors: Record<AnchorId, Anchor>;
+  /**
+   * Boxes around fixtures baked into the plate, to be recoloured in place. Empty on a plate
+   * whose fixtures are modelled rather than photographed, which is why the render plate has
+   * none: there, a fixture is pinned as a product photo at an anchor instead.
+   */
+  fixtureBoxes: Partial<Record<FixtureId, FixtureBox>>;
+  /**
+   * Corners to darken once the materials are down, keyed by name.
+   *
+   * A region seam alone does not read as a corner: two planes meeting at a clean edge, both
+   * carrying the same texture at the same brightness, still look like one flat wall with a
+   * line ruled on it. What sells the geometry is the ambient occlusion in the crease, which
+   * the plate has and a freshly-painted material does not.
+   */
+  seams: Record<string, SeamShade>;
+  /**
+   * Edits applied to the plate itself before anything composites onto it.
+   *
+   * The compositor's blends are all multiplicative or additive over the photograph, so a dark
+   * artefact in the plate survives every one of them — a fixture the design has moved cannot
+   * be hidden, only darkened. These repair the source instead. Empty on the render plate,
+   * which has no photographed fixtures to remove.
+   */
+  plateRepairs: PlateRepair[];
+  /**
+   * A fixture the compositor DRAWS rather than recolours or pins, in image fractions.
+   *
+   * Null where the plate already photographs the fixture in the right place. Present here
+   * because the shower head was moved off the back wall onto the left return, so there is
+   * nothing on that wall to recolour.
+   */
+  modeledHead: ModeledHead | null;
 };
 
-/** Flat colour each region is painted in within the mask, as "#rrggbb". */
-export const MASK_COLORS = DATA.maskColors as Record<RegionId, string>;
+/** One repair op on the plate. `box` is [x, y, w, h] in image fractions. */
+export type PlateRepair =
+  /**
+   * Replace the box outright, interpolating the surrounding wall inward. For artefacts too
+   * dark to lighten — a matte-black fixture against a mid-grey wall has no headroom.
+   */
+  | { kind: "fill"; box: readonly [number, number, number, number]; ring: number; feather: number }
+  /**
+   * Pull pixels darker than the local ambient back toward it, in proportion to how far below
+   * they sit. For soft shadows, where erasing outright would leave a flat patch more obvious
+   * than the shadow was.
+   */
+  | { kind: "lighten"; box: readonly [number, number, number, number]; ring: number;
+      minK: number; maxK: number; deficitFull: number };
 
-/** Interior dimensions of the modelled room, in inches. */
-export const HERO_ROOM = DATA.room;
+/** A drawn shower head: where it hangs, and how big an inch is there. */
+export type ModeledHead = {
+  at: Point;
+  /** Fraction of image HEIGHT per real inch, on the plane the head is mounted to. */
+  unitPerIn: number;
+  armIn: number;
+  headIn: number;
+  thicknessIn: number;
+};
+
+/** A corner to shade: a line segment, a fade distance either side, and how dark at its centre. */
+export type SeamShade = {
+  from: Point;
+  to: Point;
+  /** Fade distance either side of the line, in image fractions of WIDTH. */
+  halfWidth: number;
+  /** Peak darkening at the line, 0-1. 0.07 means the corner lands at 93% of its lit value. */
+  strength: number;
+};
+
+const REGION_IDS: RegionId[] = [
+  "backWall", "leftWall", "rightWall", "floor", "showerArea",
+  "showerWallBack", "showerWallLeft", "showerWallRight",
+  "showerFloor", "vanityArea", "vanityTop", "vanityBacksplash", "vanitySideSplash",
+];
+const ANCHOR_IDS: AnchorId[] = ["faucet", "showerTrim", "showerHead", "tubSpout"];
 
 // Andrew's monotone chain. Small enough to keep here rather than pull a dependency for, and
 // it runs once at module load over ~12 points per region.
@@ -124,13 +231,16 @@ function convexHull(pts: Point[]): Point[] {
   return [...half(sorted), ...half(sorted.slice().reverse())];
 }
 
-function toFace(raw: RawFace): Face {
-  const q = raw.quad.map((p) => [p[0], p[1]] as Point);
+type RawFace = { quad: number[][]; widthIn: number; heightIn: number };
+
+/** `scale` is 1 for the generated JSON (already fractions) and 1/100 for the hand-authored one. */
+function toFace(raw: RawFace, scale: number): Face {
+  const q = raw.quad.map((p) => [p[0] * scale, p[1] * scale] as Point);
   return { quad: [q[0], q[1], q[2], q[3]], widthIn: raw.widthIn, heightIn: raw.heightIn };
 }
 
-function toRegion(id: RegionId, raw: RawFace[]): Region {
-  const faces = raw.map(toFace);
+function toRegion(id: RegionId, raw: RawFace[], scale: number): Region {
+  const faces = raw.map((f) => toFace(f, scale));
   const corners = faces.flatMap((f) => f.quad as unknown as Point[]);
   return {
     id,
@@ -144,31 +254,168 @@ function toRegion(id: RegionId, raw: RawFace[]): Region {
   };
 }
 
-const REGION_IDS: RegionId[] = ["backWall", "leftWall", "rightWall", "floor", "showerArea", "vanityArea", "vanityTop"];
+function toAnchors(raw: Record<string, { at: number[]; unitPerIn: number }>, scale: number): Record<AnchorId, Anchor> {
+  return Object.fromEntries(
+    ANCHOR_IDS.map((id) => {
+      const a = raw[id];
+      return [id, { at: [a.at[0] * scale, a.at[1] * scale] as Point, unitPerIn: a.unitPerIn }];
+    }),
+  ) as Record<AnchorId, Anchor>;
+}
+
+// ------------------------- the generated Three.js plate ---------------------
+
+type RawScene = {
+  scene: { id: string; image: string; mask: string; width: number; height: number };
+  room: { widthIn: number; heightIn: number; depthIn: number };
+  maskColors: Record<string, string>;
+  regions: Record<string, RawFace[]>;
+  anchors: Record<string, { at: number[]; unitPerIn: number }>;
+};
+
+const THREE = scene as unknown as RawScene;
+
+export const RENDER_SCENE: SceneBundle = {
+  scene: {
+    id: THREE.scene.id,
+    src: THREE.scene.image,
+    maskSrc: THREE.scene.mask,
+    occlusionSrc: null,
+    width: THREE.scene.width,
+    height: THREE.scene.height,
+    aspect: THREE.scene.width / THREE.scene.height,
+  },
+  room: THREE.room,
+  regions: Object.fromEntries(
+    REGION_IDS.map((id) => [id, toRegion(id, THREE.regions[id] ?? [], 1)]),
+  ) as Record<RegionId, Region>,
+  maskColors: THREE.maskColors,
+  clips: null,
+  anchors: toAnchors(THREE.anchors, 1),
+  fixtureBoxes: {},
+  seams: {},
+  plateRepairs: [],
+  modeledHead: null,
+};
+
+// ---------------------------- the photo plate -------------------------------
+
+type RawPhoto = {
+  scene: { id: string; image: string; width: number; height: number };
+  room: { widthIn: number; heightIn: number; depthIn: number };
+  faces: Record<string, RawFace[]>;
+  clips: Record<string, number[][][]>;
+  anchors: Record<string, { at: number[]; unitPerIn: number }>;
+  fixtureRegions: Record<string, number[]>;
+  seams: Record<string, { from: number[]; to: number[]; halfWidthPct: number; strength: number }>;
+  plateRepairs: Record<string, {
+    type: string; box: number[]; ringPct: number; featherPct?: number;
+    minK?: number; maxK?: number; deficitFull?: number;
+  }>;
+  modeledHead: { at: number[]; unitPerIn: number; armIn: number; headIn: number; thicknessIn: number };
+};
+
+const FIXTURE_IDS: FixtureId[] = ["valveTrim", "faucet", "faucetSpout"];
+
+const PHOTO = photo as unknown as RawPhoto;
+const PCT = 1 / 100;
 
 /**
- * Every paintable region of the base scene.
+ * Which hand-mapped surfaces make up each compositor region.
  *
- * `showerArea` is the alcove — the tiled back wall, both returns and the niche back — and is
- * where a shower wall material belongs; panels line an enclosure, not a whole bathroom.
- * `vanityArea` is the cabinet's front face and `vanityTop` its countertop, both real
- * geometry in the scene rather than a patch of wall. `backWall`, `leftWall` and `rightWall`
- * are the full room surfaces, carried for a future wall-finish or paint selection; the
- * compositor leaves them as base scene today.
+ * The JSON is named for what things ARE in the photograph — a back wall, two returns, a
+ * countertop — because that is what someone re-measuring it against the image is looking at.
+ * The compositor paints by ROLE: whatever the shower material goes on, whatever the flooring
+ * goes on. This table is the join, and it is the only place the two vocabularies meet.
+ *
+ * `showerArea` collects the alcove's back wall and its left return so a wall panel wraps the
+ * corner the way a real panel kit does. The bare room walls have no entry: this plate's left
+ * wall, ceiling and vanity nook are not offered as selectable surfaces, so nothing may paint
+ * them.
+ *
+ * There is no right return. The 2%-wide strip between the back wall and the partition reads
+ * as a return at a glance, but composited it puts wall material across the top-right of the
+ * shower pan — the pan's back-right corner is at x=41.5, not at the partition edge. Whatever
+ * that strip is, it is not alcove, so it stays as plate.
  */
-export const SCENE_REGIONS: Record<RegionId, Region> = Object.fromEntries(
-  REGION_IDS.map((id) => [id, toRegion(id, DATA.regions[id] ?? [])]),
-) as Record<RegionId, Region>;
+const PHOTO_FACES: Record<RegionId, string[]> = {
+  backWall: [],
+  leftWall: [],
+  rightWall: [],
+  floor: ["floor"],
+  // The alcove is TWO planes on this plate, not one. `showerArea` stays empty so nothing
+  // paints it; the render plate still uses it, and keeping the id lets both share a type.
+  showerArea: [],
+  showerWallBack: ["showerWallBack"],
+  showerWallLeft: ["showerWallLeft"],
+  showerWallRight: ["showerWallRight"],
+  showerFloor: ["showerFloor"],
+  vanityArea: ["vanityFace"],
+  vanityTop: ["vanityTop"],
+  vanityBacksplash: ["vanityBacksplash"],
+  vanitySideSplash: ["vanitySideSplash"],
+};
 
-/** Where product cutouts are pinned. See Anchor for how `unitPerIn` scales them. */
-const ANCHOR_IDS: AnchorId[] = ["faucet", "showerTrim", "showerHead", "tubSpout"];
-
-export const SCENE_ANCHORS: Record<AnchorId, Anchor> = Object.fromEntries(
-  ANCHOR_IDS.map((id) => {
-    const a = DATA.anchors[id];
-    return [id, { at: [a.at[0], a.at[1]] as Point, unitPerIn: a.unitPerIn }];
+export const PHOTO_SCENE: SceneBundle = {
+  scene: {
+    id: PHOTO.scene.id,
+    src: PHOTO.scene.image,
+    maskSrc: null,
+    occlusionSrc: "/hero/base-photo-occlusion.png",
+    width: PHOTO.scene.width,
+    height: PHOTO.scene.height,
+    aspect: PHOTO.scene.width / PHOTO.scene.height,
+  },
+  room: PHOTO.room,
+  regions: Object.fromEntries(
+    REGION_IDS.map((id) => [
+      id,
+      toRegion(id, PHOTO_FACES[id].flatMap((name) => PHOTO.faces[name] ?? []), PCT),
+    ]),
+  ) as Record<RegionId, Region>,
+  maskColors: null,
+  clips: Object.fromEntries(
+    REGION_IDS.map((id) => [
+      id,
+      PHOTO_FACES[id].flatMap((name) =>
+        (PHOTO.clips[name] ?? []).map((poly) => poly.map((p) => [p[0] * PCT, p[1] * PCT] as Point)),
+      ),
+    ]).filter(([, polys]) => (polys as Polygon[]).length > 0),
+  ) as Partial<Record<RegionId, Polygon[]>>,
+  anchors: toAnchors(PHOTO.anchors, PCT),
+  fixtureBoxes: Object.fromEntries(
+    FIXTURE_IDS.flatMap((id) => {
+      const b = PHOTO.fixtureRegions[id];
+      return b ? [[id, [b[0] * PCT, b[1] * PCT, b[2] * PCT, b[3] * PCT] as FixtureBox]] : [];
+    }),
+  ) as Partial<Record<FixtureId, FixtureBox>>,
+  seams: Object.fromEntries(
+    Object.entries(PHOTO.seams ?? {}).map(([k, v]) => [k, {
+      from: [v.from[0] * PCT, v.from[1] * PCT] as Point,
+      to: [v.to[0] * PCT, v.to[1] * PCT] as Point,
+      halfWidth: v.halfWidthPct * PCT,
+      strength: v.strength,
+    }]),
+  ),
+  plateRepairs: Object.values(PHOTO.plateRepairs ?? {}).map((r) => {
+    const box = [r.box[0] * PCT, r.box[1] * PCT, r.box[2] * PCT, r.box[3] * PCT] as const;
+    return r.type === "fill"
+      ? { kind: "fill" as const, box, ring: r.ringPct * PCT, feather: (r.featherPct ?? 0.4) * PCT }
+      : {
+          kind: "lighten" as const, box, ring: r.ringPct * PCT,
+          minK: r.minK ?? 0.5, maxK: r.maxK ?? 0.85, deficitFull: r.deficitFull ?? 25,
+        };
   }),
-) as Record<AnchorId, Anchor>;
+  modeledHead: PHOTO.modeledHead
+    ? {
+        at: [PHOTO.modeledHead.at[0] * PCT, PHOTO.modeledHead.at[1] * PCT] as Point,
+        unitPerIn: PHOTO.modeledHead.unitPerIn,
+        armIn: PHOTO.modeledHead.armIn,
+        headIn: PHOTO.modeledHead.headIn,
+        thicknessIn: PHOTO.modeledHead.thicknessIn,
+      }
+    : null,
+};
 
 /**
  * How many times a tile of the given real-world size repeats across a face.

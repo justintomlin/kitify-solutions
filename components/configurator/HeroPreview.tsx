@@ -28,12 +28,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLanguage } from "@/components/LanguageContext";
 import { HeroCompositor } from "@/components/configurator/HeroCompositor";
-import { showerWallTexture, type ShowerConfig } from "@/components/shower/ShowerConfigurator";
+import { showerWallTextureAt, type ShowerConfig } from "@/components/shower/ShowerConfigurator";
 import { SAMPLE_VANITY_CATALOG, type VanityConfig } from "@/components/vanity/VanityConfigurator";
 import { plumbingCatalogItems, type PlumbingConfig } from "@/components/plumbing/PlumbingConfigurator";
 import { type RoomConfig } from "@/components/room/RoomConfigurator";
 import { PLUMBING_FINISHES } from "@/lib/plumbing-catalog";
 import { FLOORING_COLORS } from "@/lib/catalog";
+import { getDuraseinColorByNameSlug } from "@/lib/durasein-catalog";
 import { getShowerComponentImage, getComponentDimensions, programForPackage } from "@/lib/shower-components-catalog";
 import type { HeroFixture } from "@/components/configurator/HeroCompositor";
 
@@ -45,12 +46,29 @@ export type HeroSource = {
   plumbing?: PlumbingConfig | null;
 };
 
+type HeroWall = {
+  textureUrl: string; name: string;
+  seamIn: number | null;
+  tileIn: { w: number; h: number };
+};
+
+/** Panel height for the wall kits, and the sheet size solid surface ships in. */
+const PANEL_TILE_H_IN = 94.5;
+const SHEET_TILE_IN = { w: 30, h: 144 };
+
 type HeroInputs = {
-  wallMaterial: { textureUrl: string; name: string } | null;
+  wallMaterial: HeroWall | null;
+  wallMaterialBack: HeroWall | null;
+  wallMaterialLeft: HeroWall | null;
+  wallMaterialRight: HeroWall | null;
   floorMaterial: { textureUrl: string; name: string } | null;
   vanityColor: string | null;
   vanityTopColor: string | null;
+  vanityTopMaterial: { textureUrl: string; name: string } | null;
+  showerBaseColor: string | null;
+  backsplashIn: number | null;
   fixtureFinish: string | null;
+  fixtureFinishId: string | null;
   fixtures: HeroFixture[];
 };
 
@@ -64,7 +82,16 @@ export function heroInputsFrom(src: HeroSource): HeroInputs {
   // Null for roughly half the wall range: only a flat material capture may be tiled onto a
   // wall, and the room photography behind the Tile/Pure decors would read as a rendering
   // bug. See showerWallTexture.
-  const wallMaterial = shower ? showerWallTexture(shower) : null;
+  //
+  // Resolved per plane: the hero paints the alcove as three surfaces — back wall, left return
+  // and the narrow right return at the alcove's edge — so all three slots of wallColors are
+  // now live. `showerWallTextureAt` reads wallMode itself, so a shared-material quote resolves
+  // all three to the same swatch and renders exactly as it did before.
+  const wallMaterial = shower ? showerWallTextureAt(shower, 0) : null;
+  const wallMaterialBack = wallMaterial;
+  const wallMaterialLeft = shower ? showerWallTextureAt(shower, 1) : null;
+  const wallMaterialRight = shower ? showerWallTextureAt(shower, 2) : null;
+  const wallSeamIn = (m: { panelWidthIn: number | null } | null) => m?.panelWidthIn ?? null;
 
   const floorId = room?.selections?.flooring?.colorId;
   const floor = floorId ? FLOORING_COLORS.find((c) => c.id === floorId) : undefined;
@@ -73,18 +100,59 @@ export function heroInputsFrom(src: HeroSource): HeroInputs {
   const vanityColor = vanity?.selections.colorId
     ? SAMPLE_VANITY_CATALOG.colors.find((c) => c.id === vanity.selections.colorId)?.hex ?? null
     : null;
-  const vanityTopColor = vanity?.selections.topColorId
-    ? SAMPLE_VANITY_CATALOG.topColors.find((c) => c.id === vanity.selections.topColorId)?.hex ?? null
+  const topColorId = vanity?.selections.topColorId;
+  const vanityTopColor = topColorId
+    ? SAMPLE_VANITY_CATALOG.topColors.find((c) => c.id === topColorId)?.hex ?? null
     : null;
+  // The vanity's countertop swatches ARE Durasein colours — the list was authored from their
+  // range — but the two modules key them differently, so the bridge is by name slug. When a
+  // scan comes back the compositor paints the real stone; when it doesn't, vanityTopColor
+  // above still carries the hex and the counter is tinted instead of left bare.
+  const topScan = topColorId ? getDuraseinColorByNameSlug(topColorId) : null;
+  const vanityTopMaterial = topScan ? { textureUrl: topScan.swatchUrl, name: topScan.name } : null;
+
+  // The pan colour is passed as an id, not a hex: the compositor tints three of the four by
+  // multiply and has to lay black down opaquely, so it needs to know which one this is.
+  const showerBaseColor = shower?.selections.baseColor ?? null;
+
+  // Only the BACK splash is drawn. The vanity also offers left and right returns, but both sit
+  // on planes this plate's camera cannot see — the vanity is boxed into a nook, and its ends
+  // are hard against the walls.
+  const splash = vanity?.selections.backsplash;
+  const backsplashIn = splash?.back ? splash.heightIn ?? 4 : null;
+
+  // The tile IS the panel for panelled goods, which is what makes the seam count real rather
+  // than decorative: tiling at 24"x94.5" and drawing a joint at every tile boundary are the
+  // same statement made twice. Sheet goods tile at sheet size and draw nothing.
+  const toWall = (m: { textureUrl: string; name: string; panelWidthIn: number | null } | null): HeroWall | null => {
+    if (!m) return null;
+    const seamIn = wallSeamIn(m);
+    return {
+      textureUrl: m.textureUrl,
+      name: m.name,
+      seamIn,
+      tileIn: seamIn ? { w: seamIn, h: PANEL_TILE_H_IN } : SHEET_TILE_IN,
+    };
+  };
 
   return {
-    wallMaterial,
+    wallMaterial: toWall(wallMaterial),
+    wallMaterialBack: toWall(wallMaterialBack),
+    wallMaterialLeft: toWall(wallMaterialLeft),
+    wallMaterialRight: toWall(wallMaterialRight),
     floorMaterial,
     vanityColor,
     vanityTopColor,
+    vanityTopMaterial,
+    showerBaseColor,
+    backsplashIn,
     fixtureFinish: plumbing
       ? PLUMBING_FINISHES.find((f) => f.id === plumbing.selections.finishId)?.hex ?? null
       : null,
+    // The id, not the hex: the photo plate recolours the fixtures baked into the plate and
+    // needs a fully-lit target metal to spread their shading across, which is a different
+    // value from the flat swatch in the picker.
+    fixtureFinishId: plumbing?.selections.finishId ?? null,
     fixtures: heroFixtures(shower, plumbing),
   };
 }
@@ -186,7 +254,8 @@ export function HeroThumb({ src, label, onOpen }: { src: HeroSource; label: stri
       aria-label={label}
       className="block h-[80px] w-[120px] shrink-0 overflow-hidden rounded-lg border border-line bg-paper transition hover:border-accent"
     >
-      <HeroCompositor {...inputs} className="h-full w-full" />
+      {/* No disclaimer at 120x80 — it would be unreadable. The full-size hero this opens carries it. */}
+      <HeroCompositor {...inputs} showDisclaimer={false} className="h-full w-full" />
     </button>
   );
 }

@@ -3,14 +3,18 @@
 /**
  * HeroCompositor — the configurator hub's live room preview.
  *
- * A layer compositor, not a renderer: it takes one pre-rendered bathroom shell
- * (public/hero/base-modern.png) and paints the dealer's actual product selections into the
- * surfaces of that shell, perspective and all. No 3D at runtime, no AI, no server call — a
- * few hundred canvas operations per selection change.
+ * A layer compositor, not a renderer: it takes one pre-made bathroom shell and paints the
+ * dealer's actual product selections into the surfaces of that shell, perspective and all.
+ * No 3D at runtime, no AI at runtime, no server call — a few hundred canvas operations per
+ * selection change.
+ *
+ * WHICH SHELL — see USE_PHOTO_PLATE below. The compositor works the same either way; the two
+ * plates differ only in how they were measured and how they describe occlusion, and
+ * lib/hero-regions resolves both to one shape before this file sees them.
  *
  * HOW A SURFACE GETS PAINTED
- *  1. lib/hero-regions gives the four screen corners of the surface, projected from the same
- *     camera that rendered the shell, plus its real-world size in inches.
+ *  1. lib/hero-regions gives the four screen corners of the surface, plus its real-world size
+ *     in inches.
  *  2. The material's texture is tiled into an offscreen "surface" canvas at true scale — a
  *     40" panel repeats 1.5 times across a 60" wall, and the compositor knows that because
  *     the region carries `widthIn`.
@@ -42,9 +46,63 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLanguage } from "@/components/LanguageContext";
 import {
-  HERO_SCENE, MASK_COLORS, SCENE_REGIONS, SCENE_ANCHORS, tileRepeat,
-  type Face, type Point, type Quad, type Region, type RegionId, type AnchorId,
+  PHOTO_SCENE, RENDER_SCENE, tileRepeat,
+  type Face, type FixtureId, type Point, type Polygon, type Quad, type Region, type RegionId,
+  type AnchorId, type ModeledHead, type SceneBundle, type SeamShade,
 } from "@/lib/hero-regions";
+
+// ------------------------------ which plate --------------------------------
+
+/**
+ * `true` paints onto the photographic plate; `false` falls back to the Three.js render.
+ *
+ * Kept as a switch rather than deleted code because the two are worth A/B-ing while the photo
+ * plate's hand-traced regions are still being refined. The render plate is dimensionally
+ * exact and machine-registered but reads as CGI; the photo plate reads as a room but is
+ * measured by eye and is only 784x336, so it is soft at full width on a desktop. The
+ * fallback is what makes it safe to ship the photo plate before that is solved.
+ *
+ * Nothing else in the file branches on this. Everything downstream reads PLATE.
+ */
+const USE_PHOTO_PLATE = true;
+
+/**
+ * PHASE 2 — OFF until the occlusion mask is rebuilt for this plate.
+ *
+ * public/hero/base-photo-occlusion.png was traced against the previous plate. The restore pass
+ * does not know that: it happily cuts that plate's plant and toilet silhouettes out of THIS
+ * plate and lays them back down at the old coordinates, which is the smearing on the left wall.
+ * A wrong mask is worse than no mask — with it off, every surface simply composites without
+ * foreground objects on top, which is honest and legible. Phase 3 rebuilds the mask and turns
+ * this back on.
+ */
+const OCCLUSION_ENABLED = false;
+
+/**
+ * PHASE 2 — OFF for the same reason as the occlusion mask.
+ *
+ * `fixtureRegions` still holds the PREVIOUS plate's boxes. The recolour does not know that: it
+ * reads whatever sits at those coordinates on THIS plate and finish-tints it, which put a
+ * champagne blob across the new countertop where the old faucet used to be. Phase 3 re-measures
+ * the boxes for this plate — head and valve on the left wall, sink faucet, and the door hardware
+ * as its own group — and turns this back on.
+ */
+const FIXTURE_TINT_ENABLED = false;
+
+const PLATE: SceneBundle = USE_PHOTO_PLATE ? PHOTO_SCENE : RENDER_SCENE;
+const SCENE = PLATE.scene;
+
+/**
+ * Opacity of a warped texture over the plate.
+ *
+ * The photographic plate carries real lighting — a soft gradient down the alcove, the contact
+ * shadow under the vanity, the window falloff across the floor. Multiply already lets that
+ * through, but at full strength a dark material also swallows it, and the surface goes flat
+ * and pasted-on. Backing off a little keeps the plate's own shading legible through the
+ * material. The render plate is lit near-white precisely so multiply works at full strength,
+ * so it stays at 1.
+ */
+const TEXTURE_ALPHA = USE_PHOTO_PLATE ? 0.88 : 1;
 
 // --------------------------------- types -----------------------------------
 
@@ -54,25 +112,77 @@ export type HeroMaterial = {
   name: string;
   /** Real-world size of one tile, in inches. Defaults per region if omitted. */
   tileIn?: { w: number; h: number };
+  /**
+   * Panel width in inches, for drawing joints. Null/omitted for sheet goods, which show no
+   * joint across a wall this size — a Durasein sheet is 30"x144" and covers the alcove whole.
+   */
+  seamIn?: number | null;
 };
 
 export type HeroCompositorProps = {
   /** Shower wall panel / solid surface — painted into the alcove, not the whole room. */
   wallMaterial?: HeroMaterial | null;
+  /**
+   * Per-plane overrides for the alcove, when the dealer picked a different panel per wall.
+   *
+   * The photo plate paints the alcove as TWO planes — a back wall and a left return meeting at
+   * a measured corner — because they are viewed at very different angles and a single warped
+   * sheet across both is what made the corner disappear. Either falls back to `wallMaterial`,
+   * so a quote saved in shared-material mode renders both planes from the one selection.
+   */
+  wallMaterialBack?: HeroMaterial | null;
+  wallMaterialLeft?: HeroMaterial | null;
+  wallMaterialRight?: HeroMaterial | null;
   /** Flooring — painted across the floor. */
   floorMaterial?: HeroMaterial | null;
   /** Vanity cabinet colour, as a CSS colour. Tints the cabinet's front face. */
   vanityColor?: string | null;
   /** Countertop colour, as a CSS colour. Tints the vanity's counter slab. */
   vanityTopColor?: string | null;
+  /**
+   * Countertop material, when the selection maps to a real sheet scan.
+   *
+   * Takes precedence over `vanityTopColor`: a Durasein top is a veined solid surface and a
+   * flat hex reads as painted MDF. Callers pass both, so the tint stands in whenever a colour
+   * has no scan behind it, and the counter is never left unfinished.
+   */
+  vanityTopMaterial?: HeroMaterial | null;
+  /**
+   * Shower base/pan colour id — "white" | "beige" | "grey" | "black", per SHOWER_BASE_COLORS.
+   *
+   * An id rather than a hex because the pan is not a straight tint: see BASE_TINTS for why
+   * black has to composite differently from the other three.
+   */
+  showerBaseColor?: string | null;
+  /**
+   * Backsplash height in inches, or null for no splash.
+   *
+   * The plate has no splash to photograph, so this one is drawn: a band of the countertop
+   * material standing on the counter's back edge. The region in the JSON is authored at 4",
+   * and this scales it — a 6" splash is the same band, half again as tall.
+   */
+  backsplashIn?: number | null;
   /** Trim finish, as a CSS colour. Tints fixture cutouts when their background can be removed. */
   fixtureFinish?: string | null;
+  /**
+   * Trim finish as a PLUMBING_FINISHES id — "chrome", "champagne-bronze", and so on.
+   *
+   * How the photo plate does fixtures: the plate's own matte-black fixtures are recoloured to
+   * this finish in place, and no product photograph is pinned at all. An id rather than the
+   * hex because the recolour needs a fully-lit target colour to spread the fixture's shading
+   * across, which is not the same value as the swatch shown in the picker.
+   */
+  fixtureFinishId?: string | null;
   /**
    * Product photos to pin onto the scene, each at a named anchor and sized in real inches.
    *
    * A list rather than a prop per fixture because the set is open: the shower alone carries a
    * valve trim, a rain head and — only for a tub/shower — a spout, and which of them exist
    * depends on the dealer's package and configuration. Callers omit what they haven't got.
+   *
+   * IGNORED on the photo plate, which recolours its own fixtures instead — see
+   * `fixtureFinishId` and USE_PHOTO_PLATE. Callers still pass it, because the Three.js
+   * fallback does pin them and because the list costs nothing to build.
    */
   fixtures?: HeroFixture[];
   /**
@@ -87,6 +197,15 @@ export type HeroCompositorProps = {
    * escape hatch for a very dark material, which multiply can drive close to black.
    */
   blend?: "multiply" | "soft";
+  /**
+   * Show the "conceptual rendering" disclaimer over the bottom-right corner.
+   *
+   * On by default: this render travels onto proposals and orders, where a customer reads it
+   * as a picture of what they are buying, and the line is what keeps that honest. Off only
+   * for renders too small to read it — the list thumbnail is 120x80, where the text would be
+   * illegible and would read as a graphical fault rather than a note.
+   */
+  showDisclaimer?: boolean;
   className?: string;
 };
 
@@ -95,13 +214,129 @@ export type HeroCompositorProps = {
 /**
  * Tile sizes in inches, used when a material doesn't state its own.
  *
- * Wall: mid-range for the two catalogued ranges — a Nature Panel decor is ~40" wide and a
- * Durasein sheet 30", so 40 x 60 lands a decor at believable scale on a 60" wall without
- * pretending to a precision the swatch crops don't have.
+ * Wall: one panel. The kits ship 24" wide by 94.5" tall, which is why a 60" back wall comes
+ * out as exactly two and a half panels and a 32" return as one and a third — the seam counts
+ * fall out of the arithmetic rather than being chosen. Sheet goods override this with their
+ * own tileIn; a Durasein sheet is 30" x 144" and shows no joint across an alcove at all.
  * Floor: the Durato swatch photography is about five 7" planks across and one plank long.
  */
-const DEFAULT_WALL_TILE = { w: 40, h: 60 };
+const DEFAULT_WALL_TILE = { w: 24, h: 94.5 };
 const DEFAULT_FLOOR_TILE = { w: 35, h: 48 };
+/** A Durasein sheet scan is a whole slab, so one "tile" is about a countertop's worth of it. */
+const DEFAULT_TOP_TILE = { w: 60, h: 30 };
+
+/**
+ * How each shower base colour is painted onto the plate's white pan, as a list of passes.
+ *
+ * Beige and grey are a straight multiply, which is right because the pan in the plate is
+ * near-white: multiplying a colour through it keeps the curb's shading, the drain shadow and
+ * the highlight along the threshold, and those are what stop a tinted pan reading as a flat
+ * cut-out sticker.
+ *
+ * Black takes two passes, because neither operation alone works. Multiply straight to #2a2a2a
+ * crushes the pan's whole tonal range into a few levels near black and reads as a muddy hole.
+ * An opaque fill lands the colour exactly and reads as a sticker — flat, with the drain and the
+ * curb edge gone. So: multiply to a mid-dark grey first, which darkens while preserving the
+ * shading proportionally, then lay the target black over it at partial opacity, which sets the
+ * final colour while leaving roughly half the pass-one contrast intact. A black acrylic pan
+ * really is nearly flat, so the surviving shading is subtle by design — enough to keep the
+ * curb and drain legible, not enough to look grey.
+ *
+ * White is absent on purpose: the plate is already white, and painting it would only dull it.
+ */
+type TintPass = { color: string; alpha: number; mode: GlobalCompositeOperation };
+const BASE_TINTS: Record<string, TintPass[]> = {
+  beige: [{ color: "#e8dcc8", alpha: 0.92, mode: "multiply" }],
+  grey: [{ color: "#9a9a9a", alpha: 0.92, mode: "multiply" }],
+  black: [
+    { color: "#4a4a4a", alpha: 1, mode: "multiply" },
+    { color: "#2a2a2a", alpha: 0.62, mode: "source-over" },
+  ],
+};
+
+/**
+ * Final warm pass over the whole frame.
+ *
+ * The plate is warm photography; the textures composited into it come off half a dozen CDNs
+ * shot under whatever light those vendors use, mostly cool or neutral. Individually each is
+ * plausible, together they read as cut-and-paste because nothing shares a white balance. A
+ * few percent of warm light over everything at the end pulls them onto one, and `overlay`
+ * does it without flattening — it warms the midtones and leaves the white pan and the black
+ * fixtures where they are, which a plain `source-over` wash would not.
+ *
+ * Deliberately weak. Past about 8% this stops reading as light in a room and starts reading
+ * as a sepia filter over a photograph.
+ */
+const WARM_GRADE = { color: "rgba(255, 235, 205, 0.06)", mode: "overlay" as GlobalCompositeOperation };
+
+// ---------------------------- fixture finishes ------------------------------
+
+/**
+ * Target metal for each plumbing finish, keyed by PLUMBING_FINISHES id.
+ *
+ * These are the colour a fully-lit part of the fixture should reach, not an average — the
+ * recolour below spreads each fixture's own shading between black and this value, so a flat
+ * mid-grey here would come out as a dull grey blob rather than as metal.
+ *
+ * Matte black is absent: the plate's fixtures are already matte black, and the most accurate
+ * thing to do for that selection is nothing at all.
+ */
+const FINISH_TINTS: Record<string, [number, number, number]> = {
+  chrome: [200, 205, 210],              // #c8cdd2 — cool silver
+  stainless: [184, 184, 180],           // #b8b8b4 — warm silver
+  "champagne-bronze": [201, 168, 106],  // #c9a86a — warm gold
+  "venetian-bronze": [90, 68, 54],      // #5a4436 — dark brown, a subtle shift off black
+  "polished-nickel": [212, 208, 200],   // #d4d0c8 — bright warm silver
+  "brushed-nickel": [196, 181, 160],    // #c4b5a0 — the fifth finish the towel bars carry
+};
+
+/**
+ * Luminosity below which a pixel is treated as fixture rather than background.
+ *
+ * The plate's fixtures are matte black on a light grey wall and a light countertop, so there
+ * is a wide empty gap in the histogram to cut in. It sits at the top of that gap rather than
+ * the middle: a matte-black fixture still has specular highlights along its rim, and at 90
+ * those highlights fell on the wall side of the cut and were punched transparent — leaving
+ * the wall material visible in stripes across the metal. The wall (~167), the countertop and
+ * the head's own cast shadow are all still comfortably above this.
+ */
+const FIXTURE_LUM_CUTOFF = 112;
+
+/**
+ * Softening band just under the cutoff, so the recoloured fixture doesn't end in a hard edge
+ * against the wall. Pixels fade out across the top of the range.
+ *
+ * Kept narrow deliberately. At 26 this covered a third of the fixture's own tonal range, so
+ * every mid-tone inside the shower head — and that head is a soft, blurry shape with a lot of
+ * mid-tone — came out part-transparent, and the wall slats behind it showed straight through
+ * the metal. The band only needs to cover the anti-aliased rim.
+ */
+const FIXTURE_LUM_FEATHER = 12;
+
+/**
+ * How dark the darkest part of a recoloured fixture is allowed to get, as a share of the
+ * target colour.
+ *
+ * Scaling the target by the pixel's own luminosity alone is the obvious mapping and it comes
+ * out far too dark: most of the plate's fixture pixels sit near 25/255, so chrome would land
+ * around a quarter strength and read as charcoal. Lifting the floor keeps the fixture's
+ * shading — a bright chrome fixture still has near-black creases — while letting the lit
+ * faces actually reach the metal colour.
+ */
+const FIXTURE_SHADE_FLOOR = 0.42;
+
+/**
+ * TODO — faucet type (1cc vs 8cc).
+ *
+ * The plate's lavatory faucet is an 8" widespread: a centre spout with two separate handles.
+ * A dealer who picks a single-hole (1cc) faucet is shown the widespread anyway, which is
+ * wrong in shape though right in finish. Doing better means painting out the two side handles
+ * — cloning counter and backsplash pixels over them, which is tractable because both sit on
+ * flat, evenly-lit ground — and keeping the centre spout, or dropping in a single-hole
+ * silhouette lit to match. Until then the disclaimer carries it: fixture styles are
+ * representative, materials are real. `plumbing.selections.faucetType` already holds the
+ * answer when someone comes back to this.
+ */
 
 /** Crossfade between the outgoing and incoming composite. */
 const TRANSITION_MS = 300;
@@ -186,6 +421,9 @@ const hexToRgb = (hex: string): [number, number, number] => [
  * against. Same-origin, so `getImageData` is always permitted here — unlike the product
  * photographs, this image is ours.
  *
+ * Returns empty for the photo plate, which has no ID render to decode — it clips against
+ * hand-traced polygons instead, in paintRegion.
+ *
  * Classification normalises each pixel to full brightness before matching. The ID pass is
  * antialiased, so a boundary pixel is some fraction of its region's colour — half-strength
  * magenta is still unambiguously magenta once scaled back up, whereas a raw nearest-colour
@@ -195,10 +433,12 @@ const hexToRgb = (hex: string): [number, number, number] => [
  */
 function loadMasks(): Promise<MaskSet> {
   if (maskPromise) return maskPromise;
-  maskPromise = loadImage(HERO_SCENE.maskSrc).then((img) => {
+  const { maskSrc, maskColors } = { maskSrc: SCENE.maskSrc, maskColors: PLATE.maskColors };
+  if (!maskSrc || !maskColors) { maskPromise = Promise.resolve({}); return maskPromise; }
+  maskPromise = loadImage(maskSrc).then((img) => {
     const out: MaskSet = {};
     if (!img) return out;
-    const full = makeCanvas(HERO_SCENE.width, HERO_SCENE.height);
+    const full = makeCanvas(SCENE.width, SCENE.height);
     const fctx = full.getContext("2d", { willReadFrequently: true });
     if (!fctx) return out;
     fctx.imageSmoothingEnabled = false;
@@ -206,8 +446,8 @@ function loadMasks(): Promise<MaskSet> {
     let src: ImageData;
     try { src = fctx.getImageData(0, 0, full.width, full.height); } catch { return out; }
 
-    const ids = Object.keys(MASK_COLORS) as RegionId[];
-    const rgb = ids.map((id) => hexToRgb(MASK_COLORS[id]));
+    const ids = Object.keys(maskColors) as RegionId[];
+    const rgb = ids.map((id) => hexToRgb(maskColors[id]));
     const mw = Math.round(full.width * MASK_SCALE), mh = Math.round(full.height * MASK_SCALE);
     const buffers = ids.map(() => new ImageData(mw, mh));
     const px = src.data;
@@ -355,9 +595,35 @@ function makeCanvas(w: number, h: number): HTMLCanvasElement {
 
 const SURFACE_MAX = 1024;
 
-/** The material tiled across one face at true scale, ready to be warped onto it. */
-function buildSurface(img: HTMLImageElement, face: Face, tileIn: { w: number; h: number }): HTMLCanvasElement {
+/**
+ * Width of a rendered panel joint, as a fraction of the surface canvas.
+ *
+ * A real joint between two wall panels is a hairline — an eighth of an inch on a sixty-inch
+ * wall. Rendered honestly at this plate's resolution that is a third of a pixel and vanishes,
+ * so the line is drawn wide enough to survive: about one plate pixel once the surface is
+ * warped down onto the wall. It is a cue, not a measurement.
+ */
+const SEAM_FRACTION = 0.006;
+const SEAM_ALPHA = 0.22;
+
+/**
+ * The material tiled across one face at true scale, ready to be warped onto it.
+ *
+ * `seamIn` draws the panel joints. Panelled goods arrive in fixed widths and a real install
+ * shows a line every panel — 24" for these kits, so a 60" back wall carries two and a 32"
+ * return carries one. Sheet goods (Durasein solid surface, which comes 30"x144") show no joint
+ * across a wall this size at all, and pass null.
+ */
+function buildSurface(
+  img: HTMLImageElement, face: Face, tileIn: { w: number; h: number }, seamIn?: number | null,
+): HTMLCanvasElement {
   const rep = tileRepeat(face, tileIn.w, tileIn.h);
+  // A wall panel is one piece floor-to-top — it is never butt-jointed halfway up. The field
+  // renders taller than the 94.5" the panel really is (see _panel_top_derivation), so tiling
+  // vertically at true scale would wrap and draw a horizontal joint near the bottom of the
+  // wall, which no install has. Panels therefore stretch to the field height; the 24" VERTICAL
+  // joints are untouched, and they are the ones a customer actually sees.
+  if (seamIn) rep.y = 1;
   const aspect = face.widthIn / face.heightIn;
   let sw = SURFACE_MAX, sh = Math.round(SURFACE_MAX / aspect);
   if (sh > SURFACE_MAX) { sh = SURFACE_MAX; sw = Math.round(SURFACE_MAX * aspect); }
@@ -368,7 +634,47 @@ function buildSurface(img: HTMLImageElement, face: Face, tileIn: { w: number; h:
   for (let j = 0; j < Math.ceil(rep.y); j++) {
     for (let i = 0; i < Math.ceil(rep.x); i++) ctx.drawImage(img, i * tw, j * th, tw, th);
   }
+
+  if (seamIn && seamIn > 0 && face.widthIn > seamIn) {
+    // Joints are spaced in real inches from u=0, which is why the return's quad is authored
+    // corner-first: it makes u=0 the interior corner, so a full panel terminates there and the
+    // offcut falls at the outer edge, the way the kit is actually laid out.
+    const step = (seamIn / face.widthIn) * c.width;
+    const wpx = Math.max(2, Math.round(c.width * SEAM_FRACTION));
+    ctx.save();
+    ctx.fillStyle = `rgba(0,0,0,${SEAM_ALPHA})`;
+    for (let x = step; x < c.width - 0.5; x += step) {
+      ctx.fillRect(Math.round(x - wpx / 2), 0, wpx, c.height);
+    }
+    ctx.restore();
+  }
   return c;
+}
+
+/**
+ * The backsplash region, restated at a different height.
+ *
+ * The JSON authors the band at BACKSPLASH_BASE_IN. Scaling means holding the bottom edge —
+ * which sits on the counter and must not move — and pushing the top edge away from it. Both
+ * the paint quad and the clip outline have to move together or the material would be drawn
+ * at one height and clipped at another.
+ */
+const BACKSPLASH_BASE_IN = 4;
+
+function scaleBacksplash(region: Region, heightIn: number): { region: Region; clip: Polygon[] } {
+  const k = heightIn / BACKSPLASH_BASE_IN;
+  // Quad corner order is topLeft, topRight, bottomRight, bottomLeft, so the bottom pair is
+  // the anchor and the top pair is what moves.
+  const lift = (top: Point, bottom: Point): Point => [
+    bottom[0] + (top[0] - bottom[0]) * k,
+    bottom[1] + (top[1] - bottom[1]) * k,
+  ];
+  const faces = region.faces.map((f) => {
+    const [tl, tr, br, bl] = f.quad;
+    return { ...f, heightIn, quad: [lift(tl, bl), lift(tr, br), br, bl] as Quad };
+  });
+  const clip = faces.map((f) => [f.quad[0], f.quad[1], f.quad[2], f.quad[3]] as Polygon);
+  return { region: { ...region, faces }, clip };
 }
 
 /** A flat colour, as a surface. Size is arbitrary — the warp maps whatever it is given. */
@@ -484,61 +790,487 @@ function buildCutout(img: HTMLImageElement, tint: string | null): Cutout {
   return { src: c, w, h, blend: "source-over" };
 }
 
+// --------------------------- corner shading --------------------------------
+
+/**
+ * Darken a corner so two planes read as two planes.
+ *
+ * Splitting the alcove into separate quads gets the perspective right — slats on the return
+ * compress, slats on the back wall don't — but a clean seam between two equally-lit surfaces
+ * still reads as one wall with a line on it. The crease needs ambient occlusion.
+ *
+ * MEASURED, then halved. The plate's own interior corner dips from shoulders near 171 to 151
+ * at its darkest column: a 12% drop over about 2% of plate width each side. Multiply already
+ * carries all of that through into the composited material, so painting the measured value
+ * again would double it. What is applied here is roughly half, which is enough to hold the
+ * corner once a dark panel has flattened the plate's gradient and not enough to draw a stripe.
+ *
+ * Drawn as a linear gradient across the seam's normal rather than along it, so a leaning
+ * corner shades correctly — the alcove's crease drifts 0.2% right over the wall's height.
+ */
+function paintSeam(frame: CanvasRenderingContext2D, seam: SeamShade, fit: Fit) {
+  const [ax, ay] = toPx(seam.from, fit);
+  const [bx, by] = toPx(seam.to, fit);
+  const half = seam.halfWidth * SCENE.width * fit.scale;
+  if (half <= 0) return;
+
+  // Unit normal to the seam, which is the direction the shading fades along.
+  const dx = bx - ax, dy = by - ay;
+  const len = Math.hypot(dx, dy) || 1;
+  const nx = -dy / len, ny = dx / len;
+
+  const mx = (ax + bx) / 2, my = (ay + by) / 2;
+  const g = frame.createLinearGradient(mx - nx * half, my - ny * half, mx + nx * half, my + ny * half);
+  const a = seam.strength;
+  g.addColorStop(0, "rgba(0,0,0,0)");
+  g.addColorStop(0.5, `rgba(0,0,0,${a})`);
+  g.addColorStop(1, "rgba(0,0,0,0)");
+
+  frame.save();
+  frame.globalCompositeOperation = "multiply";
+  frame.beginPath();
+  // A quad along the seam, one half-width to each side, extended past both ends so the band
+  // doesn't stop short of the surfaces it divides.
+  const ex = (dx / len) * half, ey = (dy / len) * half;
+  frame.moveTo(ax - nx * half - ex, ay - ny * half - ey);
+  frame.lineTo(ax + nx * half - ex, ay + ny * half - ey);
+  frame.lineTo(bx + nx * half + ex, by + ny * half + ey);
+  frame.lineTo(bx - nx * half + ex, by - ny * half + ey);
+  frame.closePath();
+  frame.fillStyle = g;
+  frame.fill();
+  frame.restore();
+}
+
+/**
+ * The panel field's top edge, drawn as a product edge rather than left as a cut.
+ *
+ * Panels stop 94.5" up and the wall carries on above them, so the top of the field is a real
+ * physical edge with a thickness: a shadow where the panel stands off the wall behind it, and
+ * a catch of light on the panel's own top arris. Without them the material just stops, which
+ * reads as a clipping boundary rather than as the top of a product.
+ *
+ * Both lines are one plate pixel at the plate's own resolution and scale with the canvas, so
+ * they stay hairlines at any hero size.
+ */
+const PANEL_EDGE_SHADOW = "rgba(0,0,0,0.20)";
+const PANEL_EDGE_HIGHLIGHT = "rgba(255,255,255,0.16)";
+
+function paintPanelTopEdge(frame: CanvasRenderingContext2D, quad: Quad, fit: Fit) {
+  const [tl, tr] = quad;
+  // An edge that starts above the frame is not a product edge — it is where the photograph
+  // stops. The left return is like this: the plate shows no ceiling above it, so its panels run
+  // out of shot, and ruling a highlight along that boundary would draw a diagonal line across
+  // the wall that nothing in the room justifies.
+  if (tl[1] < 0 || tr[1] < 0) return;
+  const [ax, ay] = toPx(tl, fit);
+  const [bx, by] = toPx(tr, fit);
+  const px = (SCENE.height * fit.scale) / SCENE.height;   // one plate pixel, in canvas pixels
+  const w = Math.max(1, px);
+
+  frame.save();
+  frame.lineCap = "butt";
+  // Shadow sits just ABOVE the edge, on the wall the panel stands proud of.
+  frame.globalCompositeOperation = "multiply";
+  frame.strokeStyle = PANEL_EDGE_SHADOW;
+  frame.lineWidth = w;
+  frame.beginPath();
+  frame.moveTo(ax, ay - w * 0.5);
+  frame.lineTo(bx, by - w * 0.5);
+  frame.stroke();
+  // Highlight sits just BELOW it, on the panel's own top edge.
+  frame.globalCompositeOperation = "source-over";
+  frame.strokeStyle = PANEL_EDGE_HIGHLIGHT;
+  frame.beginPath();
+  frame.moveTo(ax, ay + w * 0.6);
+  frame.lineTo(bx, by + w * 0.6);
+  frame.stroke();
+  frame.restore();
+}
+
+// --------------------------- repairing the plate ----------------------------
+
+/**
+ * The plate with its moved fixture painted out, built once and reused everywhere.
+ *
+ * Every blend this compositor performs is multiplicative or additive over the photograph, so
+ * anything dark in the plate survives all of them. A matte-black shower head on a mid-grey
+ * wall cannot be covered by a material — it can only be darkened. When the design moves that
+ * head to another wall, the only way to make it leave is to edit the source.
+ *
+ * SAFE TO READ PIXELS: the plate is same-origin. This runs once at load, and everything
+ * downstream — the base draw, the occlusion cut-out, the fixture recolour — reads the repaired
+ * canvas, so no path can leak the original.
+ */
+let repairedPlatePromise: Promise<HTMLCanvasElement | null> | null = null;
+
+/** Average of a small window, so one noisy pixel can't set the ambient. */
+function sampleAt(px: Uint8ClampedArray, W: number, H: number, x: number, y: number, ch: number): number {
+  let sum = 0;
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      const sx = Math.min(W - 1, Math.max(0, x + dx)), sy = Math.min(H - 1, Math.max(0, y + dy));
+      sum += px[(sy * W + sx) * 4 + ch];
+    }
+  }
+  return sum / 9;
+}
+
+/**
+ * The wall as it would look with nothing in front of it, across one box.
+ *
+ * A Coons patch over the box's four surrounding edges: interpolate the left and right ring
+ * columns, interpolate the top and bottom ring rows, then subtract the bilinear of the four
+ * corners so the two interpolations do not double-count. Exact for a bilinear field, and this
+ * wall's ambient is close enough to one over a box this size — the ceiling investigation
+ * showed it varying smoothly in both directions with no steps at all.
+ */
+function ambientField(
+  px: Uint8ClampedArray, W: number, H: number,
+  x0: number, y0: number, bw: number, bh: number, ring: number, ch: number,
+) {
+  const lx = Math.max(0, x0 - ring), rx = Math.min(W - 1, x0 + bw + ring);
+  const ty = Math.max(0, y0 - ring), by = Math.min(H - 1, y0 + bh + ring);
+  const LT = sampleAt(px, W, H, lx, ty, ch), RT = sampleAt(px, W, H, rx, ty, ch);
+  const LB = sampleAt(px, W, H, lx, by, ch), RB = sampleAt(px, W, H, rx, by, ch);
+  return (x: number, y: number) => {
+    const u = bw > 0 ? (x - x0) / bw : 0, v = bh > 0 ? (y - y0) / bh : 0;
+    const L = sampleAt(px, W, H, lx, y, ch), R = sampleAt(px, W, H, rx, y, ch);
+    const T = sampleAt(px, W, H, x, ty, ch), B = sampleAt(px, W, H, x, by, ch);
+    const edges = (1 - u) * L + u * R + (1 - v) * T + v * B;
+    const corners = (1 - u) * (1 - v) * LT + u * (1 - v) * RT + (1 - u) * v * LB + u * v * RB;
+    return edges - corners;
+  };
+}
+
+function loadRepairedPlate(): Promise<HTMLCanvasElement | null> {
+  if (repairedPlatePromise) return repairedPlatePromise;
+  repairedPlatePromise = loadImage(SCENE.src).then((img) => {
+    if (!img) return null;
+    const c = makeCanvas(SCENE.width, SCENE.height);
+    const ctx = c.getContext("2d", { willReadFrequently: true });
+    if (!ctx) return null;
+    ctx.drawImage(img, 0, 0, c.width, c.height);
+    if (!PLATE.plateRepairs.length) return c;
+
+    const W = c.width, H = c.height;
+    let data: ImageData;
+    try { data = ctx.getImageData(0, 0, W, H); } catch { return c; }
+    const out = data.data;
+
+    // Repairs are ORDERED and each one sees the ones before it. That matters here: the head's
+    // shadow reaches up to within a whisker of the head, so the ring the shadow samples its
+    // ambient from runs straight through where the head was. Reading that from the original
+    // plate dragged the ambient down by the head's own blackness and the shadow came out barely
+    // lifted. Each op snapshots the buffer as it stands, samples that, and writes forward — so
+    // it sees every earlier repair but never its own partial output.
+    for (const op of PLATE.plateRepairs) {
+      const src = new Uint8ClampedArray(out);
+      const x0 = Math.round(op.box[0] * W), y0 = Math.round(op.box[1] * H);
+      const bw = Math.round(op.box[2] * W), bh = Math.round(op.box[3] * H);
+      const ring = Math.max(2, Math.round(op.ring * W));
+      const fields = [0, 1, 2].map((ch) => ambientField(src, W, H, x0, y0, bw, bh, ring, ch));
+      const feather = op.kind === "fill" ? Math.max(1, Math.round(op.feather * W)) : 0;
+
+      for (let y = Math.max(0, y0); y < Math.min(H, y0 + bh); y++) {
+        for (let x = Math.max(0, x0); x < Math.min(W, x0 + bw); x++) {
+          const i = (y * W + x) * 4;
+          if (op.kind === "fill") {
+            // Ease the patch out at its own border so the join cannot read as a rectangle.
+            const edge = Math.min(x - x0, x0 + bw - 1 - x, y - y0, y0 + bh - 1 - y);
+            const t = feather > 0 ? Math.min(1, edge / feather) : 1;
+            for (let ch = 0; ch < 3; ch++) out[i + ch] = src[i + ch] + (fields[ch](x, y) - src[i + ch]) * t;
+          } else {
+            // How far below ambient a pixel sits decides how hard to pull it back: a hard core
+            // lifts most of the way, a penumbra about half. Measured on luminance, applied per
+            // channel, so the wall keeps its colour instead of washing toward grey.
+            const lum = 0.2126 * src[i] + 0.7152 * src[i + 1] + 0.0722 * src[i + 2];
+            const a0 = fields[0](x, y), a1 = fields[1](x, y), a2 = fields[2](x, y);
+            const deficit = (0.2126 * a0 + 0.7152 * a1 + 0.0722 * a2) - lum;
+            if (deficit <= 0) continue;
+            const k = op.minK + (op.maxK - op.minK) * Math.min(1, deficit / op.deficitFull);
+            const amb = [a0, a1, a2];
+            for (let ch = 0; ch < 3; ch++) out[i + ch] = src[i + ch] + (amb[ch] - src[i + ch]) * k;
+          }
+        }
+      }
+    }
+    ctx.putImageData(data, 0, 0);
+    return c;
+  });
+  return repairedPlatePromise;
+}
+
+/**
+ * Draw the shower head, rather than recolour one the plate already has.
+ *
+ * The plate photographs its head on the back wall; the design puts it on the left return above
+ * the valve, so there is nothing there to recolour and it has to be modelled. Kept deliberately
+ * plain — a flange, an arm angling down out of the wall, an oval face — and sized from the
+ * catalogue's real dimensions through the return's own scale, which makes it smaller than the
+ * plate's baked-in head. That is correct: the plate's was oversized.
+ */
+function drawModeledHead(
+  frame: CanvasRenderingContext2D, head: ModeledHead, tint: [number, number, number] | null, fit: Fit,
+) {
+  const inPx = head.unitPerIn * SCENE.height * fit.scale;
+  if (inPx <= 0) return;
+  const [cx, cy] = toPx(head.at, fit);
+  const arm = head.armIn * inPx, disc = head.headIn * inPx, th = head.thicknessIn * inPx;
+  // Matte black is the base silhouette: the plate's other fixtures are matte black, so an
+  // untinted head has to match them rather than default to something lighter.
+  const [r, g, b] = tint ?? [43, 43, 43];
+  const shade = (k: number) =>
+    "rgb(" + Math.round(Math.min(255, r * k)) + "," + Math.round(Math.min(255, g * k)) + "," + Math.round(Math.min(255, b * k)) + ")";
+
+  // The arm runs out of the wall and down, the way a wall-mount head hangs.
+  const ex = cx + arm * 0.92, ey = cy + arm * 0.38;
+
+  frame.save();
+
+  // Contact shadow on the wall behind the flange, so the assembly sits on the wall.
+  frame.globalCompositeOperation = "multiply";
+  frame.fillStyle = "rgba(0,0,0,0.30)";
+  frame.beginPath();
+  frame.ellipse(cx + th * 0.35, cy + th * 0.45, th * 1.25, th * 1.6, 0, 0, Math.PI * 2);
+  frame.fill();
+
+  frame.globalCompositeOperation = "source-over";
+
+  const armGrad = frame.createLinearGradient(cx, cy - th, ex, ey + th);
+  armGrad.addColorStop(0, shade(1.0));
+  armGrad.addColorStop(1, shade(0.55));
+  frame.strokeStyle = armGrad;
+  frame.lineWidth = th;
+  frame.lineCap = "round";
+  frame.beginPath();
+  frame.moveTo(cx, cy);
+  frame.lineTo(ex, ey);
+  frame.stroke();
+
+  frame.fillStyle = shade(0.85);
+  frame.beginPath();
+  frame.ellipse(cx, cy, th * 0.75, th * 1.05, 0, 0, Math.PI * 2);
+  frame.fill();
+
+  // The face, seen from the side and angled down. Lit from the top-left like the rest of the room.
+  const headGrad = frame.createLinearGradient(ex - disc * 0.3, ey - disc * 0.3, ex + disc * 0.3, ey + disc * 0.35);
+  headGrad.addColorStop(0, shade(1.15));
+  headGrad.addColorStop(0.55, shade(0.9));
+  headGrad.addColorStop(1, shade(0.5));
+  frame.fillStyle = headGrad;
+  frame.beginPath();
+  frame.ellipse(ex + disc * 0.16, ey + disc * 0.10, disc * 0.30, disc * 0.44, -0.42, 0, Math.PI * 2);
+  frame.fill();
+
+  frame.restore();
+}
+
+// ------------------------------ occlusion ----------------------------------
+
+/**
+ * The plate's foreground objects, cut out and ready to lay back over the composite.
+ *
+ * A region polygon describes a flat surface. It has no idea that two plants, a toilet, a
+ * towel and a vase are standing in front of those surfaces, so left alone the flooring runs
+ * across the toilet and the wall panel runs across the leaves. Earlier passes notched the
+ * polygons around each object, which works for a toilet and fails badly for a fern — any
+ * outline drawn around leaves also encloses the wall between them.
+ *
+ * So instead: build `plate ∩ occlusion mask` once, and draw it over the finished materials.
+ * Every occluder comes back at once, at photographic quality, and the polygons go back to
+ * describing surfaces. The mask itself is generated — colour-keyed for foliage, hand-traced
+ * for solid objects — by scripts/build-occlusion-mask.mjs.
+ *
+ * Built at plate resolution and cached for the session: it depends on nothing the dealer can
+ * select, so it survives every recomposite.
+ */
+let occluderPromise: Promise<HTMLCanvasElement | null> | null = null;
+
+function loadOccluders(): Promise<HTMLCanvasElement | null> {
+  if (occluderPromise) return occluderPromise;
+  const src = OCCLUSION_ENABLED ? SCENE.occlusionSrc : null;
+  if (!src) { occluderPromise = Promise.resolve(null); return occluderPromise; }
+  occluderPromise = Promise.all([loadRepairedPlate(), loadImage(src)]).then(([plate, mask]) => {
+    if (!plate || !mask) return null;
+    const c = makeCanvas(SCENE.width, SCENE.height);
+    const ctx = c.getContext("2d");
+    if (!ctx) return null;
+    ctx.drawImage(plate, 0, 0, c.width, c.height);
+    // destination-in keeps the plate only where the mask has alpha, and carries the mask's
+    // feathered edge into the result — which is what stops restored objects having a cut edge.
+    ctx.globalCompositeOperation = "destination-in";
+    ctx.drawImage(mask, 0, 0, c.width, c.height);
+    return c;
+  });
+  return occluderPromise;
+}
+
+// -------------------------- recolouring the plate ---------------------------
+
+type FixturePatch = { canvas: HTMLCanvasElement; box: readonly [number, number, number, number] };
+
+// Keyed by finish id. The plate and the boxes are module constants, so a patch built once is
+// good for the session — which matters, because this is the only getImageData in the render
+// path and we would rather not repeat it on every selection change.
+const fixturePatchCache = new Map<string, FixturePatch[]>();
+
+/**
+ * Recolour the plate's baked-in fixtures to a plumbing finish.
+ *
+ * The plate photographs its fixtures in matte black. Rather than hide them under product
+ * photographs — which have to be sized, positioned and background-knocked-out, and which
+ * cannot be knocked out at all when the retailer's CDN refuses a CORS request — this changes
+ * what the plate already shows. The fixture keeps its own photographic shading, its own
+ * highlights and its own soft edges; only the metal it appears to be made of changes.
+ *
+ * READING PIXELS IS SAFE HERE, and only here. This samples the PLATE, which is served from
+ * our own origin, never the composited frame — that canvas is tainted the moment a CDN
+ * texture lands on it, and getImageData on it would throw. Working from the plate also keeps
+ * the cost fixed and tiny: three boxes of a few thousand pixels each, once per finish, rather
+ * than a full-canvas read per frame.
+ *
+ * Pixels above the luminosity cutoff become fully transparent, so the patch carries the
+ * fixture and nothing else. Whatever material has been painted behind it — a wood slat wall,
+ * a tiled alcove — shows through untouched.
+ */
+function buildFixturePatches(plate: CanvasImageSource, finishId: string): FixturePatch[] {
+  const cached = fixturePatchCache.get(finishId);
+  if (cached) return cached;
+
+  const out: FixturePatch[] = [];
+  const tint = FIXTURE_TINT_ENABLED ? FINISH_TINTS[finishId] : undefined;
+  // No entry means matte black, which the plate already is. Cached as empty so an
+  // unrecognised id costs one lookup rather than a rebuild every frame.
+  if (!tint) { fixturePatchCache.set(finishId, out); return out; }
+
+  const pw = SCENE.width, ph = SCENE.height;
+
+  for (const box of Object.values(PLATE.fixtureBoxes) as FixturePatch["box"][]) {
+    const sx = Math.round(box[0] * pw), sy = Math.round(box[1] * ph);
+    const sw = Math.max(1, Math.round(box[2] * pw)), sh = Math.max(1, Math.round(box[3] * ph));
+    const c = makeCanvas(sw, sh);
+    const ctx = c.getContext("2d", { willReadFrequently: true });
+    if (!ctx) continue;
+    ctx.drawImage(plate, sx, sy, sw, sh, 0, 0, sw, sh);
+
+    let data: ImageData;
+    try {
+      data = ctx.getImageData(0, 0, sw, sh);
+    } catch {
+      // Only reachable if the plate stops being same-origin. Bail on the whole finish rather
+      // than ship half the fixtures recoloured; matte black is a correct-looking fallback.
+      fixturePatchCache.set(finishId, []);
+      return [];
+    }
+
+    const px = data.data;
+    for (let i = 0; i < px.length; i += 4) {
+      const lum = 0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2];
+      if (lum >= FIXTURE_LUM_CUTOFF) { px[i + 3] = 0; continue; }
+      // Spread the fixture's own tone across the metal, floored so lit faces reach the target
+      // colour instead of everything landing near black. This is what keeps a recoloured
+      // fixture reading as a photograph of metal rather than as a silhouette filled in.
+      const shade = FIXTURE_SHADE_FLOOR + (1 - FIXTURE_SHADE_FLOOR) * (lum / FIXTURE_LUM_CUTOFF);
+      px[i] = tint[0] * shade;
+      px[i + 1] = tint[1] * shade;
+      px[i + 2] = tint[2] * shade;
+      px[i + 3] = 255 * Math.min(1, (FIXTURE_LUM_CUTOFF - lum) / FIXTURE_LUM_FEATHER);
+    }
+    ctx.putImageData(data, 0, 0);
+    out.push({ canvas: c, box });
+  }
+  fixturePatchCache.set(finishId, out);
+  return out;
+}
+
 // ------------------------------ compositing --------------------------------
 
 /** Maps the base scene's normalised coordinates onto the canvas, cover-fitted. */
 type Fit = { scale: number; ox: number; oy: number };
 
 function coverFit(cw: number, ch: number): Fit {
-  const scale = Math.max(cw / HERO_SCENE.width, ch / HERO_SCENE.height);
-  return { scale, ox: (cw - HERO_SCENE.width * scale) / 2, oy: (ch - HERO_SCENE.height * scale) / 2 };
+  const scale = Math.max(cw / SCENE.width, ch / SCENE.height);
+  return { scale, ox: (cw - SCENE.width * scale) / 2, oy: (ch - SCENE.height * scale) / 2 };
 }
 
-const toPx = (p: Point, fit: Fit): Point => [fit.ox + p[0] * HERO_SCENE.width * fit.scale, fit.oy + p[1] * HERO_SCENE.height * fit.scale];
+const toPx = (p: Point, fit: Fit): Point => [fit.ox + p[0] * SCENE.width * fit.scale, fit.oy + p[1] * SCENE.height * fit.scale];
 const quadPx = (q: Quad, fit: Fit): Quad => [toPx(q[0], fit), toPx(q[1], fit), toPx(q[2], fit), toPx(q[3], fit)];
 
 type Paint =
-  | { kind: "texture"; region: Region; img: HTMLImageElement; tileIn: { w: number; h: number } }
-  | { kind: "color"; region: Region; color: string; alpha: number };
+  | { kind: "texture"; region: Region; img: HTMLImageElement; tileIn: { w: number; h: number }; seamIn?: number | null }
+  /**
+   * `mode` overrides the frame blend for this one region. Only the shower base uses it, to
+   * lay black down opaquely; everything else leaves it off and multiplies like the rest.
+   */
+  | { kind: "color"; region: Region; color: string; alpha: number; mode?: GlobalCompositeOperation };
 
 /** One product photo pinned to the scene. `sizeIn` is the product's longest real dimension. */
 export type HeroFixture = { anchor: AnchorId; url: string; sizeIn: number };
 
 type Pin = { cutout: Cutout; anchor: { at: Point; unitPerIn: number }; photoIn: number };
 
+/** Trace a region's clip outlines into the current path, in canvas pixels. */
+function tracePolygons(ctx: CanvasRenderingContext2D, polys: Polygon[], fit: Fit) {
+  ctx.beginPath();
+  for (const poly of polys) {
+    if (poly.length < 3) continue;
+    const [sx, sy] = toPx(poly[0], fit);
+    ctx.moveTo(sx, sy);
+    for (let i = 1; i < poly.length; i++) {
+      const [x, y] = toPx(poly[i], fit);
+      ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+  }
+}
+
 function paintRegion(
   frame: CanvasRenderingContext2D, layer: HTMLCanvasElement, paint: Paint,
-  fit: Fit, blend: "multiply" | "soft", mask?: HTMLCanvasElement,
+  fit: Fit, blend: "multiply" | "soft", mask?: HTMLCanvasElement, clip?: Polygon[],
 ) {
   const lctx = layer.getContext("2d");
   if (!lctx) return;
   lctx.clearRect(0, 0, layer.width, layer.height);
+
+  // Cut the warped surface down to the pixels the region actually occupies. The quad is the
+  // whole flat surface; this is what survived the fixtures standing in front of it. Both are
+  // needed — without it the flooring covers the toilet and the tile covers the shower head,
+  // because a quad has no idea anything is in the way.
+  //
+  // Two forms, one job. The render plate answers with a MASK decoded from its ID pass, applied
+  // after the fact with destination-in. The photo plate answers with hand-traced POLYGONS,
+  // which are cheaper as a clip set before the warp — no second full-canvas bitmap per region,
+  // and no resample of one. Even-odd so a nested outline reads as a hole.
+  lctx.save();
+  if (clip?.length) { tracePolygons(lctx, clip, fit); lctx.clip("evenodd"); }
   for (const face of paint.region.faces) {
-    const surface = paint.kind === "texture" ? buildSurface(paint.img, face, paint.tileIn) : buildColorSurface(paint.color);
+    const surface = paint.kind === "texture" ? buildSurface(paint.img, face, paint.tileIn, paint.seamIn) : buildColorSurface(paint.color);
     warpOntoQuad(lctx, surface, quadPx(face.quad, fit), layer.width, layer.height);
   }
-  // Cut the warped surface down to the pixels the region actually occupies. The quad is the
-  // whole flat surface; the mask is what survived the fixtures standing in front of it. Both
-  // are needed — without this the flooring covers the toilet and the tile covers the shower
-  // head, because a quad has no idea anything is in the way.
+  lctx.restore();
+
   if (mask) {
     lctx.save();
     lctx.globalCompositeOperation = "destination-in";
     lctx.imageSmoothingEnabled = true;
-    lctx.drawImage(mask, fit.ox, fit.oy, HERO_SCENE.width * fit.scale, HERO_SCENE.height * fit.scale);
+    lctx.drawImage(mask, fit.ox, fit.oy, SCENE.width * fit.scale, SCENE.height * fit.scale);
     lctx.restore();
   }
   frame.save();
-  // `soft` exists for materials multiply would crush; see the blend prop.
-  frame.globalCompositeOperation = blend === "soft" ? "source-over" : "multiply";
-  frame.globalAlpha = paint.kind === "color" ? paint.alpha : blend === "soft" ? 0.7 : 1;
+  // `soft` exists for materials multiply would crush; see the blend prop. A paint may also
+  // name its own mode, which wins over both — that is how the black shower base gets laid
+  // down opaquely while every other surface still multiplies.
+  frame.globalCompositeOperation =
+    (paint.kind === "color" && paint.mode) ? paint.mode : blend === "soft" ? "source-over" : "multiply";
+  frame.globalAlpha = paint.kind === "color" ? paint.alpha : blend === "soft" ? 0.7 : TEXTURE_ALPHA;
   frame.drawImage(layer, 0, 0);
   frame.restore();
 }
 
 function pinCutout(frame: CanvasRenderingContext2D, pin: Pin, fit: Fit) {
   const { cutout, anchor, photoIn } = pin;
-  const hPx = anchor.unitPerIn * photoIn * HERO_SCENE.height * fit.scale;
+  const hPx = anchor.unitPerIn * photoIn * SCENE.height * fit.scale;
   const wPx = hPx * (cutout.w / cutout.h);
   const [cx, cy] = toPx(anchor.at, fit);
   frame.save();
@@ -551,14 +1283,22 @@ function pinCutout(frame: CanvasRenderingContext2D, pin: Pin, fit: Fit) {
 
 export function HeroCompositor({
   wallMaterial = null,
+  wallMaterialBack = null,
+  wallMaterialLeft = null,
+  wallMaterialRight = null,
   floorMaterial = null,
   vanityColor = null,
   vanityTopColor = null,
+  vanityTopMaterial = null,
+  showerBaseColor = null,
+  backsplashIn = null,
   fixtureFinish = null,
+  fixtureFinishId = null,
   fixtures = [],
   width,
   height,
   blend = "multiply",
+  showDisclaimer = true,
   className = "",
 }: HeroCompositorProps) {
   const { t } = useLanguage();
@@ -592,15 +1332,33 @@ export function HeroCompositor({
 
   // Selections are flattened to primitives so the render effect re-runs on a real change and
   // not on every parent render that rebuilds an equal object literal.
-  const wallUrl = wallMaterial?.textureUrl ?? null;
-  const wallTileW = wallMaterial?.tileIn?.w ?? DEFAULT_WALL_TILE.w;
-  const wallTileH = wallMaterial?.tileIn?.h ?? DEFAULT_WALL_TILE.h;
+  // Each alcove plane resolves its own material, falling back to the shared one. Flattened to
+  // primitives for the same reason as everything else here: so an equal object rebuilt by the
+  // parent on every render doesn't retrigger a composite.
+  const backMat = wallMaterialBack ?? wallMaterial;
+  const leftMat = wallMaterialLeft ?? wallMaterial;
+  const wallUrl = backMat?.textureUrl ?? null;
+  const wallTileW = backMat?.tileIn?.w ?? DEFAULT_WALL_TILE.w;
+  const wallTileH = backMat?.tileIn?.h ?? DEFAULT_WALL_TILE.h;
+  const wallSeam = backMat?.seamIn ?? null;
+  const wallLeftUrl = leftMat?.textureUrl ?? null;
+  const wallLeftTileW = leftMat?.tileIn?.w ?? DEFAULT_WALL_TILE.w;
+  const wallLeftTileH = leftMat?.tileIn?.h ?? DEFAULT_WALL_TILE.h;
+  const wallLeftSeam = leftMat?.seamIn ?? null;
+  const rightMat = wallMaterialRight ?? wallMaterial;
+  const wallRightUrl = rightMat?.textureUrl ?? null;
+  const wallRightTileW = rightMat?.tileIn?.w ?? DEFAULT_WALL_TILE.w;
+  const wallRightTileH = rightMat?.tileIn?.h ?? DEFAULT_WALL_TILE.h;
+  const wallRightSeam = rightMat?.seamIn ?? null;
   // Fixtures are flattened to a string so an equal list rebuilt by the parent on every render
   // doesn't retrigger a composite; the effect below reads the array itself.
   const fixtureKey = fixtures.map((f) => `${f.anchor}:${f.url}:${f.sizeIn}`).join("|");
   const floorUrl = floorMaterial?.textureUrl ?? null;
   const floorTileW = floorMaterial?.tileIn?.w ?? DEFAULT_FLOOR_TILE.w;
   const floorTileH = floorMaterial?.tileIn?.h ?? DEFAULT_FLOOR_TILE.h;
+  const topUrl = vanityTopMaterial?.textureUrl ?? null;
+  const topTileW = vanityTopMaterial?.tileIn?.w ?? DEFAULT_TOP_TILE.w;
+  const topTileH = vanityTopMaterial?.tileIn?.h ?? DEFAULT_TOP_TILE.h;
 
   const compose = useCallback(async () => {
     const canvas = canvasRef.current;
@@ -608,15 +1366,19 @@ export function HeroCompositor({
     const seq = ++seqRef.current;
     const { w, h } = size;
 
-    const needed = [HERO_SCENE.src, floorUrl, wallUrl, ...fixtures.map((f) => f.url)].filter(Boolean) as string[];
+    const needed = [SCENE.src, floorUrl, wallUrl, wallLeftUrl, wallRightUrl, topUrl, ...fixtures.map((f) => f.url)].filter(Boolean) as string[];
     const uncached = needed.filter((s) => !imageCache.has(s));
     if (uncached.length) setLoading(true);
 
-    const [base, masks, floorImg, wallImg, fixtureImgs] = await Promise.all([
-      loadImage(HERO_SCENE.src),
+    const [base, masks, occluders, floorImg, wallImg, wallLeftImg, wallRightImg, topImg, fixtureImgs] = await Promise.all([
+      loadRepairedPlate(),
       loadMasks(),
+      loadOccluders(),
       floorUrl ? loadImage(floorUrl) : Promise.resolve(null),
       wallUrl ? loadImage(wallUrl) : Promise.resolve(null),
+      wallLeftUrl ? loadImage(wallLeftUrl) : Promise.resolve(null),
+      wallRightUrl ? loadImage(wallRightUrl) : Promise.resolve(null),
+      topUrl ? loadImage(topUrl) : Promise.resolve(null),
       Promise.all(fixtures.map((f) => loadImage(f.url))),
     ]);
     if (seq !== seqRef.current) return;   // a newer selection landed while these were in flight
@@ -631,29 +1393,125 @@ export function HeroCompositor({
     const fctx = frame.getContext("2d");
     if (!fctx) return;
     fctx.imageSmoothingQuality = "high";
-    fctx.drawImage(base, fit.ox, fit.oy, HERO_SCENE.width * fit.scale, HERO_SCENE.height * fit.scale);
+    fctx.drawImage(base, fit.ox, fit.oy, SCENE.width * fit.scale, SCENE.height * fit.scale);
 
     // Floor first, then walls, then fixtures — back to front, so a fixture is never buried
     // under a surface drawn after it.
+    const R = PLATE.regions;
+    const clipFor = (id: RegionId) => PLATE.clips?.[id];
     const layer = makeCanvas(w, h);
-    if (floorImg) paintRegion(fctx, layer, { kind: "texture", region: SCENE_REGIONS.floor, img: floorImg, tileIn: { w: floorTileW, h: floorTileH } }, fit, blend, masks.floor);
-    if (wallImg) paintRegion(fctx, layer, { kind: "texture", region: SCENE_REGIONS.showerArea, img: wallImg, tileIn: { w: wallTileW, h: wallTileH } }, fit, blend, masks.showerArea);
-    // Cabinet and countertop are flat tints rather than textures: the catalogue publishes
-    // both as hex swatches, not as material photography.
-    if (vanityColor) paintRegion(fctx, layer, { kind: "color", region: SCENE_REGIONS.vanityArea, color: vanityColor, alpha: 0.92 }, fit, blend, masks.vanityArea);
-    if (vanityTopColor) paintRegion(fctx, layer, { kind: "color", region: SCENE_REGIONS.vanityTop, color: vanityTopColor, alpha: 0.88 }, fit, blend, masks.vanityTop);
+    if (floorImg) {
+      paintRegion(fctx, layer, { kind: "texture", region: R.floor, img: floorImg, tileIn: { w: floorTileW, h: floorTileH } }, fit, blend, masks.floor, clipFor("floor"));
+      // Contact shadow where the partition's wall face meets the flooring. The flooring now
+      // terminates exactly on that line rather than fading into the wall, and this is what makes
+      // the wall read as standing ON the floor instead of floating above it — the one cue a
+      // clean polygon edge cannot supply on its own.
+      if (PLATE.seams.partitionFloor) paintSeam(fctx, PLATE.seams.partitionFloor, fit);
+    }
+    // The alcove: two planes on the photo plate, one region on the render plate. Branching on
+    // whether the split regions carry geometry keeps the fallback working without a flag test.
+    if (R.showerWallBack.faces.length || R.showerWallLeft.faces.length) {
+      const planes: Array<[Region, HTMLImageElement | null, { w: number; h: number }, number | null, RegionId]> = [
+        [R.showerWallBack, wallImg, { w: wallTileW, h: wallTileH }, wallSeam, "showerWallBack"],
+        [R.showerWallLeft, wallLeftImg, { w: wallLeftTileW, h: wallLeftTileH }, wallLeftSeam, "showerWallLeft"],
+        [R.showerWallRight, wallRightImg, { w: wallRightTileW, h: wallRightTileH }, wallRightSeam, "showerWallRight"],
+      ];
+      for (const [region, img, tileIn, seamIn, id] of planes) {
+        if (img && region.faces.length) {
+          paintRegion(fctx, layer, { kind: "texture", region, img, tileIn, seamIn }, fit, blend, undefined, clipFor(id));
+        }
+      }
+      // The creases, once material is down. Skipped when nothing is painted — there is no
+      // corner to define between two patches of bare plate.
+      const anyWall = !!(wallImg || wallLeftImg || wallRightImg);
+      if (anyWall && PLATE.seams.alcoveInterior) paintSeam(fctx, PLATE.seams.alcoveInterior, fit);
+      if (anyWall && PLATE.seams.alcoveRight) paintSeam(fctx, PLATE.seams.alcoveRight, fit);
+      // One continuous product edge round the alcove. Drawn per plane because each plane's top
+      // is a different line, but they share endpoints at both corners so it reads as one.
+      for (const [region, img] of planes) {
+        if (img && region.faces.length) paintPanelTopEdge(fctx, region.faces[0].quad, fit);
+      }
+    } else if (wallImg) {
+      paintRegion(fctx, layer, { kind: "texture", region: R.showerArea, img: wallImg, tileIn: { w: wallTileW, h: wallTileH }, seamIn: wallSeam }, fit, blend, masks.showerArea, clipFor("showerArea"));
+    }
+    // The shower base is a catalogue colour, not a material — one moulded acrylic pan in four
+    // finishes. White is a no-op: the plate's pan is already white.
+    const basePasses = showerBaseColor ? BASE_TINTS[showerBaseColor] : undefined;
+    for (const pass of basePasses ?? []) {
+      paintRegion(fctx, layer, { kind: "color", region: R.showerFloor, color: pass.color, alpha: pass.alpha, mode: pass.mode }, fit, blend, masks.showerFloor, clipFor("showerFloor"));
+    }
+    // The cabinet is a flat tint — the catalogue publishes door colours as hex swatches, not
+    // as photography. The countertop prefers a real Durasein sheet scan and falls back to its
+    // hex when the colour has no scan behind it.
+    if (vanityColor) paintRegion(fctx, layer, { kind: "color", region: R.vanityArea, color: vanityColor, alpha: 0.92 }, fit, blend, masks.vanityArea, clipFor("vanityArea"));
+    if (topImg) paintRegion(fctx, layer, { kind: "texture", region: R.vanityTop, img: topImg, tileIn: { w: topTileW, h: topTileH } }, fit, blend, masks.vanityTop, clipFor("vanityTop"));
+    else if (vanityTopColor) paintRegion(fctx, layer, { kind: "color", region: R.vanityTop, color: vanityTopColor, alpha: 0.88 }, fit, blend, masks.vanityTop, clipFor("vanityTop"));
+    // The splash is the counter's material carried up the wall, so it follows whatever the
+    // counter resolved to — real scan or hex — rather than deciding for itself.
+    if (backsplashIn && R.vanityBacksplash.faces.length) {
+      const splash = scaleBacksplash(R.vanityBacksplash, backsplashIn);
+      if (topImg) paintRegion(fctx, layer, { kind: "texture", region: splash.region, img: topImg, tileIn: { w: topTileW, h: topTileH } }, fit, blend, undefined, splash.clip);
+      else if (vanityTopColor) paintRegion(fctx, layer, { kind: "color", region: splash.region, color: vanityTopColor, alpha: 0.88 }, fit, blend, undefined, splash.clip);
+      // The splash dies into a wall corner, not into open air. A hairline of shade at that
+      // edge is what stops it reading as a strip floating on the wall.
+    }
+    // The right-side splash: same material as the counter, but not height-scaled — it is a
+    // fixed return against the wall rather than a 4in/6in selection.
+    if (backsplashIn && R.vanitySideSplash.faces.length) {
+      if (topImg) paintRegion(fctx, layer, { kind: "texture", region: R.vanitySideSplash, img: topImg, tileIn: { w: topTileW, h: topTileH } }, fit, blend, undefined, clipFor("vanitySideSplash"));
+      else if (vanityTopColor) paintRegion(fctx, layer, { kind: "color", region: R.vanitySideSplash, color: vanityTopColor, alpha: 0.88 }, fit, blend, undefined, clipFor("vanitySideSplash"));
+    }
 
-    // Fixtures last, over every painted surface. In caller order, so a caller that pins two
-    // overlapping pieces controls which sits on top.
-    fixtures.forEach((f, i) => {
-      const img = fixtureImgs[i];
-      if (!img) return;   // load failed, or the catalogue had no usable photo — modelled fixture stands
-      pinCutout(fctx, {
-        cutout: buildCutout(img, fixtureFinish),
-        anchor: SCENE_ANCHORS[f.anchor],
-        photoIn: f.sizeIn * PHOTO_FRAME_RATIO,
-      }, fit);
-    });
+    // Foreground objects back on top of every material, in one pass. Before the fixtures, so
+    // a recoloured tap still sits above everything; nothing in the mask stands in front of a
+    // fixture, so the order between them is a matter of principle rather than pixels.
+    if (occluders) {
+      fctx.drawImage(occluders, fit.ox, fit.oy, SCENE.width * fit.scale, SCENE.height * fit.scale);
+    }
+
+    // Fixtures last, over every painted surface.
+    //
+    // Two strategies, one per plate. The photo plate RECOLOURS the fixtures it already has,
+    // which is why it ignores `fixtures` entirely: its fixtures are photographed into the
+    // image and look better recoloured than covered. The render plate PINS product photos at
+    // anchors, in caller order so a caller that pins two overlapping pieces controls which
+    // sits on top.
+    if (USE_PHOTO_PLATE) {
+      for (const patch of buildFixturePatches(base, fixtureFinishId ?? "")) {
+        const [x, y, w, h] = patch.box;
+        fctx.drawImage(
+          patch.canvas,
+          fit.ox + x * SCENE.width * fit.scale, fit.oy + y * SCENE.height * fit.scale,
+          w * SCENE.width * fit.scale, h * SCENE.height * fit.scale,
+        );
+      }
+      // The head the plate no longer has. Drawn last of the fixtures so it sits over the wall
+      // material and over its own contact shadow.
+      // Also stale: modeledHead's anchor is the old plate's left return. Phase 3 re-places it.
+      if (FIXTURE_TINT_ENABLED && PLATE.modeledHead) {
+        drawModeledHead(fctx, PLATE.modeledHead, FINISH_TINTS[fixtureFinishId ?? ""] ?? null, fit);
+      }
+    } else {
+      fixtures.forEach((f, i) => {
+        const img = fixtureImgs[i];
+        if (!img) return;   // load failed, or the catalogue had no usable photo — modelled fixture stands
+        pinCutout(fctx, {
+          cutout: buildCutout(img, fixtureFinish),
+          anchor: PLATE.anchors[f.anchor],
+          photoIn: f.sizeIn * PHOTO_FRAME_RATIO,
+        }, fit);
+      });
+    }
+
+    // Warm grade last, over everything including the fixtures, because its whole job is to
+    // put the composited layers and the plate under one light. Applied to the plate's own
+    // rectangle rather than the full canvas so a container wider than the scene doesn't get a
+    // warm band down its letterboxed edges.
+    fctx.save();
+    fctx.globalCompositeOperation = WARM_GRADE.mode;
+    fctx.fillStyle = WARM_GRADE.color;
+    fctx.fillRect(fit.ox, fit.oy, SCENE.width * fit.scale, SCENE.height * fit.scale);
+    fctx.restore();
 
     // ---- present, cross-fading from whatever was on screen ----
     if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; prevRef.current = null; }
@@ -689,8 +1547,12 @@ export function HeroCompositor({
     };
     rafRef.current = requestAnimationFrame(step);
   }, [
-    size, blend, wallUrl, wallTileW, wallTileH, floorUrl, floorTileW, floorTileH,
-    vanityColor, vanityTopColor, fixtureFinish, fixtureKey,
+    size, blend, wallUrl, wallTileW, wallTileH, wallSeam,
+    wallLeftUrl, wallLeftTileW, wallLeftTileH, wallLeftSeam,
+    wallRightUrl, wallRightTileW, wallRightTileH, wallRightSeam,
+    floorUrl, floorTileW, floorTileH,
+    topUrl, topTileW, topTileH, showerBaseColor, backsplashIn,
+    vanityColor, vanityTopColor, fixtureFinish, fixtureFinishId, fixtureKey,
   ]);
 
   useEffect(() => {
@@ -711,6 +1573,18 @@ export function HeroCompositor({
           <span className="h-3 w-3 animate-spin rounded-full border-2 border-line border-t-accent" />
           <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted">{t("configurator.hero.loading")}</span>
         </div>
+      )}
+      {/*
+        Drawn as HTML over the canvas rather than painted into it, so it stays crisp at any
+        device pixel ratio, wraps on a narrow hero, and reads to a screen reader. The scrim is
+        a gradient rather than a box because the corner it sits in is the floor, whose tone
+        changes with the flooring selection — a fixed panel would sometimes be invisible and
+        sometimes look like a sticker.
+      */}
+      {showDisclaimer && !failed && (
+        <p className="pointer-events-none absolute inset-x-0 bottom-0 select-none bg-gradient-to-t from-ink/55 to-transparent px-3 pb-1.5 pt-6 text-right text-[10px] leading-tight text-white/85 sm:text-[11px]">
+          {t("configurator.hero.disclaimer")}
+        </p>
       )}
       {failed && (
         <div className="absolute inset-0 grid place-items-center bg-paper/80 p-4 text-center text-xs text-muted">

@@ -82,3 +82,33 @@ export function getAllDuraseinColors(): DuraseinColor[] {
 export function getDuraseinColor(colorId: string | null | undefined): DuraseinColor | null {
   return colorId ? colorById.get(colorId) ?? null : null;
 }
+
+// ---------------------------- lookup by name --------------------------------
+
+/**
+ * The catalog is keyed by SKU ("DM1001"), but the vanity configurator's countertop swatches
+ * are keyed by a slug of the marketing name ("arctic-white"). They are the same 16 materials
+ * — the vanity list was authored from Durasein's colour names — so this bridges the two
+ * without duplicating the swatch URLs into the vanity module or renaming either set of ids.
+ *
+ * Built eagerly alongside colorById; 64 entries. First registration wins, matching the SKU
+ * index, so a duplicated name cannot shadow the canonical colour.
+ */
+const slugify = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+const colorByNameSlug = new Map<string, DuraseinColor>();
+for (const c of COLLECTIONS.flatMap((c) => c.colors)) {
+  const slug = slugify(c.name);
+  if (!colorByNameSlug.has(slug)) colorByNameSlug.set(slug, c);
+}
+
+/**
+ * One color by a slug of its name ("arctic-white"), or null.
+ *
+ * Returns null rather than guessing when a slug has no match: the caller's fallback is a flat
+ * hex tint, which is a correct-if-plainer answer, whereas a near-miss would paint the wrong
+ * stone onto a customer's countertop.
+ */
+export function getDuraseinColorByNameSlug(slug: string | null | undefined): DuraseinColor | null {
+  return slug ? colorByNameSlug.get(slug) ?? null : null;
+}
