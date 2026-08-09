@@ -70,28 +70,25 @@ const FOLIAGE_MIN = 18;       // ignore near-black pixels, where channel ratios 
 /**
  * Where to key the door hardware, and how dark a pixel must be to count.
  *
- * The boxes mirror fixtureRegions.doorHardware in lib/data/hero-photo-regions.json and the
- * cutoff mirrors FIXTURE_LUM_CUTOFF in the compositor. Kept as literals rather than imported
- * because this script runs standalone against the plate; if either moves, move both. The
- * symptom of them drifting apart is hardware that restores at a different size from the one
- * it tints at, which shows as a dark fringe down one edge of the post.
+ * READ FROM THE REGION JSON rather than copied, which is the change this pass makes. These
+ * used to be nine literals plus a single cutoff of 112 mirroring the compositor's old global,
+ * with a comment warning that if either moved both had to move. Both moved: the compositor's
+ * cutoff is per part now, measured per surface, and duplicating fourteen of them here would be
+ * the same hazard fourteen times over. The symptom of drift is hardware that restores at a
+ * different size from the one it tints at, and over a re-toned shower pan that is not a fringe
+ * but a band of the plate's own WHITE pan restored across a black base — which is most of what
+ * the markup circled as gold streaks.
  *
- * The post's box runs the FULL height here, unlike its tint box, which stops at y=65.5 to stay
- * off the plant. The mask has no such constraint: restoring the post from behind the leaves is
- * correct, and the foliage key restores the leaves over it in the same pass.
+ * The post is the one part whose mask box differs from its tint box: the tint stops at y=65.5
+ * to stay off the plant, and the mask has no such constraint — restoring the post from behind
+ * the leaves is correct, and the foliage key puts the leaves back over it in the same pass.
  */
-const DARK_CUTOFF = 112;
-const DARK_BOXES = [
-  [15.75, 10.20, 0.85, 86.30],   // post, full height
-  [16.40, 13.60, 6.70, 2.50],    // track rail: four stepped spans following its 0.0935 fall
-  [23.10, 14.20, 7.90, 2.80],
-  [31.00, 15.00, 7.00, 2.70],
-  [38.00, 15.70, 7.85, 2.95],
-  [32.10, 12.50, 1.40, 9.00],    // left hanger, wheel + stem
-  [42.70, 12.30, 3.15, 10.20],   // right hanger + the track's end stop
-  [43.95, 46.50, 0.95, 16.30],   // handle
-  [30.80, 92.30, 15.10, 2.40],   // bottom rail / floor guide
-];
+const REGIONS = JSON.parse(readFileSync(join(ROOT, "lib/data/hero-photo-regions.json"), "utf8"));
+const DARK_PARTS = REGIONS.fixtureRegions.doorHardware.parts.map((p) => {
+  const box = p.box.slice();
+  if (/post/.test(p._what)) box[3] = 86.30;
+  return { box, cutoff: p.cutoff };
+});
 
 /** Solid occluders, traced clockwise. Percentages of the plate. */
 const OCCLUDERS = {
@@ -110,10 +107,20 @@ const OCCLUDERS = {
   // brightness scan: the seat's leftmost bright pixel sits at x=73.3 on row y=78.6. That is
   // the number that matters — it reaches 4% inside the vanity cabinet's right end at x=77.3,
   // and it is what was painting a wedge of cabinet colour across the bowl before this existed.
+  //
+  // THE PEDESTAL IS NARROWER THAN THE BOWL, and this pass adds the two vertices that say so.
+  // Below the bowl's underside the porcelain steps in: the strongest horizontal rise per row
+  // from y=89 to y=100 fits x = 83.7336 - 0.08871y with a worst residual of 0.63, i.e. 75.6 at
+  // y=91 falling to 74.8 at the frame's edge. The old outline ran straight down at 73.6-74.2,
+  // up to 2.1% of plate width WIDE OF THE PORCELAIN, so it restored the plate's own floor and
+  // the toilet's contact shadow along with it. Over a dark plank that reads as a bright halo
+  // round the foot — the opposite of a shadow, and why the toilet appeared to float. Pulled in,
+  // the flooring paints up to the porcelain and multiply carries the plate's shadow through it,
+  // which is the same mechanism that already puts a shadow under the vanity's toe kick.
   toilet: [
     [80.9, 60.3], [90.5, 60.2], [90.5, 63.5], [89.3, 81.5],
-    [85.5, 84.5], [83.6, 90.0], [82.6, 101],
-    [74.2, 101], [73.6, 90.0], [73.0, 81.0], [73.2, 78.2],
+    [85.5, 84.5], [84.0, 90.0], [87.5, 93.0], [87.4, 101],
+    [74.9, 101], [75.6, 91.0], [73.6, 90.0], [73.0, 81.0], [73.2, 78.2],
     [76.0, 76.6], [80.5, 76.4], [80.7, 63.0],
   ],
   // Hangs from the bar beside the toilet, over the wall and over the right end of the counter
@@ -127,8 +134,19 @@ const OCCLUDERS = {
   ],
 };
 
-/** Alpha-blur passes. Each is a 3x3 box blur; two gives roughly a 1.5px feather. */
+/**
+ * Alpha-blur passes. Each is a 3x3 box blur; two gives roughly a 1.5px feather either side.
+ *
+ * The HARDWARE gets one pass, not two, and is feathered in its own layer. A soft edge is right
+ * for a fern and for the traced solids — they are big and their outlines are approximate — but
+ * the hardware is thin: the bottom rail is ONE plate pixel, so two box blurs turn its key into
+ * a band five pixels wide, and every one of those pixels restores the plate. Measured on the
+ * old mask, the rail's key ran 4-5 pixels of high alpha diagonally across the pan; over a black
+ * base that put the plate's white pan back in a stripe, and the finish tint then landed on top
+ * of it. One pass keeps the restore on the metal.
+ */
 const FEATHER_PASSES = 2;
+const HARDWARE_FEATHER_PASSES = 1;
 
 const plate = readFileSync(PLATE);
 const W = plate.readUInt32BE(16), H = plate.readUInt32BE(20);
@@ -140,7 +158,7 @@ await page.goto("about:blank");
 
 const dataUrl = await page.evaluate(async (args) => {
   const { src, W, H, FOLIAGE_BOX, FOLIAGE_RATIO, FOLIAGE_MIN, OCCLUDERS, FEATHER_PASSES,
-          DARK_BOXES, DARK_CUTOFF } = args;
+          DARK_PARTS, HARDWARE_FEATHER_PASSES } = args;
 
   const img = await new Promise((res, rej) => {
     const i = new Image();
@@ -191,45 +209,58 @@ const dataUrl = await page.evaluate(async (args) => {
     }
   }
 
-  // 3. Door hardware, keyed on luminosity inside its boxes. Same pass over the same ImageData
-  //    as the foliage, so the two keys cannot disagree about what is already set.
+  octx.putImageData(mask, 0, 0);
+
+  /** One 3x3 box blur over an alpha-only array. */
+  const blur = (a) => {
+    const copy = new Uint8ClampedArray(a);
+    for (let y = 1; y < H - 1; y++) {
+      for (let x = 1; x < W - 1; x++) {
+        let sum = 0;
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+          sum += copy[(y + dy) * W + (x + dx)];
+        }
+        a[y * W + x] = sum / 9;
+      }
+    }
+  };
+
+  // 3. Feather the polygons and the foliage. Big, soft-edged things: two passes.
+  let soft = new Uint8ClampedArray(W * H);
+  for (let k = 0; k < W * H; k++) soft[k] = m[k * 4 + 3];
+  for (let pass = 0; pass < FEATHER_PASSES; pass++) blur(soft);
+
+  // 4. Door hardware, keyed on luminosity inside its boxes at EACH PART'S OWN cutoff, into a
+  //    layer of its own so it can be feathered less. Thin metal wants a tight restore: the
+  //    bottom rail is one plate pixel and two blurs would spread its key across five.
+  const hard = new Uint8ClampedArray(W * H);
   let hardware = 0;
-  for (const [bx, by, bw, bh] of DARK_BOXES) {
+  for (const { box: [bx, by, bw, bh], cutoff } of DARK_PARTS) {
     const x0 = Math.max(0, Math.round((bx / 100) * W)), x1 = Math.min(W, Math.round(((bx + bw) / 100) * W));
     const y0 = Math.max(0, Math.round((by / 100) * H)), y1 = Math.min(H, Math.round(((by + bh) / 100) * H));
     for (let y = y0; y < y1; y++) {
       for (let x = x0; x < x1; x++) {
         const i = (y * W + x) * 4;
         const lum = 0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2];
-        if (lum < DARK_CUTOFF) {
-          if (m[i + 3] !== 255) hardware++;
-          m[i] = 0; m[i + 1] = 0; m[i + 2] = 0; m[i + 3] = 255;
+        if (lum < cutoff) {
+          if (hard[y * W + x] !== 255) hardware++;
+          hard[y * W + x] = 255;
         }
       }
     }
   }
-  octx.putImageData(mask, 0, 0);
+  for (let pass = 0; pass < HARDWARE_FEATHER_PASSES; pass++) blur(hard);
 
-  // 4. Feather the alpha so restored objects don't have a cut edge.
-  for (let pass = 0; pass < FEATHER_PASSES; pass++) {
-    const d = octx.getImageData(0, 0, W, H);
-    const a = d.data;
-    const copy = new Uint8ClampedArray(a.length);
-    copy.set(a);
-    for (let y = 1; y < H - 1; y++) {
-      for (let x = 1; x < W - 1; x++) {
-        const i = (y * W + x) * 4;
-        let sum = 0;
-        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
-          sum += copy[((y + dy) * W + (x + dx)) * 4 + 3];
-        }
-        a[i + 3] = sum / 9;
-        // Keep RGB black everywhere so a partly-transparent edge tints nothing.
-        a[i] = 0; a[i + 1] = 0; a[i + 2] = 0;
-      }
-    }
-    octx.putImageData(d, 0, 0);
+  // 5. Combine by MAX. Whichever layer claims a pixel more strongly wins, so hardware crossing
+  //    foliage keeps the foliage's own restore rather than cutting a hole in it.
+  const d = octx.getImageData(0, 0, W, H);
+  const a = d.data;
+  for (let k = 0; k < W * H; k++) {
+    // RGB stays black everywhere so a partly-transparent edge tints nothing.
+    a[k * 4] = 0; a[k * 4 + 1] = 0; a[k * 4 + 2] = 0;
+    a[k * 4 + 3] = Math.max(soft[k], hard[k]);
   }
+  octx.putImageData(d, 0, 0);
 
   // Coverage, for the console line.
   const fin = octx.getImageData(0, 0, W, H).data;
@@ -238,7 +269,7 @@ const dataUrl = await page.evaluate(async (args) => {
 
   return { url: out.toDataURL("image/png"), keyed, hardware, opaque, total: W * H };
 }, { src: uri, W, H, FOLIAGE_BOX, FOLIAGE_RATIO, FOLIAGE_MIN, OCCLUDERS, FEATHER_PASSES,
-     DARK_BOXES, DARK_CUTOFF });
+     DARK_PARTS, HARDWARE_FEATHER_PASSES });
 
 await browser.close();
 

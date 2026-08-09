@@ -148,11 +148,11 @@
         "quad": [
           [
             49.14,
-            59.62
+            59.11
           ],
           [
             76.71,
-            58.82
+            58.28
           ],
           [
             76.71,
@@ -199,11 +199,11 @@
             51.78
           ],
           [
-            77.08,
+            77.33,
             51.75
           ],
           [
-            77.08,
+            77.33,
             56.07
           ],
           [
@@ -211,35 +211,11 @@
             56.6
           ]
         ],
-        "widthIn": 60.5,
+        "widthIn": 61,
         "heightIn": 4
       }
     ],
     "_backsplash_ends": "LEFT: the splash, the counter and the cabinet's reveal all start on the partition's face at x=49.14. There is no return at that end — the splash dies into the wall. RIGHT, and this is the miter the markup circled: the splash's front face ends at x=77.08 and a RETURN one to two plate pixels wide occupies 77.08 to 77.33, reading as a hard dark column (luminance 66-79 against 103-125 on the wood side and 124-141 on the wall side) with a rounded top at y=52.0 and running the full height of the splash and the counter. The previous side splash was authored 77.3 to 78.1, which is the whole 0.8% to the RIGHT of the return — it painted counter material onto bare wall beside the towel, which is why it read as floating. Both pieces now share the line x=77.08 exactly, so the miter has one edge and no overlap; the splashCorner seam draws the joint. The return is 0.25% of plate width for a 4in-deep piece, i.e. foreshortened to about 5% — the camera is very nearly in its plane, which is also why it is dark: no light reaches that face.",
-    "vanitySideSplash": [
-      {
-        "quad": [
-          [
-            77.08,
-            51.75
-          ],
-          [
-            77.33,
-            51.9
-          ],
-          [
-            77.33,
-            56.16
-          ],
-          [
-            77.08,
-            56.07
-          ]
-        ],
-        "widthIn": 4,
-        "heightIn": 4
-      }
-    ],
     "vanityTop": [
       {
         "quad": [
@@ -289,7 +265,9 @@
         "heightIn": 1.25
       }
     ],
-    "_backsplash_note": "THE PLATE HAS A SPLASH, and two passes were authored on the assumption that it does not. It is 4.82% of plate height of the same wood as the counter, standing on the counter's back edge from y=51.78 down to 56.60 at the left end, and it is separated from the counter's lit top surface by a luminance step of 30 to 40 units at every column. The reason it was missed is that the whole assembly reads as one warm band in luminance — splash 163-182, nosing 146-178 — and only splits cleanly in the warmth channel and on the step at B2. What the region draws is therefore the plate's own splash recoloured, not an invented one, which is why its bottom edge sitting 0.8% high was visible as a gap rather than as a slightly short splash. HEIGHT SCALING is unchanged in principle: the region is authored at 4in and the compositor scales it about its bottom edge, so a 6in selection stands half again as tall. Above the plate's own 4in the extra band lands on wall rather than on wood and reads a shade cooler; that is inherent in drawing a taller splash than the photograph has, and it is the same trade the 6in option has always made."
+    "_backsplash_note": "THE PLATE HAS A SPLASH, and two passes were authored on the assumption that it does not. It is 4.82% of plate height of the same wood as the counter, standing on the counter's back edge from y=51.78 down to 56.60 at the left end, and it is separated from the counter's lit top surface by a luminance step of 30 to 40 units at every column. The reason it was missed is that the whole assembly reads as one warm band in luminance — splash 163-182, nosing 146-178 — and only splits cleanly in the warmth channel and on the step at B2. What the region draws is therefore the plate's own splash recoloured, not an invented one, which is why its bottom edge sitting 0.8% high was visible as a gap rather than as a slightly short splash. HEIGHT SCALING is unchanged in principle: the region is authored at 4in and the compositor scales it about its bottom edge, so a 6in selection stands half again as tall. Above the plate's own 4in the extra band lands on wall rather than on wood and reads a shade cooler; that is inherent in drawing a taller splash than the photograph has, and it is the same trade the 6in option has always made.",
+    "_vanity_top_gap_note": "THE SHADOW BAND UNDER THE COUNTER used to be left as plate — the cabinet face began at y = 61.058 - 0.02917x, half a percent below the counter wood bottom at B4 = 60.581 - 0.02995x. A coverage sweep found it: rendering the plate under two configurations whose every selection differs and diffing them, the band x 49.5-76.0 y 58.3-59.5 came out identical in both, which means no material touched it. Left as plate it inverts the same way the toe recess and the left reveal did — in the PHOTOGRAPH it is the darkest thing between the counter and the cabinet, and once the cabinet is tinted dark it becomes the lightest. The face now starts on B4, so the shadow takes the cabinet colour and multiply keeps it proportionally dark.",
+    "_side_splash_dropped": "THE SIDE SPLASH IS GONE, and what it was drawing is now drawn by the back splash plus multiply. The return is real — a hard dark column at x 77.20-77.34, luminance 66-79 against 103-125 on the wood side and 124-141 on the wall side — but it is TWO PLATE PIXELS wide, 0.25% of plate width for a 4in piece seen at about five degrees off its own plane. A face that narrow cannot carry a texture: the compositor built it a surface canvas clamped to the minimum, warped a 0.25%-wide sample of the counter scan onto it, and what came out was the sheet grain smeared vertically down a bright sliver standing proud of the splash beside it. That is the artifact in the markup. The back splash now runs the full 49.14 to 77.33 and the plate does the rest: its own dark return column survives multiply, so the return reads as a shaded return rather than a lit one, and the splashCorner seam at x=77.08 draws the joint. One region fewer, no sliver, and the read comes from a measurement instead of from a texture sample too small to mean anything."
   },
   "_clip_note": "Where a texture is ALLOWED to land, as against the quad which says how it warps. This plate has no rendered ID mask (the Three.js scene had one), so occlusion is hand-traced instead. First polygon of each list is the outer boundary; a polygon nested inside another punches a hole, via the even-odd fill rule. A HOLE MUST LIE ENTIRELY INSIDE ITS OUTER POLYGON — even-odd counts crossings, so any part of a hole that pokes out the other side flips back to filled and paints where nothing should. That is why the plant cut-out below stops just short of the wall's bottom edge instead of running past it. Traced deliberately tight: under-covering leaves a sliver of plate showing, which reads as shadow; over-covering smears material across a plant or a toilet, which reads as broken.",
   "_plant_note": "The plant cut-out in backWall is the one place a polygon is the wrong tool. A fern has no outline, so this is a compromise between two visible failures: too tight and wall material paints stripes across the leaves, too loose and a grey wedge of bare plate opens up beside them. It is tuned to hug the dense core and let the sparse outer fronds take a little bleed, because bleed on a few leaf tips reads as shadow while the grey wedge reads as a hole. A per-pixel mask keyed off the foliage's green would beat this outright and is the obvious next step if it ever needs to be better.",
@@ -406,7 +384,7 @@
         ],
         [
           101,
-          92.5
+          91.7
         ],
         [
           101,
@@ -422,11 +400,11 @@
       [
         [
           49.14,
-          59.62
+          59.11
         ],
         [
           76.71,
-          58.82
+          58.28
         ],
         [
           76.71,
@@ -503,36 +481,16 @@
           51.78
         ],
         [
-          77.08,
+          77.33,
           51.75
         ],
         [
-          77.08,
+          77.33,
           56.07
         ],
         [
           49.14,
           56.6
-        ]
-      ]
-    ],
-    "vanitySideSplash": [
-      [
-        [
-          77.08,
-          51.75
-        ],
-        [
-          77.33,
-          51.9
-        ],
-        [
-          77.33,
-          56.16
-        ],
-        [
-          77.08,
-          56.07
         ]
       ]
     ]
@@ -644,105 +602,186 @@
       "strength": 0.07
     }
   },
-  "_fixture_note": "Boxes around the plate's baked-in matte-black hardware, for recolouring it to the dealer's selected finish. Given as [x, y, w, h] in plate percentages, GROUPED: a group is one finish choice, and it carries a list of boxes because the sliding door's hardware is one choice spread over nine separate pieces of metal. The tint only touches pixels below a luminosity cutoff of 112, so wall, counter and cast shadow inside a box are left alone — which is what makes a slightly generous box safe. It is NOT safe when something else dark falls inside, and on this plate that is the real constraint: the head, the track and the valve are close enough that one loose box catches its neighbour. Every number below was found by counting sub-cutoff pixels per column and per row across a search window, then reading the clusters off, not by eye.",
+  "_fixture_note": "Boxes around the plate's baked-in matte-black hardware, for recolouring it to the dealer's selected finish. A group is one finish CHOICE and carries a list of PARTS, because the sliding door's hardware is one choice spread over fourteen separate pieces of metal. Each part is a box in plate percentages [x, y, w, h] plus the two numbers that decide which of its pixels are metal. CUTOFF AND FEATHER ARE PER PART, and that is the correction this pass makes. They used to be two globals — 112 and 12 — and 112 was above the fixture/background valley for EVERY group on this plate, which is why bright finishes smeared: the boxes were tinting the surface the fixture sits on as well as the fixture. Measured by Otsu on each part's own luminance histogram, computed twice — on the box alone, which biases low where the part nearly fills its box, and on the box grown by 0.6%, which biases high where it does not — and averaged. The valleys land between 77 and 109 depending on what the part sits on: 87 for the faucet against a lit countertop, 104 for the track span that crosses the door's glass lap, 109 for the left hanger. FEATHER is 0.35 of the span from the cutoff down to the part's own 5th-percentile core, so the alpha ramp covers roughly the antialiased rim rather than a fixed twelve units. It is deliberately not wider: at half the span the fixture's own mid-tones go part-transparent and the wall shows through the metal, which is what a previous pass hit at 26 against the old cutoff. MATTE BLACK IS UNAFFECTED by any of this — it has no entry in FINISH_TINTS, so no patch is built at all and the plate shows through untouched.",
   "_fixture_valve_note": "TWO TIGHT BOXES, not one loose one, and the reason is a shape rather than a bleed. Counting sub-cutoff pixels per column across x 18.0-23.0 at y 47.5-58.0: nothing at all until 18.75, then 18 to 27 per column from 18.88 to 20.15 — a dense vertical plate — then a sparse 3 to 10 per column from 20.28 to 22.07, then nothing from 22.19. Per row over the same window: 4 to 16 through most of the height but 20 to 27 across y 51.79 to 52.98. So the escutcheon is a tall narrow oval and the lever is a short horizontal bar crossing its right-hand side, and the single 3.7 x 8.6 box that used to cover both was three-quarters empty. The empty part was harmless — those pixels sit above the cutoff and tint nothing — but it is not what the box was for, and a box that is mostly empty is a box nobody can check. HOW MUCH OF THE BLOB THIS FIXES: not much on its own, which the render confirms. The blob is a TONAL problem, not a footprint one — see the shade normalisation in the compositor. What the tight boxes buy is that the soft shading around the fixture, which runs 80 to 112 and is not metal, is now mostly outside the boxes rather than inside them being recoloured to nearly full strength.",
   "_fixture_faucet_note": "The lavatory faucet is two boxes, not one, because a full-width box spanning the spout's height also spans the hard shadow line under the mirror frame at y=48.5 — 44 of 49 pixels across that row sit below the cutoff, so the whole line recoloured and the vanity grew a gold stripe above the tap. The spout gets its own narrow box through that band; the wide box picks up below it, where the handles are and the mirror's shadow is not.",
   "_fixture_head_note": "The back-wall head region is GONE. The plate's baked-in head and its cast shadow are now painted out by plateRepairs before anything composites, and a modelled head is drawn on the LEFT return instead — see modeledHead. Leaving a tint box on the back wall would recolour a fixture that is no longer there.",
   "fixtureRegions": {
-    "showerHead": [
-      [
-        19,
-        17.1,
-        4.3,
-        6.8
+    "showerHead": {
+      "parts": [
+        {
+          "box": [
+            19,
+            17.1,
+            4.3,
+            6.8
+          ],
+          "cutoff": 94,
+          "feather": 27,
+          "_what": "flange, arm and face, on the left return"
+        }
       ]
-    ],
-    "valveTrim": [
-      [
-        18.82,
-        48.4,
-        1.4,
-        8.1
-      ],
-      [
-        20.22,
-        51.5,
-        1.92,
-        1.9
+    },
+    "valveTrim": {
+      "parts": [
+        {
+          "box": [
+            18.82,
+            48.4,
+            1.4,
+            8.1
+          ],
+          "cutoff": 88,
+          "feather": 24,
+          "_what": "escutcheon — a tall oval plate, 18-27 sub-cutoff pixels per column"
+        },
+        {
+          "box": [
+            20.22,
+            51.5,
+            1.92,
+            1.9
+          ],
+          "cutoff": 80,
+          "feather": 19,
+          "_what": "lever — a short horizontal bar crossing the escutcheon's right side"
+        }
       ]
-    ],
-    "sinkFaucet": [
-      [
-        58.2,
-        48.7,
-        6.3,
-        7.6
+    },
+    "sinkFaucet": {
+      "parts": [
+        {
+          "box": [
+            58.2,
+            48.7,
+            6.3,
+            7.6
+          ],
+          "cutoff": 87,
+          "feather": 25,
+          "_what": "spout and both handles; the vertical gap between them tints nothing"
+        }
       ]
-    ],
-    "doorHardware": [
-      [
-        15.75,
-        10.2,
-        0.85,
-        55.3
-      ],
-      [
-        16.4,
-        13.6,
-        6.7,
-        2.5
-      ],
-      [
-        23.1,
-        14.2,
-        7.9,
-        2.8
-      ],
-      [
-        31,
-        15,
-        7,
-        2.7
-      ],
-      [
-        38,
-        15.7,
-        7.85,
-        2.95
-      ],
-      [
-        32.1,
-        12.5,
-        1.4,
-        9
-      ],
-      [
-        42.7,
-        12.3,
-        3.15,
-        10.2
-      ],
-      [
-        43.95,
-        46.5,
-        0.95,
-        16.3
-      ],
-      [
-        30.8,
-        92.3,
-        15.1,
-        2.4
+    },
+    "doorHardware": {
+      "parts": [
+        {
+          "box": [
+            15.75,
+            10.2,
+            0.85,
+            55.3
+          ],
+          "cutoff": 85,
+          "feather": 27,
+          "_what": "post — capped at y=65.5 where the plant crosses it"
+        },
+        {
+          "box": [
+            16.4,
+            13.6,
+            6.7,
+            2.5
+          ],
+          "cutoff": 95,
+          "feather": 26,
+          "_what": "track span 1"
+        },
+        {
+          "box": [
+            23.1,
+            14.2,
+            7.9,
+            2.8
+          ],
+          "cutoff": 93,
+          "feather": 25,
+          "_what": "track span 2"
+        },
+        {
+          "box": [
+            31,
+            15,
+            7,
+            2.7
+          ],
+          "cutoff": 104,
+          "feather": 30,
+          "_what": "track span 3 — over the glass lap, so its background is darker"
+        },
+        {
+          "box": [
+            38,
+            15.7,
+            7.85,
+            2.95
+          ],
+          "cutoff": 92,
+          "feather": 26,
+          "_what": "track span 4, reaching the end stop at 45.85"
+        },
+        {
+          "box": [
+            32.1,
+            12.5,
+            1.4,
+            9
+          ],
+          "cutoff": 109,
+          "feather": 33,
+          "_what": "left hanger — wheel and stem"
+        },
+        {
+          "box": [
+            42.7,
+            12.3,
+            3.15,
+            10.2
+          ],
+          "cutoff": 87,
+          "feather": 25,
+          "_what": "right hanger"
+        },
+        {
+          "box": [
+            43.95,
+            46.5,
+            0.95,
+            16.3
+          ],
+          "cutoff": 87,
+          "feather": 24,
+          "_what": "handle"
+        },
+        {
+          "box": [
+            30.8,
+            92.3,
+            15.1,
+            2.4
+          ],
+          "cutoff": 85,
+          "feather": 25,
+          "_what": "bottom rail and the door bottom guide, over the pan",
+          "shade": 0.78
+        }
       ]
-    ],
-    "vanitySconce": [
-      [
-        56.1,
-        6.6,
-        10.8,
-        6
+    },
+    "vanitySconce": {
+      "parts": [
+        {
+          "box": [
+            56.1,
+            6.6,
+            10.8,
+            6
+          ],
+          "cutoff": 97,
+          "feather": 31,
+          "_what": "arm, backplate and three sockets; stops above the bulbs"
+        }
       ]
-    ]
+    }
   },
   "_anchor_note": "The anchors below are used ONLY by the Three.js fallback plate and are stale against this photo plate; the photo plate recolours the baked-in fixtures above instead of pinning product photographs. They are kept because that fallback still pins photos, and because the measurements are the record of where the plate's fixtures actually are. The plate has matte-black fixtures baked in. A product photo is pinned OVER each one and has to cover it outright, because multiply can darken the black blob but can never erase it. unitPerIn is therefore sized from the measured pixel footprint of the baked-in fixture, not from room geometry — this plate is generative and is not dimensionally consistent (solving its shower head and valve heights together puts the floor at 115% of frame).",
   "_anchor_sizing": "Solve unitPerIn = targetWidthFraction * plateAspect / (sizeIn * PHOTO_FRAME_RATIO * contentFraction), where plateAspect is 784/336 = 2.3333 and targetWidthFraction is the product's wanted width as a fraction of plate WIDTH. contentFraction is the share of the catalog frame the product actually fills, and it is the term that matters: scripts/measure-fixtures.mjs finds these three shots filling 94-100% of their frame, NOT the 1/1.5 that PHOTO_FRAME_RATIO assumes, so every overlay drew about 1.5x too large until this was measured rather than trusted. PHOTO_FRAME_RATIO is left at 1.5 because the Three.js plate's anchors were tuned around it and changing it would silently resize the fallback; it is divided back out here instead. Re-run measure-fixtures.mjs if the catalogue's crop ever changes. sizeIn is whatever the caller resolves from the component catalogue — 6in shower head, 6.5in trim, 8.9in faucet.",
@@ -835,5 +874,37 @@
       ]
     }
   },
-  "_door_glass_top_note": "THE TOP EDGE IS AT THE TRACK RAIL'S UNDERSIDE, not at the glazing's real head. Measured, the glass runs up to the line y = 8.564 + 0.10716x — the horizontal that Phase 1 found on the door plane and could not place. Carrying the polygon up there was tried and rejected on the render: it puts a hard tonal step straight across open wall at y 11-13, three percent above the rail, and reads as a horizontal seam ruled across the panels rather than as the top of a pane. Anchored instead at y = 15.55 + 0.0935(x - 18.5), the rail's own lower edge, the transition lands where the picture already has a line and reads as the shadow under the track. The cost is that the 3% band of genuinely glazed wall above the rail is not screened; it is mostly covered by the rail and the panel's top-edge treatment, and nothing in it reads as wrong."
+  "_door_glass_top_note": "THE TOP EDGE IS AT THE TRACK RAIL'S UNDERSIDE, not at the glazing's real head. Measured, the glass runs up to the line y = 8.564 + 0.10716x — the horizontal that Phase 1 found on the door plane and could not place. Carrying the polygon up there was tried and rejected on the render: it puts a hard tonal step straight across open wall at y 11-13, three percent above the rail, and reads as a horizontal seam ruled across the panels rather than as the top of a pane. Anchored instead at y = 15.55 + 0.0935(x - 18.5), the rail's own lower edge, the transition lands where the picture already has a line and reads as the shadow under the track. The cost is that the 3% band of genuinely glazed wall above the rail is not screened; it is mostly covered by the rail and the panel's top-edge treatment, and nothing in it reads as wrong.",
+  "_fixture_shadow_note": "WHAT WAS IN THE BOXES THAT WAS NOT METAL, since that is the whole of this pass's fixture work. Classifying every sub-cutoff pixel by chromaticity: the plate's wall is (165,158,144), B/R = 0.873, and a shadow cast on it is that colour scaled down, so it keeps B/R. Matte-black metal reads B/R = 0.65 at its core. Binning the shower head's box by luminance walks straight between them — 0.652 at 0-25, 0.765 at 25-45, 0.793 at 45-65, 0.850 at 65-85, 0.864 at 85-112 — which says the bright end of the old cutoff range was not a separate population of shadow pixels but the fixture's own soft edge blending into the wall. THAT MATTERS: it means a chromaticity guard would have been the wrong mechanism, because B/R here is not independent evidence, it is coverage restated. The single-channel fact is that the plate's fixtures are blurry at 784px and their edges are a genuine mix, so the only honest control is WHERE the alpha ramp starts and how wide it is. The one group where a separate population really did exist is the bottom rail — see _fixture_rail_note. Reported splits, sub-cutoff pixels inside the old boxes at the old 112 cutoff: head 258, of which the 85-112 band (49 px, 19%) is edge blend reading as darkened wall; valve 335 across two boxes with essentially no background at all, the tightening two passes ago having already dealt with it; faucet 317, of which the 85-112 band is 80 px, 25%, and those sit on the COUNTER (B/R 0.588) not the wall, which is why the faucet smeared a bar of chrome across the backsplash; track spans 1093, 85-112 band about 20% each; bottom rail 279, of which more than half was pan.",
+  "_fixture_rail_note": "THE GOLD STREAKS IN THE PAN, and it took three wrong answers to find the two right ones. THE RAIL: measured per column as the darkest run either side of a fitted line, the door's bottom rail runs from (30.9, 94.25) to (45.8, 92.60) on y = 97.5879 - 0.10899x, worst residual 0.435, MEAN THICKNESS 0.378% of plate height — ONE PLATE PIXEL. WRONG ANSWER 1, the obvious one: its box is axis-aligned and 2.4% tall, so five sixths of it is pan, and the pan's shading must be leaking through. It is not. Counting sub-cutoff pixels inside the box against distance from the fitted line, even at the old 112 cutoff only 45 of 279 are off the rail, and 25 of those are the door's own bottom guide bracket. WRONG ANSWER 2: replace the one box with stepped spans following the line. Tried at five spans and at ten. It made things WORSE, and the reason is diagnostic — the tinted bar came out exactly as tall as the boxes, which means the boxes were nearly full, which means the box was never what was limiting the bar. RIGHT ANSWER A, the light patches: the OCCLUSION MASK. It keyed the hardware at a cutoff of 112 copied from the compositor's old global and then feathered it with the same two box blurs the foliage gets. On a one-pixel rail that produces a band of high alpha four to five pixels wide running diagonally across the pan, and the mask restores the PLATE — so over a re-toned black base it painted the original WHITE pan back in a stripe, with the finish tint landing on top. The mask now reads its boxes and cutoffs from these parts instead of copying them, and feathers hardware in its own layer with one pass. RIGHT ANSWER B, the dashes: THE TONE STRETCH. The group stretch maps the group's 5th to 95th percentile across the shade range, which is what makes a shower head read as metal. Along this rail's centreline the plate's luminance swings 22 to 46 — compression noise on a one-pixel feature, not modelling — and the stretch turned that into a rendered swing of 80 to 150, i.e. the dashed line. The part now carries a fixed shade of 0.78 and opts out. WHAT IS LEFT is the plate's own rasterisation: a one-pixel line falling one pixel every twenty-one shows its staircase at 3x magnification whatever is done to it. At the hero's own size it reads as a rail.",
+  "_shower_base_note": "HOW A CATALOGUE COLOUR IS PUT ONTO THE PLATE'S WHITE PAN, and why it is not a multiply any more. THE PROBLEM, measured: sampling the pan floor and curb inside their own polygons, the plate runs p25=143, p50=160, p95=184 — a 41-unit working range carrying the curb highlight, the fall across the pan floor and the drain. Rendered, the share of that range surviving the tint was 0.98 for white (a no-op), 0.89 for beige, 0.73 for grey and 0.29 FOR BLACK. Black lost seven tenths of the pan's modelling, which is the flat muddy hole the markup circled. THE OLD MECHANISM made that inevitable: multiply to a mid grey, then lay the target black over it at 62% opacity — and that second pass is an opaque fill, so it throws away 62% of whatever contrast the first pass preserved. WHAT THE MULTIPLY GETS WRONG PHYSICALLY: a pan's brightness is diffuse reflection plus specular gloss, and only the DIFFUSE part scales with the base colour. Acrylic is glossy whatever colour it is moulded in, so a black pan keeps its highlights nearly whole while its body goes dark. A plain multiply scales both, taking the highlights down with the body, and mud is the only place that can land. THE MODEL: out = factor * L + spec * max(0, L - knee), per channel. `factor` is the catalogue colour over the WHITE pan's own hex rather than over 255 — the plate photographs a white pan at a median of 160, so 160 is what white looks like under this light and every other colour is a ratio against it. `knee` is 169, the pan's own p75, where the diffuse field ends and the gloss begins. `spec` is how much of that gloss survives, and it rises as the colour darkens because that is where the highlight is doing all the work. Tuned by render at the values below. WHITE HAS NO ENTRY and is a no-op: the plate is already a white pan and painting it could only dull it. Applied as a 1:1 recolour of the plate's own pan pixels clipped to the pan polygons, not as a warped surface — there is no texture to map here, only the photograph to re-tone.",
+  "showerBaseTints": {
+    "beige": {
+      "factor": [
+        0.889,
+        0.855,
+        0.798
+      ],
+      "knee": 169,
+      "spec": 0.2
+    },
+    "grey": {
+      "factor": [
+        0.689,
+        0.694,
+        0.685
+      ],
+      "knee": 169,
+      "spec": 0.35
+    },
+    "black": {
+      "factor": [
+        0.176,
+        0.178,
+        0.181
+      ],
+      "knee": 169,
+      "spec": 0.6
+    }
+  }
 }
