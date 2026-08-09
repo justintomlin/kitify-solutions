@@ -19,7 +19,7 @@
 // hand-measured and will need re-tuning; without this the only way to check a change is to
 // click through the configurator and squint.
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { notFound } from "next/navigation";
 import { HeroCompositor } from "@/components/configurator/HeroCompositor";
 import { PHOTO_SCENE, type Polygon, type RegionId } from "@/lib/hero-regions";
@@ -153,7 +153,42 @@ const SWEEP: Array<{
   { label: "e · shared-material legacy quote — one selection everywhere", back: WALL_MID, left: WALL_MID, floor: FLOOR, cabinet: "#6b7b6e", base: "biscuit", finish: "polished-nickel" },
 ];
 
+/**
+ * The finish sweep every fixture zoom runs, brightest first.
+ *
+ * Order matters for reading the row: the failures that a bright metal exposes (tint landing on
+ * something that is not metal) are at the left, and the failures a dark metal exposes (a
+ * fixture with no shading left in it) are at the right, with the no-op at the end as the
+ * control.
+ */
+const FINISH_SWEEP = ["chrome", "polished-nickel", "stainless", "champagne-bronze", "venetian-bronze", "matte-black"];
+
 const H2 = { color: "#fff", font: "12px monospace", margin: "0 0 6px" } as const;
+
+/**
+ * Which group of panels to mount, from `?panel=`.
+ *
+ * ONE GROUP AT A TIME, and that is a hard requirement rather than a convenience. Every tile on
+ * this page is a real full-room composite with its own canvas backing store — a 2352-wide
+ * precision panel is 9.5 MB on its own — and once the fixture sweep went to six finishes across
+ * six groups the page had over fifty of them and took the renderer down with it. Mounting one
+ * group keeps the total bounded whatever gets added next.
+ *
+ * The default is `cfg`, so opening the page bare still shows the three whole-room views.
+ */
+type PanelGroup = "cfg" | "fixtures" | "bases" | "walls" | "outlines" | "sweep";
+const PANEL_GROUPS: PanelGroup[] = ["cfg", "fixtures", "bases", "walls", "outlines", "sweep"];
+
+function usePanelGroup(): PanelGroup | null {
+  const [panel, setPanel] = useState<PanelGroup | null>(null);
+  // Read after mount rather than during render: this is a client component with no server
+  // search-param plumbing, and reading window during render would mismatch on hydration.
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search).get("panel") as PanelGroup | null;
+    setPanel(p && PANEL_GROUPS.includes(p) ? p : "cfg");
+  }, []);
+  return panel;
+}
 
 export default function HeroCheckPage() {
   // NODE_ENV is inlined into the client bundle at build time, so this collapses to a static
@@ -161,9 +196,17 @@ export default function HeroCheckPage() {
   if (process.env.NODE_ENV === "production") notFound();
 
   const fixtures = useFixtures();
+  const panel = usePanelGroup();
+  if (!panel) return <main style={{ background: "#111", minHeight: "100vh" }} />;
 
   return (
     <main style={{ background: "#111", padding: 16, display: "grid", gap: 16 }}>
+      <nav style={{ color: "#888", font: "11px monospace" }}>
+        {PANEL_GROUPS.map((g) => (
+          <a key={g} href={`?panel=${g}`} style={{ color: g === panel ? "#ff0" : "#6cf", marginRight: 12 }}>{g}</a>
+        ))}
+      </nav>
+      {panel === "cfg" && <>
       <section>
         <h2 style={H2}>
           1 · composite — wood slat alcove, {FLOOR.name} floor, {TOP?.name ?? "tinted"} top,
@@ -189,12 +232,14 @@ export default function HeroCheckPage() {
         </div>
       </section>
 
+      </>}
+
       {/* The whole plate under five real selections rather than one, because most of what can
           go wrong on this plate only shows under a particular combination — the glass pass
           against a light wall, the black base under a dark floor, the corner split under two
           different panels. Half-width tiles: five full-size renders would exhaust the canvas
           backing store on their own. */}
-      <section>
+      {panel === "sweep" && <section>
         <h2 style={H2}>1b · config sweep — the five selections the plate has to survive</h2>
         <div style={{ display: "grid", gap: 8 }} id="sweep">
           {SWEEP.map((cfg) => (
@@ -220,24 +265,42 @@ export default function HeroCheckPage() {
             </figure>
           ))}
         </div>
-      </section>
+      </section>}
 
       {/*
-        THE PRECISION PASS PANELS. Two configurations at 3x the plate, which is the only
+        THE PRECISION PASS PANELS. Three configurations at 3x the plate, which is the only
         magnification at which a junction can actually be judged — a 0.2% misalignment is
         two-thirds of a plate pixel and simply is not visible at hero size.
 
         A is the dealer's own current view and the one the markup was drawn on. B reverses the
         contrast on every junction at once: where A puts something dark against a light plate,
         B puts something light against a dark one, and a boundary that is off by a pixel shows
-        up in one of the two whichever way the error points.
+        up in one of the two whichever way the error points. C is A's floor swapped for the
+        darkest plank in the range, which is the only place a gap between the flooring and the
+        plate reads as a hole rather than as a tone change.
 
-        Both run the SAME material on both alcove planes, which also makes them the acceptance
-        test for the return-versus-back-wall balance.
+        All three run the SAME material on both alcove planes, which also makes them the
+        acceptance test for the return-versus-back-wall balance.
       */}
+      {panel === "cfg" && <>
       <section>
-        <h2 style={H2}>1c · precision pass A — Barnwood counter, dark cabinet, dark floor, wood slat, Venetian</h2>
+        <h2 style={H2}>1c · precision pass A — THE DEALER&apos;S OWN VIEW: wood slat, green cabinet, Barnwood counter, black base, Champagne</h2>
+        {/* Champagne rather than a dark bronze on purpose. A bright finish is the case that
+            fails first — anything a tint box catches that is not metal shows up as a coloured
+            smear on the wall, where a dark finish paints it dark and hides it. */}
         <div id="cfgA" style={{ width: BIG_W, height: BIG_H }}>
+          <PrecisionPanel
+            wall={WALL} floor={FLOOR} top={TOP}
+            cabinet="#2f5d50" base="black" finish="champagne-bronze"
+          />
+        </div>
+      </section>
+      <section>
+        <h2 style={H2}>1e · precision pass C — darkest plank (Buckingham), wood slat, Venetian, black base</h2>
+        {/* The floor perimeter is only judgeable at the dark extreme: on a mid plank a gap
+            between the flooring and the plate reads as a tone change, on Buckingham it reads
+            as a hole. */}
+        <div id="cfgC" style={{ width: BIG_W, height: BIG_H }}>
           <PrecisionPanel
             wall={WALL} floor={FLOOR_DARK} top={TOP}
             cabinet="#2b2f31" base="black" finish="venetian-bronze"
@@ -257,12 +320,14 @@ export default function HeroCheckPage() {
         </div>
       </section>
 
-      <section>
+      </>}
+
+      {panel === "outlines" && <section>
         <h2 style={H2}>2 · clip outlines + anchor footprints over the bare plate</h2>
         <RegionOutlines />
-      </section>
+      </section>}
 
-      <section>
+      {panel === "bases" && <section>
         <h2 style={H2}>3 · shower base colours</h2>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }} id="bases">
           {SHOWER_BASE_COLORS.map((c) => (
@@ -280,17 +345,27 @@ export default function HeroCheckPage() {
             </figure>
           ))}
         </div>
-      </section>
+        {/* The pan CROPPED, which is the only view that answers whether a tinted base still has
+            a curb, a floor gradient and a drain in it. The whole-room tiles above show that the
+            colour landed; they cannot show that it landed on a moulded object rather than on a
+            flat cut-out. Champagne hardware in every tile, because the bottom rail crosses the
+            pan and its tint is where the gold streaks around the drain came from. */}
+        <div>
+          <h2 style={{ ...H2, marginTop: 10 }}>3b · the pan itself — curb, floor gradient, drain</h2>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }} id="basesZoom">
+            {SHOWER_BASE_COLORS.map((c) => (
+              <figure key={c.id} style={{ margin: 0 }}>
+                <figcaption style={{ color: "#aaa", font: "11px monospace", marginBottom: 3 }}>{c.name}</figcaption>
+                <FixtureCrop finishId="champagne-bronze" at={[33, 91]} big={1800} wall base={c.id} view={[330, 190]} />
+              </figure>
+            ))}
+          </div>
+        </div>
+      </section>}
 
-      {/*
-        Every finish, cropped hard to the vanity faucet. The whole-room view is too small to
-        judge whether a recoloured fixture reads as metal — this is the panel that answers it.
-        The crop is done by oversizing the canvas inside a small window, so each tile is the
-        real compositor output rather than a scaled-down picture of it.
-      */}
       {/* The four wall configurations the corner split has to survive. Each tile is a real
           full-room render cropped to the alcove, so what is on screen is the actual pixels. */}
-      <section>
+      {panel === "walls" && <section>
         <h2 style={H2}>4 · alcove wall configs — corner split, panel seams, scale</h2>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }} id="walls">
           {[
@@ -305,9 +380,15 @@ export default function HeroCheckPage() {
             </figure>
           ))}
         </div>
-      </section>
+      </section>}
 
-      <section>
+      {/*
+        Every finish, cropped hard to a fixture. The whole-room view is too small to judge
+        whether a recoloured fixture reads as metal — this is the panel that answers it. The
+        crop is done by oversizing the canvas inside a small window, so each tile is the real
+        compositor output rather than a scaled-down picture of it.
+      */}
+      {panel === "fixtures" && <section>
         <h2 style={H2}>5 · plumbing finishes — sink faucet (each tile is the real render, cropped)</h2>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }} id="finishes">
           {PLUMBING_FINISHES.map((f) => (
@@ -335,10 +416,14 @@ export default function HeroCheckPage() {
           <div key={row.id}>
             <h2 style={{ ...H2, marginTop: 10 }}>{row.title}</h2>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }} id={row.id}>
-              {/* Venetian is in the list because it is the finish the dealer is looking at and
-                  because it is the hardest: it is the darkest metal in the range, so it is where
-                  a fixture with little tonal range of its own collapses into a flat blob. */}
-              {["chrome", "champagne-bronze", "venetian-bronze", "matte-black"].map((id) => (
+              {/* ALL SIX, not a sample. The two ends of the range fail in opposite directions
+                  and a fix that satisfies one can break the other: a bright finish (Chrome,
+                  Polished Nickel) turns anything a box catches that is not metal into a pale
+                  smear on the wall, a dark one (Venetian) hides that but collapses the
+                  fixture's own shading, and Matte Black has to stay a no-op throughout —
+                  it is the tint the plate already is, so any visible change in a matte-black
+                  tile is a bug by definition. */}
+              {FINISH_SWEEP.map((id) => (
                 <figure key={id} style={{ margin: 0 }}>
                   <figcaption style={{ color: "#aaa", font: "11px monospace", marginBottom: 3 }}>
                     {PLUMBING_FINISHES.find((f) => f.id === id)?.name ?? id}
@@ -349,7 +434,7 @@ export default function HeroCheckPage() {
             </div>
           </div>
         ))}
-      </section>
+      </section>}
     </main>
   );
 }
@@ -422,15 +507,20 @@ function AlcoveCrop({ back, left, right }: { back: WallMat; left: WallMat; right
  * and looking through a small hole at it — which is exactly what a scrolled, overflow-hidden
  * box does. No scaling, so what is on screen is what the pixels actually are.
  */
-function FixtureCrop({ finishId, at, big, wall }: {
+function FixtureCrop({ finishId, at, big, wall, base, view, floor }: {
   finishId: string; at: [number, number]; big?: number; wall?: boolean;
+  /** Shower base colour id. Omitted leaves the plate's own white pan. */
+  base?: string;
+  /** Window size, when the default 170x130 is the wrong shape for what is being judged. */
+  view?: [number, number];
+  floor?: (typeof FLOORING_COLORS)[number] | null;
 }) {
   // 2.3x the plate. Enough magnification to judge whether a recoloured fixture reads as
   // metal, and low enough that fourteen of these on one page don't exhaust canvas memory —
   // each is a full-room render, and the backing stores add up fast.
   const BIG = big ?? 1800;
   const BIG_H = Math.round(BIG / PHOTO_SCENE.scene.aspect);
-  const VIEW_W = 170, VIEW_H = 130;
+  const [VIEW_W, VIEW_H] = view ?? [170, 130];
   return (
     <div style={{ position: "relative", width: VIEW_W, height: VIEW_H, overflow: "hidden", background: "#000" }}>
       {/* The compositor's host div has no intrinsic size — its canvas is h-full/w-full — so
@@ -448,8 +538,10 @@ function FixtureCrop({ finishId, at, big, wall }: {
           wallMaterialBack={wall ? WALL : null}
           wallMaterialLeft={wall ? WALL : null}
           wallMaterialRight={wall ? WALL : null}
+          floorMaterial={floor ? { textureUrl: floor.image, name: floor.name } : null}
           vanityTopMaterial={TOP}
           vanityTopColor="#9a7b57"
+          showerBaseColor={base ?? null}
           fixtureFinishId={finishId}
           showDisclaimer={false}
           className="block"

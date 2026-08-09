@@ -94,14 +94,55 @@ export type AnchorId = "faucet" | "showerTrim" | "showerHead" | "tubSpout";
  */
 export type FixtureBox = readonly [number, number, number, number];
 /**
+ * One piece of metal: where it is, and which of its pixels are metal rather than the surface
+ * behind it.
+ *
+ * `cutoff` is the luminance above which a pixel inside the box is treated as background and
+ * left alone, and `feather` how far below it the tint fades in. BOTH ARE PER PART, because
+ * both depend on what the part is sitting on: the same matte-black hardware against a lit
+ * countertop, against a shaded wall and against a white shower pan has its fixture/background
+ * valley in three different places. A single global pair put that valley above the true one
+ * for every group on this plate, and a cutoff that is too high does not fail quietly — it
+ * recolours the surface around the fixture, which a dark finish hides and a bright one turns
+ * into a smear.
+ */
+export type FixturePart = {
+  box: FixtureBox; cutoff: number; feather: number;
+  /**
+   * Fixed shade for this part, instead of spreading its own tone across the metal.
+   *
+   * For a part too small to carry modelling. The group tone stretch maps the group's 5th to
+   * 95th percentile across the whole shade range, which is what makes a shower head read as
+   * metal — and what turns a ONE-PIXEL part into a dashed line, because at that size its
+   * luminance variation is compression noise rather than shading and the stretch amplifies it.
+   * Measured on the door's bottom rail: plate luminance along its centreline swings 22 to 46,
+   * which the stretch turned into a rendered 80 to 150. Set only where a part is a line rather
+   * than an object.
+   */
+  shade?: number;
+};
+/**
  * One recolourable fixture GROUP. A group is a thing the dealer picks a finish for, not a
- * rectangle: the sliding door's hardware is one choice but nine separate pieces of metal
- * scattered across the alcove, so a group carries a list of boxes rather than a single box.
- * Tight boxes beat one loose box — a loose one is only safe while nothing else dark falls
+ * rectangle: the sliding door's hardware is one choice but fourteen separate pieces of metal
+ * scattered across the alcove, so a group carries a list of parts rather than a single box.
+ * Tight parts beat one loose box — a loose one is only safe while nothing else dark falls
  * inside it, and on this plate the head, the track and the valve are close enough together
  * that a generous box catches its neighbour.
  */
 export type FixtureId = "showerHead" | "valveTrim" | "sinkFaucet" | "doorHardware" | "vanitySconce";
+
+/**
+ * One shower-base colour, as a re-tone of the plate's white pan.
+ *
+ * `factor` is the per-channel ratio of the catalogue colour to the WHITE pan's own hex — a
+ * ratio against white rather than against 255, because the plate photographs its white pan at
+ * a median of 160 and that is what white looks like under this light. `knee` is the luminance
+ * where the pan's diffuse field ends and its gloss begins, and `spec` how much of that gloss
+ * survives the colour change. Gloss is why the split matters: acrylic is glossy whatever it is
+ * moulded in, so a black pan keeps its highlights while its body goes dark, and a multiply —
+ * which scales highlight and body alike — can only land on mud.
+ */
+export type BaseTint = { factor: readonly [number, number, number]; knee: number; spec: number };
 
 /**
  * Everything the compositor needs to paint one plate.
@@ -150,7 +191,14 @@ export type SceneBundle = {
    * whose fixtures are modelled rather than photographed, which is why the render plate has
    * none: there, a fixture is pinned as a product photo at an anchor instead.
    */
-  fixtureBoxes: Partial<Record<FixtureId, FixtureBox[]>>;
+  fixtureParts: Partial<Record<FixtureId, FixturePart[]>>;
+  /**
+   * How each shower-base colour re-tones the plate's white pan, keyed by colour id.
+   *
+   * Absent for white, which is what the plate already photographs. See _shower_base_note for
+   * the measurements and for why a diffuse/specular split beats a multiply here.
+   */
+  baseTints: Record<string, BaseTint>;
   /**
    * Corners to darken once the materials are down, keyed by name.
    *
@@ -310,7 +358,8 @@ export const RENDER_SCENE: SceneBundle = {
   maskColors: THREE.maskColors,
   clips: null,
   anchors: toAnchors(THREE.anchors, 1),
-  fixtureBoxes: {},
+  fixtureParts: {},
+  baseTints: {},
   seams: {},
   plateRepairs: [],
   modeledHead: null,
@@ -325,12 +374,13 @@ type RawPhoto = {
   faces: Record<string, RawFace[]>;
   clips: Record<string, number[][][]>;
   anchors: Record<string, { at: number[]; unitPerIn: number }>;
-  fixtureRegions: Record<string, number[][]>;
+  fixtureRegions: Record<string, { parts: { box: number[]; cutoff: number; feather: number; shade?: number }[] }>;
   seams: Record<string, { from: number[]; to: number[]; halfWidthPct: number; strength: number }>;
   plateRepairs: Record<string, {
     type: string; box: number[]; ringPct: number; featherPct?: number;
     minK?: number; maxK?: number; deficitFull?: number;
   }>;
+  showerBaseTints?: Record<string, { factor: number[]; knee: number; spec: number }>;
   modeledHead?: { at: number[]; unitPerIn: number; armIn: number; headIn: number; thicknessIn: number };
   doorGlass?: { alpha: number; polygons: Record<string, number[][]> };
 };
@@ -378,6 +428,11 @@ const PHOTO_FACES: Record<RegionId, string[]> = {
   // made the edge read as butcher block. Same selection, same tile, two honest heights.
   vanityTop: ["vanityTop", "vanityTopEdge"],
   vanityBacksplash: ["vanityBacksplash"],
+  // DROPPED on this plate — the splash's right return is two plate pixels wide and could not
+  // carry a texture; the back splash now covers it and the plate's own shading does the read.
+  // See _side_splash_dropped. The id stays so the render plate keeps working: with the key
+  // absent from the JSON the region resolves to zero faces and the compositor skips it, the
+  // same no-op showerWallRight relies on.
   vanitySideSplash: ["vanitySideSplash"],
 };
 
@@ -408,14 +463,28 @@ export const PHOTO_SCENE: SceneBundle = {
     ]).filter(([, polys]) => (polys as Polygon[]).length > 0),
   ) as Partial<Record<RegionId, Polygon[]>>,
   anchors: toAnchors(PHOTO.anchors, PCT),
-  fixtureBoxes: Object.fromEntries(
+  fixtureParts: Object.fromEntries(
     FIXTURE_IDS.flatMap((id) => {
-      const g = PHOTO.fixtureRegions[id];
+      const g = PHOTO.fixtureRegions[id]?.parts;
       return g?.length
-        ? [[id, g.map((b) => [b[0] * PCT, b[1] * PCT, b[2] * PCT, b[3] * PCT] as FixtureBox)]]
+        ? [[id, g.map((p) => ({
+            box: [p.box[0] * PCT, p.box[1] * PCT, p.box[2] * PCT, p.box[3] * PCT] as FixtureBox,
+            // Luminance stays in 0-255. It is a property of the plate's pixels rather than of
+            // the coordinate system, so unlike every geometry number here it is not rescaled.
+            cutoff: p.cutoff,
+            feather: p.feather,
+            ...(p.shade === undefined ? {} : { shade: p.shade }),
+          }))]]
         : [];
     }),
-  ) as Partial<Record<FixtureId, FixtureBox[]>>,
+  ) as Partial<Record<FixtureId, FixturePart[]>>,
+  baseTints: Object.fromEntries(
+    Object.entries(PHOTO.showerBaseTints ?? {}).map(([id, t]) => [id, {
+      factor: [t.factor[0], t.factor[1], t.factor[2]] as const,
+      knee: t.knee,
+      spec: t.spec,
+    }]),
+  ),
   seams: Object.fromEntries(
     Object.entries(PHOTO.seams ?? {}).map(([k, v]) => [k, {
       from: [v.from[0] * PCT, v.from[1] * PCT] as Point,

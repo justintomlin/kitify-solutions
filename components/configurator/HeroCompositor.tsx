@@ -48,7 +48,7 @@ import { useLanguage } from "@/components/LanguageContext";
 import {
   PHOTO_SCENE, RENDER_SCENE, tileRepeat,
   type Face, type FixtureId, type Point, type Polygon, type Quad, type Region, type RegionId,
-  type AnchorId, type ModeledHead, type SceneBundle, type SeamShade,
+  type AnchorId, type FixturePart, type ModeledHead, type SceneBundle, type SeamShade,
 } from "@/lib/hero-regions";
 
 // ------------------------------ which plate --------------------------------
@@ -226,33 +226,17 @@ const DEFAULT_FLOOR_TILE = { w: 35, h: 48 };
 const DEFAULT_TOP_TILE = { w: 144, h: 30.75 };
 
 /**
- * How each shower base colour is painted onto the plate's white pan, as a list of passes.
+ * THE SHOWER BASE IS RE-TONED, NOT TINTED — see baseTints in lib/hero-regions and
+ * _shower_base_note in the region JSON for the measurements.
  *
- * Beige and grey are a straight multiply, which is right because the pan in the plate is
- * near-white: multiplying a colour through it keeps the curb's shading, the drain shadow and
- * the highlight along the threshold, and those are what stop a tinted pan reading as a flat
- * cut-out sticker.
- *
- * Black takes two passes, because neither operation alone works. Multiply straight to #2a2a2a
- * crushes the pan's whole tonal range into a few levels near black and reads as a muddy hole.
- * An opaque fill lands the colour exactly and reads as a sticker — flat, with the drain and the
- * curb edge gone. So: multiply to a mid-dark grey first, which darkens while preserving the
- * shading proportionally, then lay the target black over it at partial opacity, which sets the
- * final colour while leaving roughly half the pass-one contrast intact. A black acrylic pan
- * really is nearly flat, so the surviving shading is subtle by design — enough to keep the
- * curb and drain legible, not enough to look grey.
- *
- * White is absent on purpose: the plate is already white, and painting it would only dull it.
+ * This used to be a list of blend passes here: a multiply for beige and grey, and for black a
+ * multiply to a mid grey followed by an opaque fill at 62%. Measured against the plate, the
+ * share of the pan's own 41-unit working range that survived was 0.98 white, 0.89 beige, 0.73
+ * grey and 0.29 BLACK — and the black number is the mud. The opaque second pass could only
+ * throw contrast away, and no pair of blend modes can do better, because the thing that is
+ * wrong is the premise: a multiply scales a pan's gloss along with its body, and gloss does
+ * not care what colour the acrylic is moulded in.
  */
-type TintPass = { color: string; alpha: number; mode: GlobalCompositeOperation };
-const BASE_TINTS: Record<string, TintPass[]> = {
-  beige: [{ color: "#e8dcc8", alpha: 0.92, mode: "multiply" }],
-  grey: [{ color: "#9a9a9a", alpha: 0.92, mode: "multiply" }],
-  black: [
-    { color: "#4a4a4a", alpha: 1, mode: "multiply" },
-    { color: "#2a2a2a", alpha: 0.62, mode: "source-over" },
-  ],
-};
 
 /**
  * Final warm pass over the whole frame.
@@ -291,27 +275,18 @@ const FINISH_TINTS: Record<string, [number, number, number]> = {
 };
 
 /**
- * Luminosity below which a pixel is treated as fixture rather than background.
+ * THE CUTOFF AND THE FEATHER ARE PER PART NOW — see FixturePart in lib/hero-regions and the
+ * measurements in the region JSON. They used to be two module constants here, 112 and 12, and
+ * that is the single thing this pass changes about fixture tinting.
  *
- * The plate's fixtures are matte black on a light grey wall and a light countertop, so there
- * is a wide empty gap in the histogram to cut in. It sits at the top of that gap rather than
- * the middle: a matte-black fixture still has specular highlights along its rim, and at 90
- * those highlights fell on the wall side of the cut and were punched transparent — leaving
- * the wall material visible in stripes across the metal. The wall (~167), the countertop and
- * the head's own cast shadow are all still comfortably above this.
+ * Why it could not stay global: the cutoff is the valley between the fixture's dark mode and
+ * the mode of whatever it is standing in front of, and on this plate that surface is a shaded
+ * wall for the head, a lit countertop for the faucet, a white acrylic pan for the bottom rail
+ * and the door's own glazing for one track span. Measured by Otsu, those valleys land between
+ * 77 and 109. A single 112 was above all of them, so every group was recolouring some of the
+ * surface behind it — invisible under a dark finish, a coloured smear under a bright one, and
+ * that is the family of defects the champagne render exposed.
  */
-const FIXTURE_LUM_CUTOFF = 112;
-
-/**
- * Softening band just under the cutoff, so the recoloured fixture doesn't end in a hard edge
- * against the wall. Pixels fade out across the top of the range.
- *
- * Kept narrow deliberately. At 26 this covered a third of the fixture's own tonal range, so
- * every mid-tone inside the shower head — and that head is a soft, blurry shape with a lot of
- * mid-tone — came out part-transparent, and the wall slats behind it showed straight through
- * the metal. The band only needs to cover the anti-aliased rim.
- */
-const FIXTURE_LUM_FEATHER = 12;
 
 /**
  * How dark the darkest part of a recoloured fixture is allowed to get, as a share of the
@@ -616,7 +591,19 @@ function makeCanvas(w: number, h: number): HTMLCanvasElement {
   return c;
 }
 
-const SURFACE_MAX = 1024;
+/**
+ * Ceiling on a surface canvas, in pixels.
+ *
+ * RAISED TO 2048 for the floor's sake. Every other surface asks for less than 1024 and is
+ * unaffected, but the floor is a plane running from the back of the room to well below the
+ * frame, and on a 2352-wide render its u axis measures 2929 screen pixels — so at the 2x
+ * supersample it wants 5858 and was being handed 1024, a shortfall of nearly six times. That
+ * is the smear along the bottom edge of the frame: the most magnified part of the floor, where
+ * a plank is widest on screen, was carrying the fewest texture columns. 2048 does not close the
+ * gap — nothing short of tiling the floor would — but it more than halves it, and it costs one
+ * transient 8 MB canvas per floor paint rather than anything persistent.
+ */
+const SURFACE_MAX = 2048;
 /** Below this a surface canvas is too coarse to carry a joint line, whatever the quad's size. */
 const SURFACE_MIN = 24;
 /**
@@ -1219,12 +1206,14 @@ function buildFixturePatches(plate: CanvasImageSource, finishId: string): Fixtur
 
   const pw = SCENE.width, ph = SCENE.height;
 
-  for (const boxes of Object.values(PLATE.fixtureBoxes) as FixturePatch["box"][][]) {
-    // Read every box of the GROUP first, so the tone mapping below is one scale for the whole
-    // fixture. A per-box scale would map an escutcheon and the lever crossing it differently
-    // and they would stop looking like one piece of metal.
-    const parts: Array<{ c: HTMLCanvasElement; data: ImageData; box: FixturePatch["box"] }> = [];
-    for (const box of boxes) {
+  for (const group of Object.values(PLATE.fixtureParts) as FixturePart[][]) {
+    // Read every part of the GROUP first, so the tone mapping below is one scale for the whole
+    // fixture. A per-part scale would map an escutcheon and the lever crossing it differently
+    // and they would stop looking like one piece of metal. The CUTOFF stays per part, because
+    // that is a property of the surface behind each piece rather than of the finish choice.
+    const read: Array<{ c: HTMLCanvasElement; data: ImageData; part: FixturePart }> = [];
+    for (const part of group) {
+      const box = part.box;
       const sx = Math.round(box[0] * pw), sy = Math.round(box[1] * ph);
       const sw = Math.max(1, Math.round(box[2] * pw)), sh = Math.max(1, Math.round(box[3] * ph));
       const c = makeCanvas(sw, sh);
@@ -1232,7 +1221,7 @@ function buildFixturePatches(plate: CanvasImageSource, finishId: string): Fixtur
       if (!ctx) continue;
       ctx.drawImage(plate, sx, sy, sw, sh, 0, 0, sw, sh);
       try {
-        parts.push({ c, data: ctx.getImageData(0, 0, sw, sh), box });
+        read.push({ c, data: ctx.getImageData(0, 0, sw, sh), part });
       } catch {
         // Only reachable if the plate stops being same-origin. Bail on the whole finish rather
         // than ship half the fixtures recoloured; matte black is a correct-looking fallback.
@@ -1243,43 +1232,122 @@ function buildFixturePatches(plate: CanvasImageSource, finishId: string): Fixtur
 
     // The group's own tone range, from the pixels that are actually fixture.
     const tones: number[] = [];
-    for (const { data } of parts) {
+    for (const { data, part } of read) {
       const p = data.data;
       for (let i = 0; i < p.length; i += 4) {
         const lum = 0.2126 * p[i] + 0.7152 * p[i + 1] + 0.0722 * p[i + 2];
-        if (lum < FIXTURE_LUM_CUTOFF) tones.push(lum);
+        if (lum < part.cutoff) tones.push(lum);
       }
     }
     tones.sort((a, b) => a - b);
     const lo = tones.length ? tones[Math.floor(FIXTURE_TONE_LO_PCT * (tones.length - 1))] : 0;
-    const hi = tones.length ? tones[Math.floor(FIXTURE_TONE_HI_PCT * (tones.length - 1))] : FIXTURE_LUM_CUTOFF;
+    const hi = tones.length ? tones[Math.floor(FIXTURE_TONE_HI_PCT * (tones.length - 1))] : 112;
     // A group with no usable spread falls back to the plain ramp rather than having a
     // near-zero denominator turn two adjacent tones into black and white.
     const stretched = hi - lo >= FIXTURE_TONE_MIN_SPAN;
 
-    for (const { c, data, box } of parts) {
+    for (const { c, data, part } of read) {
       const px = data.data;
       for (let i = 0; i < px.length; i += 4) {
         const lum = 0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2];
-        if (lum >= FIXTURE_LUM_CUTOFF) { px[i + 3] = 0; continue; }
+        if (lum >= part.cutoff) { px[i + 3] = 0; continue; }
         // Spread the fixture's own tone across the metal, floored so lit faces reach the target
         // colour instead of everything landing near black. This is what keeps a recoloured
         // fixture reading as a photograph of metal rather than as a silhouette filled in.
         const t = stretched
           ? Math.min(1, Math.max(0, (lum - lo) / (hi - lo)))
-          : lum / FIXTURE_LUM_CUTOFF;
-        const shade = FIXTURE_SHADE_FLOOR + (1 - FIXTURE_SHADE_FLOOR) * t;
+          : lum / part.cutoff;
+        // A part thin enough to have no modelling of its own opts out of the stretch — see
+        // FixturePart.shade. Amplifying one pixel's compression noise across the whole shade
+        // range is what turned the door's bottom rail into a dashed line.
+        const shade = part.shade ?? FIXTURE_SHADE_FLOOR + (1 - FIXTURE_SHADE_FLOOR) * t;
         px[i] = tint[0] * shade;
         px[i + 1] = tint[1] * shade;
         px[i + 2] = tint[2] * shade;
-        px[i + 3] = 255 * Math.min(1, (FIXTURE_LUM_CUTOFF - lum) / FIXTURE_LUM_FEATHER);
+        px[i + 3] = 255 * Math.min(1, (part.cutoff - lum) / part.feather);
       }
       c.getContext("2d")?.putImageData(data, 0, 0);
-      out.push({ canvas: c, box });
+      out.push({ canvas: c, box: part.box });
     }
   }
   fixturePatchCache.set(finishId, out);
   return out;
+}
+
+// --------------------------- the shower base --------------------------------
+
+/**
+ * The plate's pan, re-toned to a catalogue base colour, as one patch drawn 1:1.
+ *
+ * Not a warped surface: there is no texture to map onto the pan, only the photograph of a white
+ * acrylic base to re-tone, so this reads the plate's own pixels over the pan's bounding box and
+ * writes back `factor * L + spec * max(0, L - knee)` per channel. Keeping the diffuse and the
+ * specular terms apart is the whole point — the body of the pan takes the colour, the gloss
+ * along the curb and around the drain does not, and that is what stops a black base collapsing
+ * into a flat hole. Clipped to the pan's own polygons by the caller.
+ *
+ * Cached per colour like the fixture patches, and for the same reason: this is a getImageData
+ * over a few thousand plate pixels and nothing about it changes when another selection does.
+ */
+type BasePatch = { canvas: HTMLCanvasElement; box: readonly [number, number, number, number] };
+const basePatchCache = new Map<string, BasePatch | null>();
+
+/** Bounding box of a region's clip outlines, in image fractions. */
+function clipBounds(polys: Polygon[]): readonly [number, number, number, number] | null {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const poly of polys) for (const [x, y] of poly) {
+    if (x < x0) x0 = x; if (x > x1) x1 = x;
+    if (y < y0) y0 = y; if (y > y1) y1 = y;
+  }
+  return isFinite(x0) ? [x0, y0, x1 - x0, y1 - y0] : null;
+}
+
+function buildBasePatch(plate: CanvasImageSource, colorId: string): BasePatch | null {
+  const hit = basePatchCache.get(colorId);
+  if (hit !== undefined) return hit;
+
+  const tint = PLATE.baseTints[colorId];
+  const clip = PLATE.clips?.showerFloor;
+  // White has no entry — the plate already photographs a white pan — and a plate with no pan
+  // polygons has nothing to re-tone.
+  if (!tint || !clip?.length) { basePatchCache.set(colorId, null); return null; }
+  const bounds = clipBounds(clip);
+  if (!bounds) { basePatchCache.set(colorId, null); return null; }
+
+  const pw = SCENE.width, ph = SCENE.height;
+  // Clamped to the plate: the curb's own polygon runs below the bottom of the frame.
+  const sx = Math.max(0, Math.floor(bounds[0] * pw)), sy = Math.max(0, Math.floor(bounds[1] * ph));
+  const sw = Math.min(pw - sx, Math.ceil(bounds[2] * pw) + 1);
+  const sh = Math.min(ph - sy, Math.ceil(bounds[3] * ph) + 1);
+  if (sw < 1 || sh < 1) { basePatchCache.set(colorId, null); return null; }
+
+  const c = makeCanvas(sw, sh);
+  const ctx = c.getContext("2d", { willReadFrequently: true });
+  if (!ctx) { basePatchCache.set(colorId, null); return null; }
+  ctx.drawImage(plate, sx, sy, sw, sh, 0, 0, sw, sh);
+  let data: ImageData;
+  try {
+    data = ctx.getImageData(0, 0, sw, sh);
+  } catch {
+    // Same-origin plate, so unreachable in practice; a null patch leaves the pan white, which
+    // is a correct-looking fallback rather than a broken one.
+    basePatchCache.set(colorId, null);
+    return null;
+  }
+
+  const px = data.data;
+  const [fr, fg, fb] = tint.factor;
+  for (let i = 0; i < px.length; i += 4) {
+    const lum = 0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2];
+    const gloss = tint.spec * Math.max(0, lum - tint.knee);
+    px[i] = Math.min(255, px[i] * fr + gloss);
+    px[i + 1] = Math.min(255, px[i + 1] * fg + gloss);
+    px[i + 2] = Math.min(255, px[i + 2] * fb + gloss);
+  }
+  ctx.putImageData(data, 0, 0);
+  const patch: BasePatch = { canvas: c, box: [sx / pw, sy / ph, sw / pw, sh / ph] };
+  basePatchCache.set(colorId, patch);
+  return patch;
 }
 
 // ------------------------------ compositing --------------------------------
@@ -1531,15 +1599,27 @@ export function HeroCompositor({
       paintRegion(fctx, layer, { kind: "texture", region: R.showerArea, img: wallImg, tileIn: { w: wallTileW, h: wallTileH }, seamIn: wallSeam }, fit, blend, masks.showerArea, clipFor("showerArea"));
     }
     // The shower base is a catalogue colour, not a material — one moulded acrylic pan in four
-    // finishes. White is a no-op: the plate's pan is already white.
-    const basePasses = showerBaseColor ? BASE_TINTS[showerBaseColor] : undefined;
-    for (const pass of basePasses ?? []) {
-      paintRegion(fctx, layer, { kind: "color", region: R.showerFloor, color: pass.color, alpha: pass.alpha, mode: pass.mode }, fit, blend, masks.showerFloor, clipFor("showerFloor"));
+    // finishes. White is a no-op: the plate's pan is already white. The patch is the plate's own
+    // pan re-toned, so it goes down source-over at 1:1 rather than through the warp; clipping it
+    // to the pan's polygons is what keeps it off the curb's surroundings and the room floor.
+    const basePatch = showerBaseColor ? buildBasePatch(base, showerBaseColor) : null;
+    const panClip = clipFor("showerFloor");
+    if (basePatch && panClip?.length) {
+      fctx.save();
+      tracePolygons(fctx, panClip, fit);
+      fctx.clip("evenodd");
+      const [bx, by, bw, bh] = basePatch.box;
+      fctx.drawImage(
+        basePatch.canvas,
+        fit.ox + bx * SCENE.width * fit.scale, fit.oy + by * SCENE.height * fit.scale,
+        bw * SCENE.width * fit.scale, bh * SCENE.height * fit.scale,
+      );
+      fctx.restore();
     }
     // Where the curb stands on the room floor. Both sides of that line are now painted — the
     // curb by the pan's colour, the floor by the flooring — so without it they meet as two flat
     // fields and the base looks laid on top of the floor rather than set into it.
-    if (basePasses && floorImg && PLATE.seams.curbFloor) paintSeam(fctx, PLATE.seams.curbFloor, fit);
+    if (basePatch && floorImg && PLATE.seams.curbFloor) paintSeam(fctx, PLATE.seams.curbFloor, fit);
     // The cabinet is a flat tint — the catalogue publishes door colours as hex swatches, not
     // as photography. The countertop prefers a real Durasein sheet scan and falls back to its
     // hex when the colour has no scan behind it.
@@ -1563,24 +1643,22 @@ export function HeroCompositor({
     // The splash is the counter's material carried up the wall, so it follows whatever the
     // counter resolved to — real scan or hex — rather than deciding for itself.
     //
-    // BOTH pieces scale with the height selection. The return used to be left at its authored
-    // 4", which held only while the dealer picked 4": at 6" the back splash's top edge rose and
-    // the return's did not, and the miter they share opened up.
-    const splashPieces = backsplashIn
-      ? ([R.vanityBacksplash, R.vanitySideSplash] as const).filter((r) => r.faces.length)
-      : [];
-    for (const piece of splashPieces) {
-      const scaled = scaleBacksplash(piece, backsplashIn as number);
+    // ONE piece, and it runs the full length of the counter. There used to be a second region
+    // for the splash's right RETURN; it was 0.25% of plate width and a face that narrow cannot
+    // carry a texture — see _side_splash_dropped. The back splash now covers it and the plate's
+    // own dark return column comes through multiply.
+    const splashPainted = !!(backsplashIn && R.vanityBacksplash.faces.length && (topImg || vanityTopColor));
+    if (splashPainted) {
+      const scaled = scaleBacksplash(R.vanityBacksplash, backsplashIn as number);
       if (topImg) paintRegion(fctx, layer, { kind: "texture", region: scaled.region, img: topImg, tileIn: { w: topTileW, h: topTileH } }, fit, blend, undefined, scaled.clip);
       else if (vanityTopColor) paintRegion(fctx, layer, { kind: "color", region: scaled.region, color: vanityTopColor, alpha: 0.88 }, fit, blend, undefined, scaled.clip);
     }
-    // The miter between them. Both faces now terminate on one line, so what is left to draw is
-    // the joint itself — a single plate pixel of shade, which is what the photograph has there.
-    // Its top follows the splash: the seam is authored at the 4" height and lifted about the
-    // counter's back edge, which is the one point on the joint that a height change cannot move.
-    if (splashPieces.length === 2 && (topImg || vanityTopColor) && PLATE.seams.splashCorner) {
+    // The miter, drawn as a joint rather than as a boundary between two regions. Its top follows
+    // the splash: the seam is authored at the 4" height and lifted about the counter's back
+    // edge, which is the one point on the joint that a height change cannot move.
+    if (splashPainted && PLATE.seams.splashCorner) {
       const s = PLATE.seams.splashCorner;
-      const foot = R.vanitySideSplash.faces[0].quad[3][1];
+      const foot = R.vanityBacksplash.faces[0].quad[3][1];
       const k = (backsplashIn as number) / BACKSPLASH_BASE_IN;
       paintSeam(fctx, { ...s, from: [s.from[0], foot + (s.from[1] - foot) * k] }, fit);
     }
