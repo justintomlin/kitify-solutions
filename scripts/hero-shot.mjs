@@ -36,7 +36,8 @@ const shots = [
   // The wrapper, not the canvas: the disclaimer is an HTML sibling of the canvas, so shooting
   // the canvas alone would silently omit the thing most worth checking.
   ["#composite", "hero-composite.png"],
-  ["section:nth-of-type(2) canvas", "hero-outlines.png"],
+  ["#sweep", "hero-sweep.png"],
+  ["#outlines canvas", "hero-outlines.png"],
   ["#bases", "hero-bases.png"],
   ["#walls", "hero-walls.png"],
   ["#finishes", "hero-finishes.png"],

@@ -177,6 +177,8 @@ export type SceneBundle = {
    * nothing on that wall to recolour.
    */
   modeledHead: ModeledHead | null;
+  /** The sliding door's glazing, or null on a plate that has none. */
+  glass: Glass | null;
 };
 
 /** One repair op on the plate. `box` is [x, y, w, h] in image fractions. */
@@ -193,6 +195,14 @@ export type PlateRepair =
    */
   | { kind: "lighten"; box: readonly [number, number, number, number]; ring: number;
       minK: number; maxK: number; deficitFull: number };
+
+/**
+ * The door's glazing, as outlines plus how strongly to put it back.
+ *
+ * Photo plate only — the Three.js scene has no glass in it, and RENDER_SCENE sets this null so
+ * the compositor's own guard is the only branch anyone has to read.
+ */
+export type Glass = { polygons: Polygon[]; alpha: number };
 
 /** A drawn shower head: where it hangs, and how big an inch is there. */
 export type ModeledHead = {
@@ -304,6 +314,7 @@ export const RENDER_SCENE: SceneBundle = {
   seams: {},
   plateRepairs: [],
   modeledHead: null,
+  glass: null,
 };
 
 // ---------------------------- the photo plate -------------------------------
@@ -321,6 +332,7 @@ type RawPhoto = {
     minK?: number; maxK?: number; deficitFull?: number;
   }>;
   modeledHead?: { at: number[]; unitPerIn: number; armIn: number; headIn: number; thicknessIn: number };
+  doorGlass?: { alpha: number; polygons: Record<string, number[][]> };
 };
 
 const FIXTURE_IDS: FixtureId[] = ["showerHead", "valveTrim", "sinkFaucet", "doorHardware", "vanitySconce"];
@@ -422,6 +434,14 @@ export const PHOTO_SCENE: SceneBundle = {
   // repair — the head is a fixtureRegions group like every other piece of metal. The field and
   // drawModeledHead stay for the Three.js path, which still resolves this from its own JSON.
   modeledHead: null,
+  glass: PHOTO.doorGlass
+    ? {
+        alpha: PHOTO.doorGlass.alpha,
+        polygons: Object.values(PHOTO.doorGlass.polygons).map(
+          (poly) => poly.map((p) => [p[0] * PCT, p[1] * PCT] as Point),
+        ),
+      }
+    : null,
 };
 
 /**

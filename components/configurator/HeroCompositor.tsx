@@ -1473,6 +1473,46 @@ export function HeroCompositor({
       fctx.drawImage(occluders, fit.ox, fit.oy, SCENE.width * fit.scale, SCENE.height * fit.scale);
     }
 
+    // The glass, put back over the materials.
+    //
+    // Multiply keeps everything the plate's glazing does DARKLY — the slight tint of the sheet,
+    // the shadow of its edges — and throws away everything it does brightly, which is most of
+    // what makes glass read as glass. Pick a dark panel and the glazed half of the alcove comes
+    // out identical to the unglazed half. So the plate is drawn back over the glazed polygons in
+    // `screen`, which can only ADD light: the reflections return, and every pixel where the
+    // plate is dark contributes nothing at all.
+    //
+    // That last property is what makes the placement safe. The source is the PLATE, not white,
+    // so over the door's hardware — matte black in the photograph — screen is a no-op no matter
+    // what has been painted underneath. It runs AFTER the occlusion restore, so the glass sits
+    // over restored surfaces rather than under them, and BEFORE the fixture tint, so a Chrome
+    // track (which is a bright colour, not a dark one) is laid down last and cannot be washed
+    // out by its own reflection.
+    //
+    // Screen is also self-limiting, which is why one alpha serves both a dark wall and a light
+    // one: the amount added is proportional to (255 - destination), so a near-white Durasein
+    // panel takes almost nothing while a dark slat panel takes the full reflection.
+    if (PLATE.glass && PLATE.glass.alpha > 0) {
+      fctx.save();
+      fctx.beginPath();
+      // Both sheets go into ONE path. They overlap by the 0.91% of plate width where the sliding
+      // panel laps the fixed one, and a clip region is a set — so the lap is screened once, not
+      // twice. Filling them separately would put a bright stripe down the overlap, which is the
+      // one place the plate is actually a shade DARKER for having two thicknesses of glass.
+      for (const poly of PLATE.glass.polygons) {
+        poly.forEach((pt, i) => {
+          const [px, py] = toPx(pt, fit);
+          if (i === 0) fctx.moveTo(px, py); else fctx.lineTo(px, py);
+        });
+        fctx.closePath();
+      }
+      fctx.clip();
+      fctx.globalCompositeOperation = "screen";
+      fctx.globalAlpha = PLATE.glass.alpha;
+      fctx.drawImage(base, fit.ox, fit.oy, SCENE.width * fit.scale, SCENE.height * fit.scale);
+      fctx.restore();
+    }
+
     // Fixtures last, over every painted surface.
     //
     // Two strategies, one per plate. The photo plate RECOLOURS the fixtures it already has,

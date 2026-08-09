@@ -96,6 +96,25 @@ function useFixtures() {
   ].filter((f) => f.url);
 }
 
+const FLOOR_DARK = FLOORING_COLORS.find((c) => /char|graph|slate|espress|walnut/i.test(c.name)) ?? FLOORING_COLORS[FLOORING_COLORS.length - 1];
+const FLOOR_LIGHT = FLOORING_COLORS.find((c) => /white|oat|linen|ash|light/i.test(c.name)) ?? FLOORING_COLORS[0];
+
+/**
+ * The five selections the plate has to survive, config (a) first because it is the one the
+ * dealer actually sells: wood slat walls, brushed nickel, a mid cabinet.
+ */
+const SWEEP: Array<{
+  label: string; back: WallMat; left: WallMat;
+  floor: (typeof FLOORING_COLORS)[number] | null; cabinet: string;
+  base: "white" | "black" | "grey" | "biscuit"; finish: string;
+}> = [
+  { label: "a · real-world — wood slat, stainless, mid cabinet", back: WALL, left: WALL, floor: FLOOR, cabinet: "#8d8f8a", base: "white", finish: "stainless" },
+  { label: "b · dark everything — slat walls, black base, dark floor, matte black", back: WALL, left: WALL, floor: FLOOR_DARK, cabinet: "#2b2f31", base: "black", finish: "matte-black" },
+  { label: "c · light everything — solid surface sheet, white base, light floor, chrome", back: WALL_SHEET, left: WALL_SHEET, floor: FLOOR_LIGHT, cabinet: "#e6e3dc", base: "white", finish: "chrome" },
+  { label: "d · per-wall contrast — light back, dark return, champagne", back: WALL_LIGHT, left: WALL, floor: FLOOR, cabinet: "#2f5d50", base: "grey", finish: "champagne-bronze" },
+  { label: "e · shared-material legacy quote — one selection everywhere", back: WALL_MID, left: WALL_MID, floor: FLOOR, cabinet: "#6b7b6e", base: "biscuit", finish: "polished-nickel" },
+];
+
 const H2 = { color: "#fff", font: "12px monospace", margin: "0 0 6px" } as const;
 
 export default function HeroCheckPage() {
@@ -129,6 +148,39 @@ export default function HeroCheckPage() {
             fixtures={fixtures}
             className="block"
           />
+        </div>
+      </section>
+
+      {/* The whole plate under five real selections rather than one, because most of what can
+          go wrong on this plate only shows under a particular combination — the glass pass
+          against a light wall, the black base under a dark floor, the corner split under two
+          different panels. Half-width tiles: five full-size renders would exhaust the canvas
+          backing store on their own. */}
+      <section>
+        <h2 style={H2}>1b · config sweep — the five selections the plate has to survive</h2>
+        <div style={{ display: "grid", gap: 8 }} id="sweep">
+          {SWEEP.map((cfg) => (
+            <figure key={cfg.label} style={{ margin: 0 }}>
+              <figcaption style={{ color: "#aaa", font: "11px monospace", marginBottom: 3 }}>{cfg.label}</figcaption>
+              <div style={{ width: Math.round(W / 2), height: Math.round(H / 2) }}>
+                <HeroCompositor
+                  width={Math.round(W / 2)}
+                  height={Math.round(H / 2)}
+                  wallMaterialBack={cfg.back}
+                  wallMaterialLeft={cfg.left}
+                  wallMaterialRight={cfg.left}
+                  floorMaterial={cfg.floor ? { textureUrl: cfg.floor.image, name: cfg.floor.name } : null}
+                  vanityColor={cfg.cabinet}
+                  vanityTopColor="#9a7b57"
+                  vanityTopMaterial={TOP ? { textureUrl: TOP.swatchUrl, name: TOP.name } : null}
+                  showerBaseColor={cfg.base}
+                  backsplashIn={4}
+                  fixtureFinishId={cfg.finish}
+                  className="block"
+                />
+              </div>
+            </figure>
+          ))}
         </div>
       </section>
 
