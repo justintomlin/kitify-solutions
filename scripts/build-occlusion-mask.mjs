@@ -97,6 +97,20 @@ const OCCLUDERS = {
   planter: [
     [12.3, 94.2], [20.8, 94.6], [21.2, 101], [11.9, 101],
   ],
+  // THE SECOND POT, which had no polygon at all. A previous pass measured the planter's right
+  // edge with a per-row gradient search and read 23.85 at y=95 tapering to 20.4 at y=99, and
+  // called it one pot 3% too narrow. It is not: the search was jumping between TWO pots. The
+  // one above ends at x=20.2, there is a dark gap at 20.3-21.0, and a second concrete pot with
+  // its own plant stands from x=21.2 to x=23.5. Profiled row by row it is unambiguous — the
+  // body reads 163-178 against a pan of 142-149 beyond it, and the drop lands between x=23.4
+  // and x=23.6 at every row from y=96 to y=100. Uncovered, it sat inside the pan's polygons
+  // and took the base colour: measured on a black base, x 21.5-23.8 rendered 27-38 against a
+  // plate of 143-179, i.e. a bright pot painted out as a dark blob. Its top edge starts at
+  // y=95.9, which is where the pot emerges from under the first plant's leaves; above that the
+  // foliage key already owns those pixels.
+  planterRight: [
+    [21.05, 97.2], [22.55, 95.9], [23.5, 95.9], [23.55, 101], [20.95, 101],
+  ],
   // The out-of-focus second plant at the far left. Blurred to the point of having no outline
   // at all, and it only ever overlaps the flooring, so this is deliberately a soft rectangle
   // over its base rather than an attempt at a silhouette.
