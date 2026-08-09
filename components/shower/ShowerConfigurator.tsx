@@ -23,7 +23,7 @@ import Image from "next/image";
 import { Check, RotateCcw, Plus, Minus, DoorOpen, Square } from "lucide-react";
 import { SHOWER_BASES, TUBS as CATALOG_TUBS, SHOWER_BASE_COLORS, type BaseSku } from "@/lib/catalog";
 import { getPanelCollections, getPanelImage, getPanelSpecs, getPanel } from "@/lib/naturepanel-catalog";
-import { getDuraseinCollections, getDuraseinColor, getAllDuraseinColors } from "@/lib/durasein-catalog";
+import { getDuraseinCollections, getDuraseinColor, getAllDuraseinColors, duraseinSheetTexture } from "@/lib/durasein-catalog";
 import { resolveDefault, DEFAULT_FINISH_ID, INCLUDED_QTY, OPT_IN_QTY } from "@/lib/defaults";
 import { useLanguage } from "@/components/LanguageContext";
 
@@ -159,19 +159,6 @@ const FINISHES: Swatch[] = [
   { id: "matte-black", name: "Matte Black", hex: "#2a2c2f" },
 ];
 
-/**
- * Next's image optimizer, addressed by URL rather than through <Image>.
- *
- * The wall texture is painted by an SVG <pattern><image href>, which next/image can't
- * render, and Durasein's sheet scans are 1–2 MB apiece — far more than a texture drawn a
- * couple of hundred pixels wide needs. `w` must be one of Next's configured widths (the
- * default deviceSizes/imageSizes lists); 640 is the smallest deviceSize. Only durasein.com
- * is allowlisted for this (see next.config.mjs), so it's used solely on those URLs.
- */
-function optimizedImage(url: string, w: number): string {
-  return `/_next/image?url=${encodeURIComponent(url)}&w=${w}&q=75`;
-}
-
 // PLACEHOLDER wall palette — the 6 real NuVo composite colors, still standing in for
 // the SPC tier until its own palette arrives.
 const NUVO_COLORS: Swatch[] = [
@@ -215,7 +202,7 @@ const SS_COLOR_FALLBACK_HEX = "#e3ded5";
 const SS_COLORS: Swatch[] = getAllDuraseinColors().map((c) => ({
   id: c.id, name: c.name, hex: SS_COLOR_FALLBACK_HEX,
   imageUrl: c.swatchUrl, collection: c.collection,
-  textureUrl: c.sheetUrl ? optimizedImage(c.sheetUrl, 640) : undefined,
+  textureUrl: c.sheetUrl ? duraseinSheetTexture(c.sheetUrl, 640) : undefined,
 }));
 
 // Style label → dictionary key. Keyed off the catalogue's own style strings so a new decor

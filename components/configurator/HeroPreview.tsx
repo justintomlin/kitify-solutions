@@ -34,7 +34,7 @@ import { plumbingCatalogItems, type PlumbingConfig } from "@/components/plumbing
 import { type RoomConfig } from "@/components/room/RoomConfigurator";
 import { PLUMBING_FINISHES } from "@/lib/plumbing-catalog";
 import { FLOORING_COLORS } from "@/lib/catalog";
-import { getDuraseinColorByNameSlug } from "@/lib/durasein-catalog";
+import { getDuraseinColorByNameSlug, duraseinSheetTexture, DURASEIN_SHEET_IN } from "@/lib/durasein-catalog";
 import { getShowerComponentImage, getComponentDimensions, programForPackage } from "@/lib/shower-components-catalog";
 import type { HeroFixture } from "@/components/configurator/HeroCompositor";
 
@@ -64,7 +64,7 @@ type HeroInputs = {
   floorMaterial: { textureUrl: string; name: string } | null;
   vanityColor: string | null;
   vanityTopColor: string | null;
-  vanityTopMaterial: { textureUrl: string; name: string } | null;
+  vanityTopMaterial: { textureUrl: string; name: string; tileIn: { w: number; h: number } } | null;
   showerBaseColor: string | null;
   backsplashIn: number | null;
   fixtureFinish: string | null;
@@ -108,8 +108,23 @@ export function heroInputsFrom(src: HeroSource): HeroInputs {
   // range — but the two modules key them differently, so the bridge is by name slug. When a
   // scan comes back the compositor paints the real stone; when it doesn't, vanityTopColor
   // above still carries the hex and the counter is tinted instead of left bare.
+  //
+  // THE FULL-SHEET SCAN, NOT THE SWATCH MASTER. This used to pass `swatchUrl`, which is a
+  // studio photograph of a slab corner rather than a flat capture — see the note in
+  // lib/durasein-catalog. Tiled onto the counter it drew the slab's own edge profile across
+  // the middle of the top and magnified the grain several times over, which is what made the
+  // countertop read as a butcher block. `sheetUrl` is the flat scan and it carries a known
+  // real-world size, so the grain now renders at true scale. Colours with no sheet scan (the
+  // solid Brilliant range and the plain whites) fall through to the hex tint, which is the
+  // same rule the shower module already follows.
   const topScan = topColorId ? getDuraseinColorByNameSlug(topColorId) : null;
-  const vanityTopMaterial = topScan ? { textureUrl: topScan.swatchUrl, name: topScan.name } : null;
+  const vanityTopMaterial = topScan?.sheetUrl
+    ? {
+        textureUrl: duraseinSheetTexture(topScan.sheetUrl),
+        name: topScan.name,
+        tileIn: DURASEIN_SHEET_IN,
+      }
+    : null;
 
   // The pan colour is passed as an id, not a hex: the compositor tints three of the four by
   // multiply and has to lay black down opaquely, so it needs to know which one this is.

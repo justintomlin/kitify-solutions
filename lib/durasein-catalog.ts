@@ -26,6 +26,50 @@ export type DuraseinColor = {
   applicationPhotos: string[]; // installed / lifestyle photography, in page order
 };
 
+/**
+ * Real-world size of one full-sheet scan, in inches. MEASURED, not assumed.
+ *
+ * Three of these scans were pulled and their pixel dimensions compared against the nominal
+ * sheet: 7021 x 1500 px against 144 x 30.75in gives 48.76 px/in across and 48.78 px/in down —
+ * agreeing to 0.05%, which is what pins the sheet's proportions rather than leaving them a
+ * guess. (Glacier Tundra's scan is 7201 x 1500 and comes out 2.5% wider; the difference is
+ * within the crop variation between shoots and does not move the tile size enough to matter.)
+ *
+ * This is the number that makes a solid-surface texture render at TRUE SCALE: the compositor
+ * turns a tile's real size into a repeat count, so a sheet declared 144in wide across a 61in
+ * countertop shows 42% of the scan rather than the whole thing squeezed on.
+ */
+export const DURASEIN_SHEET_IN = { w: 144, h: 30.75 };
+
+/**
+ * A sheet scan, sized down through Next's image optimizer.
+ *
+ * Addressed by URL rather than through <Image> because the consumers are an SVG
+ * <pattern><image href> and a canvas texture, neither of which next/image can render. The
+ * scans are 1–2 MB apiece — far more than a texture drawn a few hundred pixels wide needs —
+ * and Durasein serves them as plain WordPress uploads with no CDN sizing parameters of their
+ * own, which is why the host is allowlisted in next.config.mjs. `w` must be one of Next's
+ * configured widths (its default deviceSizes/imageSizes lists).
+ *
+ * SAME ORIGIN once optimized, which matters beyond bandwidth: the hero compositor reads pixels
+ * back off some of its canvases, and a direct durasein.com fetch would taint them.
+ */
+export function duraseinSheetTexture(sheetUrl: string, w = 1920): string {
+  return `/_next/image?url=${encodeURIComponent(sheetUrl)}&w=${w}&q=75`;
+}
+
+/**
+ * SWATCH IMAGES ARE NOT TEXTURES, and this is the one place that is worth saying out loud
+ * because two different callers have now got it wrong.
+ *
+ * Durasein's `swatchUrl` is a studio photograph of a slab CORNER — the sheet seen at an angle,
+ * with its own 12mm edge profile crossing the frame, a background and a cast shadow. It is the
+ * right image for a picker tile and completely wrong as a repeating surface: tiled onto a
+ * countertop it draws that edge profile across the middle of the counter and magnifies the
+ * grain by whatever the ratio between the shot's field of view and the counter happens to be.
+ * `sheetUrl` is the flat edge-to-edge scan and is the only one that may be tiled.
+ */
+
 export type DuraseinCollection = { id: string; name: string; colors: DuraseinColor[] };
 
 type RawColor = Omit<DuraseinColor, "collection">;

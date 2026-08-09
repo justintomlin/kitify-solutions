@@ -213,8 +213,17 @@ export type HeroCompositorProps = {
  */
 const DEFAULT_WALL_TILE = { w: 24, h: 94.5 };
 const DEFAULT_FLOOR_TILE = { w: 35, h: 48 };
-/** A Durasein sheet scan is a whole slab, so one "tile" is about a countertop's worth of it. */
-const DEFAULT_TOP_TILE = { w: 60, h: 30 };
+/**
+ * A countertop's default tile is ONE SOLID-SURFACE SHEET, laid down: 144" along the run by
+ * 30.75" deep, measured off Durasein's own full-sheet scans (see DURASEIN_SHEET_IN).
+ *
+ * It used to be 60x30, i.e. "about a countertop's worth", and that was the wrong shape of
+ * answer — a tile size is a statement about the MATERIAL, not about the surface it lands on.
+ * Sized to the counter, the whole scan got squeezed onto the counter and the grain came out at
+ * whatever magnification the arithmetic happened to produce. At the sheet's real size a 61"
+ * counter shows 42% of the scan and 22" of depth shows 72% of it, both at true scale.
+ */
+const DEFAULT_TOP_TILE = { w: 144, h: 30.75 };
 
 /**
  * How each shower base colour is painted onto the plate's white pan, as a list of passes.
@@ -315,6 +324,29 @@ const FIXTURE_LUM_FEATHER = 12;
  * faces actually reach the metal colour.
  */
 const FIXTURE_SHADE_FLOOR = 0.42;
+
+/**
+ * Which slice of a group's own tone range is stretched across the metal, as percentiles.
+ *
+ * Scaling a pixel's shade by lum/CUTOFF is the obvious mapping and it flattens this plate's
+ * fixtures, because none of them uses much of that range. MEASURED, sub-cutoff pixels per
+ * group: the valve's escutcheon runs p5=19, p50=37, p95=78, so half of it lives inside a
+ * fifteen-unit band; the head is 18/32/89 and the faucet 15/35/108. Against a 112 cutoff the
+ * escutcheon's middle half therefore lands between 0.56 and 0.64 of the target colour — an
+ * eight percent spread, which reads as metal in a bright finish and as a single flat splotch
+ * in a dark one. That is the valve blob: Venetian bronze is (90,68,54), so eight percent of it
+ * is eight units of brown.
+ *
+ * Stretching the group's own p5..p95 across the full shade range instead roughly doubles the
+ * contrast that survives recolouring, and it is per GROUP rather than per box so an escutcheon
+ * and the lever crossing it stay on one scale and read as one fixture. Percentiles rather than
+ * min/max because a single specular pixel or one antialiased edge pixel would otherwise set
+ * the whole mapping.
+ */
+const FIXTURE_TONE_LO_PCT = 0.05;
+const FIXTURE_TONE_HI_PCT = 0.95;
+/** Below this the group has no usable range and the plain lum/cutoff ramp is used instead. */
+const FIXTURE_TONE_MIN_SPAN = 12;
 
 /**
  * TODO — faucet type (1cc vs 8cc).
@@ -585,6 +617,47 @@ function makeCanvas(w: number, h: number): HTMLCanvasElement {
 }
 
 const SURFACE_MAX = 1024;
+/** Below this a surface canvas is too coarse to carry a joint line, whatever the quad's size. */
+const SURFACE_MIN = 24;
+/**
+ * How many surface pixels are built per screen pixel the surface will occupy.
+ *
+ * The surface used to be built at SURFACE_MAX regardless of how big the quad landed, and that
+ * turned out to be visible rather than merely wasteful. The alcove's two planes are seen at
+ * very different obliquities — the back wall spans 22.3% of the plate and the left return
+ * 6.1% — so a fixed 1024-wide surface was minified 1.9x onto one and 3.4x onto the other.
+ * Canvas minification is bilinear, which undersamples rather than area-averages, and a slat
+ * texture is mostly narrow dark grooves on lighter faces: undersampling drops grooves and
+ * lifts the mean. MEASURED on this plate, same material on both planes, render over plate
+ * luminance: the back wall came out at 0.74 of the plate at every height while the return ran
+ * 0.79 at mid height and 0.83 low down — the return rendering up to 11% lighter than the back
+ * wall under one light, which is exactly what the markup called out.
+ *
+ * Sizing each surface to its own on-screen extent puts every plane at the SAME minification
+ * ratio, so whatever bias the filter has, it is the same bias everywhere and the planes read
+ * as one product. 2x is the supersample: enough to keep the filter in its well-behaved range
+ * (a 2x reduction is the case bilinear handles correctly) without paying for detail that is
+ * then thrown away.
+ */
+const SURFACE_SUPERSAMPLE = 2;
+
+/**
+ * How big to build a surface, from how big its quad lands on the canvas.
+ *
+ * Edge LENGTHS rather than a bounding box: a quad's u axis runs along its top and bottom
+ * edges, and for a plane raking away from the camera — the alcove's return, the floor — the
+ * bounding box is much larger than the surface actually is.
+ */
+function surfaceSize(screenQuad: Quad): { w: number; h: number } {
+  const len = (a: Point, b: Point) => Math.hypot(b[0] - a[0], b[1] - a[1]);
+  const [tl, tr, br, bl] = screenQuad;
+  const fit = (px: number) =>
+    Math.max(SURFACE_MIN, Math.min(SURFACE_MAX, Math.round(px * SURFACE_SUPERSAMPLE)));
+  return {
+    w: fit((len(tl, tr) + len(bl, br)) / 2),
+    h: fit((len(tl, bl) + len(tr, br)) / 2),
+  };
+}
 
 /**
  * Width of a rendered panel joint, as a fraction of the surface canvas.
@@ -606,7 +679,8 @@ const SEAM_ALPHA = 0.22;
  * across a wall this size at all, and pass null.
  */
 function buildSurface(
-  img: HTMLImageElement, face: Face, tileIn: { w: number; h: number }, seamIn?: number | null,
+  img: HTMLImageElement, face: Face, tileIn: { w: number; h: number },
+  screenQuad: Quad, seamIn?: number | null,
 ): HTMLCanvasElement {
   const rep = tileRepeat(face, tileIn.w, tileIn.h);
   // A wall panel is one piece floor-to-top — it is never butt-jointed halfway up. The field
@@ -615,12 +689,13 @@ function buildSurface(
   // wall, which no install has. Panels therefore stretch to the field height; the 24" VERTICAL
   // joints are untouched, and they are the ones a customer actually sees.
   if (seamIn) rep.y = 1;
-  const aspect = face.widthIn / face.heightIn;
-  let sw = SURFACE_MAX, sh = Math.round(SURFACE_MAX / aspect);
-  if (sh > SURFACE_MAX) { sh = SURFACE_MAX; sw = Math.round(SURFACE_MAX * aspect); }
-  const c = makeCanvas(sw, sh);
+  const size = surfaceSize(screenQuad);
+  const c = makeCanvas(size.w, size.h);
   const ctx = c.getContext("2d");
   if (!ctx) return c;
+  // A tile bigger than the face draws bigger than the canvas and is CROPPED by it, which is
+  // how a 144" sheet lands on a 61" counter at true grain size. Math.ceil still gives one
+  // draw in that case, and the loop covers the surface whenever the tile is smaller.
   const tw = c.width / rep.x, th = c.height / rep.y;
   for (let j = 0; j < Math.ceil(rep.y); j++) {
     for (let i = 0; i < Math.ceil(rep.x); i++) ctx.drawImage(img, i * tw, j * th, tw, th);
@@ -1144,39 +1219,64 @@ function buildFixturePatches(plate: CanvasImageSource, finishId: string): Fixtur
 
   const pw = SCENE.width, ph = SCENE.height;
 
-  for (const box of (Object.values(PLATE.fixtureBoxes) as FixturePatch["box"][][]).flat()) {
-    const sx = Math.round(box[0] * pw), sy = Math.round(box[1] * ph);
-    const sw = Math.max(1, Math.round(box[2] * pw)), sh = Math.max(1, Math.round(box[3] * ph));
-    const c = makeCanvas(sw, sh);
-    const ctx = c.getContext("2d", { willReadFrequently: true });
-    if (!ctx) continue;
-    ctx.drawImage(plate, sx, sy, sw, sh, 0, 0, sw, sh);
-
-    let data: ImageData;
-    try {
-      data = ctx.getImageData(0, 0, sw, sh);
-    } catch {
-      // Only reachable if the plate stops being same-origin. Bail on the whole finish rather
-      // than ship half the fixtures recoloured; matte black is a correct-looking fallback.
-      fixturePatchCache.set(finishId, []);
-      return [];
+  for (const boxes of Object.values(PLATE.fixtureBoxes) as FixturePatch["box"][][]) {
+    // Read every box of the GROUP first, so the tone mapping below is one scale for the whole
+    // fixture. A per-box scale would map an escutcheon and the lever crossing it differently
+    // and they would stop looking like one piece of metal.
+    const parts: Array<{ c: HTMLCanvasElement; data: ImageData; box: FixturePatch["box"] }> = [];
+    for (const box of boxes) {
+      const sx = Math.round(box[0] * pw), sy = Math.round(box[1] * ph);
+      const sw = Math.max(1, Math.round(box[2] * pw)), sh = Math.max(1, Math.round(box[3] * ph));
+      const c = makeCanvas(sw, sh);
+      const ctx = c.getContext("2d", { willReadFrequently: true });
+      if (!ctx) continue;
+      ctx.drawImage(plate, sx, sy, sw, sh, 0, 0, sw, sh);
+      try {
+        parts.push({ c, data: ctx.getImageData(0, 0, sw, sh), box });
+      } catch {
+        // Only reachable if the plate stops being same-origin. Bail on the whole finish rather
+        // than ship half the fixtures recoloured; matte black is a correct-looking fallback.
+        fixturePatchCache.set(finishId, []);
+        return [];
+      }
     }
 
-    const px = data.data;
-    for (let i = 0; i < px.length; i += 4) {
-      const lum = 0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2];
-      if (lum >= FIXTURE_LUM_CUTOFF) { px[i + 3] = 0; continue; }
-      // Spread the fixture's own tone across the metal, floored so lit faces reach the target
-      // colour instead of everything landing near black. This is what keeps a recoloured
-      // fixture reading as a photograph of metal rather than as a silhouette filled in.
-      const shade = FIXTURE_SHADE_FLOOR + (1 - FIXTURE_SHADE_FLOOR) * (lum / FIXTURE_LUM_CUTOFF);
-      px[i] = tint[0] * shade;
-      px[i + 1] = tint[1] * shade;
-      px[i + 2] = tint[2] * shade;
-      px[i + 3] = 255 * Math.min(1, (FIXTURE_LUM_CUTOFF - lum) / FIXTURE_LUM_FEATHER);
+    // The group's own tone range, from the pixels that are actually fixture.
+    const tones: number[] = [];
+    for (const { data } of parts) {
+      const p = data.data;
+      for (let i = 0; i < p.length; i += 4) {
+        const lum = 0.2126 * p[i] + 0.7152 * p[i + 1] + 0.0722 * p[i + 2];
+        if (lum < FIXTURE_LUM_CUTOFF) tones.push(lum);
+      }
     }
-    ctx.putImageData(data, 0, 0);
-    out.push({ canvas: c, box });
+    tones.sort((a, b) => a - b);
+    const lo = tones.length ? tones[Math.floor(FIXTURE_TONE_LO_PCT * (tones.length - 1))] : 0;
+    const hi = tones.length ? tones[Math.floor(FIXTURE_TONE_HI_PCT * (tones.length - 1))] : FIXTURE_LUM_CUTOFF;
+    // A group with no usable spread falls back to the plain ramp rather than having a
+    // near-zero denominator turn two adjacent tones into black and white.
+    const stretched = hi - lo >= FIXTURE_TONE_MIN_SPAN;
+
+    for (const { c, data, box } of parts) {
+      const px = data.data;
+      for (let i = 0; i < px.length; i += 4) {
+        const lum = 0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2];
+        if (lum >= FIXTURE_LUM_CUTOFF) { px[i + 3] = 0; continue; }
+        // Spread the fixture's own tone across the metal, floored so lit faces reach the target
+        // colour instead of everything landing near black. This is what keeps a recoloured
+        // fixture reading as a photograph of metal rather than as a silhouette filled in.
+        const t = stretched
+          ? Math.min(1, Math.max(0, (lum - lo) / (hi - lo)))
+          : lum / FIXTURE_LUM_CUTOFF;
+        const shade = FIXTURE_SHADE_FLOOR + (1 - FIXTURE_SHADE_FLOOR) * t;
+        px[i] = tint[0] * shade;
+        px[i + 1] = tint[1] * shade;
+        px[i + 2] = tint[2] * shade;
+        px[i + 3] = 255 * Math.min(1, (FIXTURE_LUM_CUTOFF - lum) / FIXTURE_LUM_FEATHER);
+      }
+      c.getContext("2d")?.putImageData(data, 0, 0);
+      out.push({ canvas: c, box });
+    }
   }
   fixturePatchCache.set(finishId, out);
   return out;
@@ -1243,8 +1343,11 @@ function paintRegion(
   lctx.save();
   if (clip?.length) { tracePolygons(lctx, clip, fit); lctx.clip("evenodd"); }
   for (const face of paint.region.faces) {
-    const surface = paint.kind === "texture" ? buildSurface(paint.img, face, paint.tileIn, paint.seamIn) : buildColorSurface(paint.color);
-    warpOntoQuad(lctx, surface, quadPx(face.quad, fit), layer.width, layer.height);
+    const screenQuad = quadPx(face.quad, fit);
+    const surface = paint.kind === "texture"
+      ? buildSurface(paint.img, face, paint.tileIn, screenQuad, paint.seamIn)
+      : buildColorSurface(paint.color);
+    warpOntoQuad(lctx, surface, screenQuad, layer.width, layer.height);
   }
   lctx.restore();
 
@@ -1400,11 +1503,6 @@ export function HeroCompositor({
     const layer = makeCanvas(w, h);
     if (floorImg) {
       paintRegion(fctx, layer, { kind: "texture", region: R.floor, img: floorImg, tileIn: { w: floorTileW, h: floorTileH } }, fit, blend, masks.floor, clipFor("floor"));
-      // Contact shadow where the partition's wall face meets the flooring. The flooring now
-      // terminates exactly on that line rather than fading into the wall, and this is what makes
-      // the wall read as standing ON the floor instead of floating above it — the one cue a
-      // clean polygon edge cannot supply on its own.
-      if (PLATE.seams.partitionFloor) paintSeam(fctx, PLATE.seams.partitionFloor, fit);
     }
     // The alcove: two planes on the photo plate, one region on the render plate. Branching on
     // whether the split regions carry geometry keeps the fallback working without a flag test.
@@ -1438,26 +1536,53 @@ export function HeroCompositor({
     for (const pass of basePasses ?? []) {
       paintRegion(fctx, layer, { kind: "color", region: R.showerFloor, color: pass.color, alpha: pass.alpha, mode: pass.mode }, fit, blend, masks.showerFloor, clipFor("showerFloor"));
     }
+    // Where the curb stands on the room floor. Both sides of that line are now painted — the
+    // curb by the pan's colour, the floor by the flooring — so without it they meet as two flat
+    // fields and the base looks laid on top of the floor rather than set into it.
+    if (basePasses && floorImg && PLATE.seams.curbFloor) paintSeam(fctx, PLATE.seams.curbFloor, fit);
     // The cabinet is a flat tint — the catalogue publishes door colours as hex swatches, not
     // as photography. The countertop prefers a real Durasein sheet scan and falls back to its
     // hex when the colour has no scan behind it.
     if (vanityColor) paintRegion(fctx, layer, { kind: "color", region: R.vanityArea, color: vanityColor, alpha: 0.92 }, fit, blend, masks.vanityArea, clipFor("vanityArea"));
+    // THE CABINET'S THREE EDGES, painted after both the cabinet and the floor, which is why
+    // they are here rather than beside the floor pass: two of the three divide the cabinet from
+    // the flooring and the later pass would bury them. They were measured two passes ago and
+    // never drawn — the only call was on a seam key this plate does not define — which is why
+    // the cabinet floated and both junctions read open however well the coordinates were fixed.
+    if (vanityColor || floorImg) {
+      if (PLATE.seams.vanityToe) paintSeam(fctx, PLATE.seams.vanityToe, fit);
+    }
+    if (vanityColor) {
+      if (PLATE.seams.vanityLeft) paintSeam(fctx, PLATE.seams.vanityLeft, fit);
+      if (PLATE.seams.vanityRight) paintSeam(fctx, PLATE.seams.vanityRight, fit);
+    }
+    // The counter is TWO faces of one region — the top surface and its 1.25" front edge — so a
+    // single call paints both, each at its own real height. See PHOTO_FACES.vanityTop.
     if (topImg) paintRegion(fctx, layer, { kind: "texture", region: R.vanityTop, img: topImg, tileIn: { w: topTileW, h: topTileH } }, fit, blend, masks.vanityTop, clipFor("vanityTop"));
     else if (vanityTopColor) paintRegion(fctx, layer, { kind: "color", region: R.vanityTop, color: vanityTopColor, alpha: 0.88 }, fit, blend, masks.vanityTop, clipFor("vanityTop"));
     // The splash is the counter's material carried up the wall, so it follows whatever the
     // counter resolved to — real scan or hex — rather than deciding for itself.
-    if (backsplashIn && R.vanityBacksplash.faces.length) {
-      const splash = scaleBacksplash(R.vanityBacksplash, backsplashIn);
-      if (topImg) paintRegion(fctx, layer, { kind: "texture", region: splash.region, img: topImg, tileIn: { w: topTileW, h: topTileH } }, fit, blend, undefined, splash.clip);
-      else if (vanityTopColor) paintRegion(fctx, layer, { kind: "color", region: splash.region, color: vanityTopColor, alpha: 0.88 }, fit, blend, undefined, splash.clip);
-      // The splash dies into a wall corner, not into open air. A hairline of shade at that
-      // edge is what stops it reading as a strip floating on the wall.
+    //
+    // BOTH pieces scale with the height selection. The return used to be left at its authored
+    // 4", which held only while the dealer picked 4": at 6" the back splash's top edge rose and
+    // the return's did not, and the miter they share opened up.
+    const splashPieces = backsplashIn
+      ? ([R.vanityBacksplash, R.vanitySideSplash] as const).filter((r) => r.faces.length)
+      : [];
+    for (const piece of splashPieces) {
+      const scaled = scaleBacksplash(piece, backsplashIn as number);
+      if (topImg) paintRegion(fctx, layer, { kind: "texture", region: scaled.region, img: topImg, tileIn: { w: topTileW, h: topTileH } }, fit, blend, undefined, scaled.clip);
+      else if (vanityTopColor) paintRegion(fctx, layer, { kind: "color", region: scaled.region, color: vanityTopColor, alpha: 0.88 }, fit, blend, undefined, scaled.clip);
     }
-    // The right-side splash: same material as the counter, but not height-scaled — it is a
-    // fixed return against the wall rather than a 4in/6in selection.
-    if (backsplashIn && R.vanitySideSplash.faces.length) {
-      if (topImg) paintRegion(fctx, layer, { kind: "texture", region: R.vanitySideSplash, img: topImg, tileIn: { w: topTileW, h: topTileH } }, fit, blend, undefined, clipFor("vanitySideSplash"));
-      else if (vanityTopColor) paintRegion(fctx, layer, { kind: "color", region: R.vanitySideSplash, color: vanityTopColor, alpha: 0.88 }, fit, blend, undefined, clipFor("vanitySideSplash"));
+    // The miter between them. Both faces now terminate on one line, so what is left to draw is
+    // the joint itself — a single plate pixel of shade, which is what the photograph has there.
+    // Its top follows the splash: the seam is authored at the 4" height and lifted about the
+    // counter's back edge, which is the one point on the joint that a height change cannot move.
+    if (splashPieces.length === 2 && (topImg || vanityTopColor) && PLATE.seams.splashCorner) {
+      const s = PLATE.seams.splashCorner;
+      const foot = R.vanitySideSplash.faces[0].quad[3][1];
+      const k = (backsplashIn as number) / BACKSPLASH_BASE_IN;
+      paintSeam(fctx, { ...s, from: [s.from[0], foot + (s.from[1] - foot) * k] }, fit);
     }
 
     // Foreground objects back on top of every material, in one pass.

@@ -371,7 +371,12 @@ const PHOTO_FACES: Record<RegionId, string[]> = {
   showerWallRight: ["showerWallRight"],
   showerFloor: ["showerFloor"],
   vanityArea: ["vanityFace"],
-  vanityTop: ["vanityTop"],
+  // TWO faces, the counter's top surface and its front edge, because they are one slab seen at
+  // two very different scales: 22" of depth compresses into 0.86% of plate height while the
+  // 1.25" nosing under it stands 1.65%. One quad across the pair mapped the counter's whole
+  // depth over both and rendered about eleven inches of grain down the nosing, which is what
+  // made the edge read as butcher block. Same selection, same tile, two honest heights.
+  vanityTop: ["vanityTop", "vanityTopEdge"],
   vanityBacksplash: ["vanityBacksplash"],
   vanitySideSplash: ["vanitySideSplash"],
 };
@@ -445,14 +450,21 @@ export const PHOTO_SCENE: SceneBundle = {
 };
 
 /**
- * How many times a tile of the given real-world size repeats across a face.
+ * How many times a tile of the given real-world size repeats across a face — FRACTIONAL.
  *
- * Floored at one full repeat: a tile larger than the surface should be shown cropped at true
- * scale, not shrunk to fit, or a 48" panel and a 12" tile would look identical on the wall.
+ * Under one repeat is a real answer, not an error: a Durasein sheet is 144" long and a
+ * countertop is 61", so the counter shows 0.42 of a sheet. The consumer draws that as the
+ * tile at true size, CROPPED by the surface. It used to be floored at 1 here, which sounds
+ * conservative and is the opposite — flooring makes the consumer squeeze a whole 144" sheet
+ * into 61" of counter and renders the grain 2.4x oversize. That is what made the countertop
+ * read as a slab table rather than a counter.
+ *
+ * Floored at a whisker above zero instead, purely so a face authored with a zero dimension
+ * can't divide by nothing.
  */
 export function tileRepeat(face: Face, tileWidthIn: number, tileHeightIn: number): { x: number; y: number } {
   return {
-    x: Math.max(1, face.widthIn / Math.max(1, tileWidthIn)),
-    y: Math.max(1, face.heightIn / Math.max(1, tileHeightIn)),
+    x: Math.max(1e-3, face.widthIn / Math.max(1e-3, tileWidthIn)),
+    y: Math.max(1e-3, face.heightIn / Math.max(1e-3, tileHeightIn)),
   };
 }

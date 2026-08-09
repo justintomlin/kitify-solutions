@@ -24,7 +24,7 @@ import { notFound } from "next/navigation";
 import { HeroCompositor } from "@/components/configurator/HeroCompositor";
 import { PHOTO_SCENE, type Polygon, type RegionId } from "@/lib/hero-regions";
 import { getShowerComponentImage, getComponentDimensions } from "@/lib/shower-components-catalog";
-import { getDuraseinColorByNameSlug } from "@/lib/durasein-catalog";
+import { getDuraseinColorByNameSlug, duraseinSheetTexture, DURASEIN_SHEET_IN } from "@/lib/durasein-catalog";
 import { FLOORING_COLORS, SHOWER_BASE_COLORS } from "@/lib/catalog";
 import { PLUMBING_FINISHES } from "@/lib/plumbing-catalog";
 
@@ -56,13 +56,45 @@ const WALL_MID = {
   seamIn: 24,
   tileIn: { w: 24, h: 94.5 },
 };
-/** Solid surface: a sheet, so it must render with NO joints. */
+/**
+ * Solid surface: a sheet, so it must render with NO joints.
+ *
+ * From the full-sheet SCAN, matching what ShowerConfigurator resolves. It used to come from
+ * the swatch master, which is a photograph of a slab corner — so this panel was checking the
+ * wall against an image the app never puts there. On a wall the sheet stands upright, hence
+ * the transposed tile.
+ */
 const WALL_SHEET = (() => {
   const c = getDuraseinColorByNameSlug("bianca-sabbia");
-  return c ? { textureUrl: c.swatchUrl, name: c.name, seamIn: null, tileIn: { w: 30, h: 144 } } : null;
+  return c?.sheetUrl
+    ? {
+        textureUrl: duraseinSheetTexture(c.sheetUrl),
+        name: c.name,
+        seamIn: null,
+        tileIn: { w: DURASEIN_SHEET_IN.h, h: DURASEIN_SHEET_IN.w },
+      }
+    : null;
 })();
 const FLOOR = FLOORING_COLORS.find((c) => c.id === "vmd-01") ?? FLOORING_COLORS[0];
-const TOP = getDuraseinColorByNameSlug("barnwood");
+
+/**
+ * A countertop, resolved the way HeroPreview resolves one.
+ *
+ * Durasein publishes two images per colour and they are NOT interchangeable — the "swatch
+ * master" is a studio shot of a slab CORNER, complete with its own edge profile and cast
+ * shadow, and the full-sheet scan is a flat edge-to-edge capture. This harness used to pass
+ * the swatch, which is what put a giant slab edge across the counter. Mirroring the real
+ * resolver here means the harness renders what the app renders.
+ */
+const topMaterial = (slug: string) => {
+  const c = getDuraseinColorByNameSlug(slug);
+  if (!c?.sheetUrl) return null;
+  return { textureUrl: duraseinSheetTexture(c.sheetUrl), name: c.name, tileIn: DURASEIN_SHEET_IN };
+};
+type TopMat = ReturnType<typeof topMaterial>;
+const TOP = topMaterial("barnwood");
+/** The light counter the precision pass checks grain scale against. */
+const TOP_LIGHT = topMaterial("bianca-sabbia");
 
 const FINISH = "Matte Black";
 const PROGRAM = "Woodhurst";
@@ -96,8 +128,14 @@ function useFixtures() {
   ].filter((f) => f.url);
 }
 
-const FLOOR_DARK = FLOORING_COLORS.find((c) => /char|graph|slate|espress|walnut/i.test(c.name)) ?? FLOORING_COLORS[FLOORING_COLORS.length - 1];
-const FLOOR_LIGHT = FLOORING_COLORS.find((c) => /white|oat|linen|ash|light/i.test(c.name)) ?? FLOORING_COLORS[0];
+// The darkest and lightest planks in the Durato range, PICKED BY MEASUREMENT rather than by
+// name. These twelve are named after buildings — Florence, Gherkin, Petronas — so the tone
+// regex this used to run ("char|graph|slate|espress|walnut") matched nothing and both ends
+// fell through to their defaults, which is how a panel labelled "dark everything" came to be
+// rendered on the second-lightest floor in the catalogue. Mean luminance of each swatch:
+// Buckingham 33.6 is the darkest by a wide margin and Baymont 180.0 the lightest.
+const FLOOR_DARK = FLOORING_COLORS.find((c) => c.id === "vmd-06") ?? FLOORING_COLORS[FLOORING_COLORS.length - 1];
+const FLOOR_LIGHT = FLOORING_COLORS.find((c) => c.id === "vmd-03") ?? FLOORING_COLORS[0];
 
 /**
  * The five selections the plate has to survive, config (a) first because it is the one the
@@ -141,7 +179,7 @@ export default function HeroCheckPage() {
             floorMaterial={{ textureUrl: FLOOR.image, name: FLOOR.name }}
             vanityColor="#2f5d50"
             vanityTopColor="#9a7b57"
-            vanityTopMaterial={TOP ? { textureUrl: TOP.swatchUrl, name: TOP.name } : null}
+            vanityTopMaterial={TOP}
             showerBaseColor="black"
             backsplashIn={4}
             fixtureFinishId="champagne-bronze"
@@ -172,7 +210,7 @@ export default function HeroCheckPage() {
                   floorMaterial={cfg.floor ? { textureUrl: cfg.floor.image, name: cfg.floor.name } : null}
                   vanityColor={cfg.cabinet}
                   vanityTopColor="#9a7b57"
-                  vanityTopMaterial={TOP ? { textureUrl: TOP.swatchUrl, name: TOP.name } : null}
+                  vanityTopMaterial={TOP}
                   showerBaseColor={cfg.base}
                   backsplashIn={4}
                   fixtureFinishId={cfg.finish}
@@ -181,6 +219,41 @@ export default function HeroCheckPage() {
               </div>
             </figure>
           ))}
+        </div>
+      </section>
+
+      {/*
+        THE PRECISION PASS PANELS. Two configurations at 3x the plate, which is the only
+        magnification at which a junction can actually be judged — a 0.2% misalignment is
+        two-thirds of a plate pixel and simply is not visible at hero size.
+
+        A is the dealer's own current view and the one the markup was drawn on. B reverses the
+        contrast on every junction at once: where A puts something dark against a light plate,
+        B puts something light against a dark one, and a boundary that is off by a pixel shows
+        up in one of the two whichever way the error points.
+
+        Both run the SAME material on both alcove planes, which also makes them the acceptance
+        test for the return-versus-back-wall balance.
+      */}
+      <section>
+        <h2 style={H2}>1c · precision pass A — Barnwood counter, dark cabinet, dark floor, wood slat, Venetian</h2>
+        <div id="cfgA" style={{ width: BIG_W, height: BIG_H }}>
+          <PrecisionPanel
+            wall={WALL} floor={FLOOR_DARK} top={TOP}
+            cabinet="#2b2f31" base="black" finish="venetian-bronze"
+          />
+        </div>
+      </section>
+      <section>
+        <h2 style={H2}>1d · precision pass B — light Durasein counter, light cabinet, light floor, solid surface walls, Chrome, 6&quot; splash</h2>
+        {/* 6" rather than 4", so the height selection is exercised somewhere: the back splash
+            and its right return are both scaled now, and the miter they share only stays shut
+            if they scale together. */}
+        <div id="cfgB" style={{ width: BIG_W, height: BIG_H }}>
+          <PrecisionPanel
+            wall={WALL_SHEET} floor={FLOOR_LIGHT} top={TOP_LIGHT}
+            cabinet="#e6e3dc" base="white" finish="chrome" splashIn={6}
+          />
         </div>
       </section>
 
@@ -262,7 +335,10 @@ export default function HeroCheckPage() {
           <div key={row.id}>
             <h2 style={{ ...H2, marginTop: 10 }}>{row.title}</h2>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }} id={row.id}>
-              {["chrome", "champagne-bronze", "matte-black"].map((id) => (
+              {/* Venetian is in the list because it is the finish the dealer is looking at and
+                  because it is the hardest: it is the darkest metal in the range, so it is where
+                  a fixture with little tonal range of its own collapses into a flat blob. */}
+              {["chrome", "champagne-bronze", "venetian-bronze", "matte-black"].map((id) => (
                 <figure key={id} style={{ margin: 0 }}>
                   <figcaption style={{ color: "#aaa", font: "11px monospace", marginBottom: 3 }}>
                     {PLUMBING_FINISHES.find((f) => f.id === id)?.name ?? id}
@@ -279,6 +355,35 @@ export default function HeroCheckPage() {
 }
 
 type WallMat = { textureUrl: string; name: string; seamIn: number | null; tileIn?: { w: number; h: number } } | null;
+
+/** 3x the plate. Big enough that a two-thirds-of-a-pixel junction error is legible in a crop. */
+const BIG_W = 2352;
+const BIG_H = Math.round(BIG_W / PHOTO_SCENE.scene.aspect);
+
+/** One whole-room render under a named configuration, at BIG_W. */
+function PrecisionPanel({ wall, floor, top, cabinet, base, finish, splashIn = 4 }: {
+  wall: WallMat; floor: (typeof FLOORING_COLORS)[number] | null; top: TopMat;
+  cabinet: string; base: string; finish: string; splashIn?: number;
+}) {
+  return (
+    <HeroCompositor
+      width={BIG_W}
+      height={BIG_H}
+      wallMaterialBack={wall}
+      wallMaterialLeft={wall}
+      wallMaterialRight={wall}
+      floorMaterial={floor ? { textureUrl: floor.image, name: floor.name } : null}
+      vanityColor={cabinet}
+      vanityTopColor="#9a7b57"
+      vanityTopMaterial={top}
+      showerBaseColor={base}
+      backsplashIn={splashIn}
+      fixtureFinishId={finish}
+      showDisclaimer={false}
+      className="block"
+    />
+  );
+}
 
 /** One wall configuration, rendered full-room and cropped to the alcove. */
 function AlcoveCrop({ back, left, right }: { back: WallMat; left: WallMat; right: WallMat }) {
@@ -343,7 +448,7 @@ function FixtureCrop({ finishId, at, big, wall }: {
           wallMaterialBack={wall ? WALL : null}
           wallMaterialLeft={wall ? WALL : null}
           wallMaterialRight={wall ? WALL : null}
-          vanityTopMaterial={TOP ? { textureUrl: TOP.swatchUrl, name: TOP.name } : null}
+          vanityTopMaterial={TOP}
           vanityTopColor="#9a7b57"
           fixtureFinishId={finishId}
           showDisclaimer={false}
