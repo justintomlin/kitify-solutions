@@ -183,31 +183,44 @@ export default function HeroCheckPage() {
       </section>
 
       <section>
-        <h2 style={H2}>5 · plumbing finishes — faucet detail (each tile is the real render, cropped)</h2>
+        <h2 style={H2}>5 · plumbing finishes — sink faucet (each tile is the real render, cropped)</h2>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }} id="finishes">
           {PLUMBING_FINISHES.map((f) => (
             <figure key={f.id} style={{ margin: 0 }}>
               <figcaption style={{ color: "#aaa", font: "11px monospace", marginBottom: 3 }}>{f.name}</figcaption>
-              <FixtureCrop finishId={f.id} at={[57.45, 51.7]} />
+              <FixtureCrop finishId={f.id} at={[61.35, 52.5]} />
             </figure>
           ))}
         </div>
-        {/* The head sits ON the panel field now that the top edge is raised, so it needs its
-            own row: the check is that the recolour reads over a dark slat texture and does not
-            clip against the panel top. Three representative finishes rather than seven, at a
-            smaller render — every tile is a full room, and fourteen of them blank the canvas
-            memory budget. */}
-        <h2 style={{ ...H2, marginTop: 10 }}>6 · relocated head on the left return + repaired back wall</h2>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }} id="finishesHead">
-          {["chrome", "champagne-bronze", "matte-black"].map((id) => (
-            <figure key={id} style={{ margin: 0 }}>
-              <figcaption style={{ color: "#aaa", font: "11px monospace", marginBottom: 3 }}>
-                {PLUMBING_FINISHES.find((f) => f.id === id)?.name ?? id}
-              </figcaption>
-              <FixtureCrop finishId={id} at={[23.0, 27.5]} big={1400} wall />
-            </figure>
-          ))}
-        </div>
+        {/* The other tint groups, each over a DARK SLAT WALL rather than over bare plate. That
+            is the case that fails first: a light finish on a dark material is where a box that
+            catches wall shows up, as a pale rectangle around the fixture. Three finishes per
+            row rather than seven — every tile is a full-room render and the backing stores add
+            up fast. Matte Black is in every row on purpose. It is the no-op tint, so it is also
+            the only case that proves the OCCLUSION MASK is restoring the hardware: without the
+            mask, matte-black hardware would stay buried under the wall material. */}
+        {[
+          { id: "finishesHead", title: "6 · shower head + arm, on the left return", at: [21.15, 20.5] as [number, number] },
+          { id: "finishesValve", title: "7 · valve trim", at: [20.5, 52.5] as [number, number] },
+          { id: "finishesDoorTop", title: "8 · door hardware — post, track, left hanger", at: [24.0, 15.0] as [number, number] },
+          { id: "finishesDoorEdge", title: "9 · door hardware — handle, at the alcove's bright right edge", at: [44.4, 54.5] as [number, number] },
+          { id: "finishesRail", title: "10 · door hardware — bottom rail over the pan", at: [37.0, 93.4] as [number, number] },
+          { id: "finishesSconce", title: "11 · vanity sconce — bulbs must stay lit", at: [61.5, 9.6] as [number, number] },
+        ].map((row) => (
+          <div key={row.id}>
+            <h2 style={{ ...H2, marginTop: 10 }}>{row.title}</h2>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }} id={row.id}>
+              {["chrome", "champagne-bronze", "matte-black"].map((id) => (
+                <figure key={id} style={{ margin: 0 }}>
+                  <figcaption style={{ color: "#aaa", font: "11px monospace", marginBottom: 3 }}>
+                    {PLUMBING_FINISHES.find((f) => f.id === id)?.name ?? id}
+                  </figcaption>
+                  <FixtureCrop finishId={id} at={row.at} big={1400} wall />
+                </figure>
+              ))}
+            </div>
+          </div>
+        ))}
       </section>
     </main>
   );

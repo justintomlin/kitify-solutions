@@ -93,7 +93,15 @@ export type AnchorId = "faucet" | "showerTrim" | "showerHead" | "tubSpout";
  * product photograph, a FixtureBox says where to RECOLOUR what the plate already shows.
  */
 export type FixtureBox = readonly [number, number, number, number];
-export type FixtureId = "valveTrim" | "faucet" | "faucetSpout";
+/**
+ * One recolourable fixture GROUP. A group is a thing the dealer picks a finish for, not a
+ * rectangle: the sliding door's hardware is one choice but nine separate pieces of metal
+ * scattered across the alcove, so a group carries a list of boxes rather than a single box.
+ * Tight boxes beat one loose box — a loose one is only safe while nothing else dark falls
+ * inside it, and on this plate the head, the track and the valve are close enough together
+ * that a generous box catches its neighbour.
+ */
+export type FixtureId = "showerHead" | "valveTrim" | "sinkFaucet" | "doorHardware" | "vanitySconce";
 
 /**
  * Everything the compositor needs to paint one plate.
@@ -142,7 +150,7 @@ export type SceneBundle = {
    * whose fixtures are modelled rather than photographed, which is why the render plate has
    * none: there, a fixture is pinned as a product photo at an anchor instead.
    */
-  fixtureBoxes: Partial<Record<FixtureId, FixtureBox>>;
+  fixtureBoxes: Partial<Record<FixtureId, FixtureBox[]>>;
   /**
    * Corners to darken once the materials are down, keyed by name.
    *
@@ -306,16 +314,16 @@ type RawPhoto = {
   faces: Record<string, RawFace[]>;
   clips: Record<string, number[][][]>;
   anchors: Record<string, { at: number[]; unitPerIn: number }>;
-  fixtureRegions: Record<string, number[]>;
+  fixtureRegions: Record<string, number[][]>;
   seams: Record<string, { from: number[]; to: number[]; halfWidthPct: number; strength: number }>;
   plateRepairs: Record<string, {
     type: string; box: number[]; ringPct: number; featherPct?: number;
     minK?: number; maxK?: number; deficitFull?: number;
   }>;
-  modeledHead: { at: number[]; unitPerIn: number; armIn: number; headIn: number; thicknessIn: number };
+  modeledHead?: { at: number[]; unitPerIn: number; armIn: number; headIn: number; thicknessIn: number };
 };
 
-const FIXTURE_IDS: FixtureId[] = ["valveTrim", "faucet", "faucetSpout"];
+const FIXTURE_IDS: FixtureId[] = ["showerHead", "valveTrim", "sinkFaucet", "doorHardware", "vanitySconce"];
 
 const PHOTO = photo as unknown as RawPhoto;
 const PCT = 1 / 100;
@@ -385,10 +393,12 @@ export const PHOTO_SCENE: SceneBundle = {
   anchors: toAnchors(PHOTO.anchors, PCT),
   fixtureBoxes: Object.fromEntries(
     FIXTURE_IDS.flatMap((id) => {
-      const b = PHOTO.fixtureRegions[id];
-      return b ? [[id, [b[0] * PCT, b[1] * PCT, b[2] * PCT, b[3] * PCT] as FixtureBox]] : [];
+      const g = PHOTO.fixtureRegions[id];
+      return g?.length
+        ? [[id, g.map((b) => [b[0] * PCT, b[1] * PCT, b[2] * PCT, b[3] * PCT] as FixtureBox)]]
+        : [];
     }),
-  ) as Partial<Record<FixtureId, FixtureBox>>,
+  ) as Partial<Record<FixtureId, FixtureBox[]>>,
   seams: Object.fromEntries(
     Object.entries(PHOTO.seams ?? {}).map(([k, v]) => [k, {
       from: [v.from[0] * PCT, v.from[1] * PCT] as Point,
@@ -406,15 +416,12 @@ export const PHOTO_SCENE: SceneBundle = {
           minK: r.minK ?? 0.5, maxK: r.maxK ?? 0.85, deficitFull: r.deficitFull ?? 25,
         };
   }),
-  modeledHead: PHOTO.modeledHead
-    ? {
-        at: [PHOTO.modeledHead.at[0] * PCT, PHOTO.modeledHead.at[1] * PCT] as Point,
-        unitPerIn: PHOTO.modeledHead.unitPerIn,
-        armIn: PHOTO.modeledHead.armIn,
-        headIn: PHOTO.modeledHead.headIn,
-        thicknessIn: PHOTO.modeledHead.thicknessIn,
-      }
-    : null,
+  // RETIRED on this plate. modeledHead existed because the previous plate's head was in the
+  // wrong place and had to be painted out and redrawn. This plate photographs its head on the
+  // left return at a true 72in above the pan, so there is nothing to draw and nothing to
+  // repair — the head is a fixtureRegions group like every other piece of metal. The field and
+  // drawModeledHead stay for the Three.js path, which still resolves this from its own JSON.
+  modeledHead: null,
 };
 
 /**

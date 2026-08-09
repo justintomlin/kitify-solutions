@@ -67,27 +67,18 @@ import {
 const USE_PHOTO_PLATE = true;
 
 /**
- * PHASE 2 — OFF until the occlusion mask is rebuilt for this plate.
+ * ON since Phase 3, against a mask rebuilt for this plate.
  *
- * public/hero/base-photo-occlusion.png was traced against the previous plate. The restore pass
- * does not know that: it happily cuts that plate's plant and toilet silhouettes out of THIS
- * plate and lays them back down at the old coordinates, which is the smearing on the left wall.
- * A wrong mask is worse than no mask — with it off, every surface simply composites without
- * foreground objects on top, which is honest and legible. Phase 3 rebuilds the mask and turns
- * this back on.
+ * public/hero/base-photo-occlusion.png now carries this plate's plant, planter, toilet and
+ * towel, plus the sliding door's hardware. The hardware is in there for one case only: MATTE
+ * BLACK. Every other finish paints its own patch straight from the plate, so the hardware
+ * reappears whether or not the mask restores it — but matte black is a no-op tint, so without
+ * the mask the post and track would stay buried under whatever wall material was chosen.
  */
-const OCCLUSION_ENABLED = false;
+const OCCLUSION_ENABLED = true;
 
-/**
- * PHASE 2 — OFF for the same reason as the occlusion mask.
- *
- * `fixtureRegions` still holds the PREVIOUS plate's boxes. The recolour does not know that: it
- * reads whatever sits at those coordinates on THIS plate and finish-tints it, which put a
- * champagne blob across the new countertop where the old faucet used to be. Phase 3 re-measures
- * the boxes for this plate — head and valve on the left wall, sink faucet, and the door hardware
- * as its own group — and turns this back on.
- */
-const FIXTURE_TINT_ENABLED = false;
+/** ON since Phase 3. Every box in `fixtureRegions` was re-measured against this plate. */
+const FIXTURE_TINT_ENABLED = true;
 
 const PLATE: SceneBundle = USE_PHOTO_PLATE ? PHOTO_SCENE : RENDER_SCENE;
 const SCENE = PLATE.scene;
@@ -1153,7 +1144,7 @@ function buildFixturePatches(plate: CanvasImageSource, finishId: string): Fixtur
 
   const pw = SCENE.width, ph = SCENE.height;
 
-  for (const box of Object.values(PLATE.fixtureBoxes) as FixturePatch["box"][]) {
+  for (const box of (Object.values(PLATE.fixtureBoxes) as FixturePatch["box"][][]).flat()) {
     const sx = Math.round(box[0] * pw), sy = Math.round(box[1] * ph);
     const sw = Math.max(1, Math.round(box[2] * pw)), sh = Math.max(1, Math.round(box[3] * ph));
     const c = makeCanvas(sw, sh);
@@ -1469,9 +1460,15 @@ export function HeroCompositor({
       else if (vanityTopColor) paintRegion(fctx, layer, { kind: "color", region: R.vanitySideSplash, color: vanityTopColor, alpha: 0.88 }, fit, blend, undefined, clipFor("vanitySideSplash"));
     }
 
-    // Foreground objects back on top of every material, in one pass. Before the fixtures, so
-    // a recoloured tap still sits above everything; nothing in the mask stands in front of a
-    // fixture, so the order between them is a matter of principle rather than pixels.
+    // Foreground objects back on top of every material, in one pass.
+    //
+    // BEFORE THE FIXTURES, AND SINCE PHASE 3 THAT ORDERING IS LOAD-BEARING. The mask now
+    // contains the sliding door's hardware, which is also a tint group. Restoring first and
+    // tinting second means the hardware comes back as plate pixels and is then recoloured;
+    // the other way round, the restore would paint plate-black straight over a Chrome tint and
+    // every finish would render matte black. The one thing this order costs is that a tint box
+    // must not overlap an occluder it does not own — which is why the door post's tint box
+    // stops at y=65.5, where the plant's foliage starts climbing over it.
     if (occluders) {
       fctx.drawImage(occluders, fit.ox, fit.oy, SCENE.width * fit.scale, SCENE.height * fit.scale);
     }
@@ -1492,10 +1489,11 @@ export function HeroCompositor({
           w * SCENE.width * fit.scale, h * SCENE.height * fit.scale,
         );
       }
-      // The head the plate no longer has. Drawn last of the fixtures so it sits over the wall
-      // material and over its own contact shadow.
-      // Also stale: modeledHead's anchor is the old plate's left return. Phase 3 re-places it.
-      if (FIXTURE_TINT_ENABLED && PLATE.modeledHead) {
+      // A drawn head, for a plate that does not photograph one where the design needs it. This
+      // plate does — on the left return, at a true 72in above the pan — so PHOTO_SCENE sets
+      // modeledHead to null and the head is recoloured like every other fixture instead. The
+      // call stays for the Three.js path and for the next plate.
+      if (PLATE.modeledHead) {
         drawModeledHead(fctx, PLATE.modeledHead, FINISH_TINTS[fixtureFinishId ?? ""] ?? null, fit);
       }
     } else {

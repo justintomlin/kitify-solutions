@@ -41,7 +41,12 @@ const shots = [
   ["#walls", "hero-walls.png"],
   ["#finishes", "hero-finishes.png"],
   ["#finishesHead", "hero-head.png"],
-  
+  ["#finishesValve", "hero-valve.png"],
+  ["#finishesDoorTop", "hero-doortop.png"],
+  ["#finishesDoorEdge", "hero-dooredge.png"],
+  ["#finishesRail", "hero-rail.png"],
+  ["#finishesSconce", "hero-sconce.png"],
+
 ];
 for (const [sel, name] of shots) {
   const el = await page.$(sel);
