@@ -615,5 +615,49 @@
   "_faucet_split_note": "ONE BOX, NOT TWO — the opposite of what the previous plate needed, and measured rather than assumed. There IS a clean vertical break in the faucet's dark mass at x 60.08-60.84, where the minimum luminosity is 111 and no pixel falls under the cutoff, so the spout and the handle cluster genuinely do resolve separately. That is not why the old plate was split, though. It was split because a hard shadow line under the mirror ran THROUGH the box's y range and 44 of 49 pixels across that row sat below the cutoff, so the whole line recoloured. On this plate the two bands that would do that both sit OUTSIDE the faucet's own y range: the mirror frame's bottom shadow occupies y 47.02-48.51 (8-16 sub-cutoff pixels per row, minimum luminosity 72-95) and the counter/cabinet shadow y 58.63-58.93 (48-111 pixels). The faucet's own dark starts at y=48.81 with a minimum of 25. Starting the box at y=48.7 divides them cleanly, so a single box carries the whole fixture and the vertical gap inside it simply tints nothing.",
   "_sconce_note": "The vanity light USED to be excluded on the grounds that it is decor rather than something the dealer picks. That call is reversed here on instruction: it is now a tint group and follows the plumbing finish. The box covers the arm, the backplate and the three sockets, and stops at y=12.5 — the bulbs hang below that and are the brightest pixels anywhere in the plate, so the cutoff would drop them regardless; the box is kept off them anyway so the glow halo has no chance to fall under the cutoff at its edges.",
   "_door_post_extent_note": "The post's TINT box stops at y=65.5 although the post itself runs to 96.4, and that is a consequence of the compositing order rather than of the measurement. Occlusion restore runs BEFORE fixture tinting (it has to — see the compositor), so anything the mask puts back can be painted over by a tint box that overlaps it. Below y=65.5 the plant's foliage climbs across the post, and a tint box carried down through it would recolour leaves. Above 65.5 the post is clear of the plant. The mask restores the post over its full height, so under Matte Black it reads whole; under a light finish the covered lower third stays dark, which is where the leaves are anyway.",
-  "_fixture_deltas": "Corrections found by rendering, because the first pass always leaves some. (1) TRACK END CAP untinted: the rail's fourth span and the right hanger both stopped at x=45.1-45.3, and the track's end stop runs to 45.75 — it stayed matte black against a gold rail. Both boxes now reach 45.85. That deliberately reaches 1.35% past the alcove's right edge at 44.49 and across the plate's BRIGHTEST vertical strip (the partition corner, luminosity 150-190 against the shower wall's 150), which is safe for exactly the reason the whole scheme is safe: the cutoff is 112 and the strip never goes near it. Verified in the harness row 9 — the handle recolours and the strip beside it does not. (2) DOOR POST tint capped at y=65.5, which is where the plant's first leaf crosses it. Rendered, the cut lands ON the leaf edge and reads as the post going behind the plant."
+  "_fixture_deltas": "Corrections found by rendering, because the first pass always leaves some. (1) TRACK END CAP untinted: the rail's fourth span and the right hanger both stopped at x=45.1-45.3, and the track's end stop runs to 45.75 — it stayed matte black against a gold rail. Both boxes now reach 45.85. That deliberately reaches 1.35% past the alcove's right edge at 44.49 and across the plate's BRIGHTEST vertical strip (the partition corner, luminosity 150-190 against the shower wall's 150), which is safe for exactly the reason the whole scheme is safe: the cutoff is 112 and the strip never goes near it. Verified in the harness row 9 — the handle recolours and the strip beside it does not. (2) DOOR POST tint capped at y=65.5, which is where the plant's first leaf crosses it. Rendered, the cut lands ON the leaf edge and reads as the post going behind the plant.",
+  "_door_glass_note": "THE GLASS, and the evidence for where it is. Multiply carries the plate's glazing through darkly and drops it brightly, so with a dark panel selected the glazed half of the alcove came out identical to the unglazed half — the door simply vanished. The compositor now redraws the plate over these outlines in `screen`, which can only add light. TWO SHEETS, NOT ONE, and the profile says so at every height from y=22 to y=88 without varying: reading across x=29.4 to 32.2 there are TWO parallel dark minima, at x=30.31 and x=31.22, with a distinct plateau between them that is darker than the field on either side. That is a lap joint — one sheet's edge, the other sheet's edge, and 0.91% of plate width where both thicknesses are in the line of sight. At the back wall's measured 0.371%/in that lap is 2.5 inches, which is the standard overlap on a bypass shower door. The hangers at x=32.6 and 43.4 both sit right of 31.22, so the SLIDING panel is the right-hand one and the fixed panel is behind it on the left; the handle at 44.01-44.77 is at the slider's far end. RIGHT BOUND: the profile falls steadily to a minimum at x=44.57 and then jumps to a peak of 181 at 45.09. Phase 1 could not tell whether that bright band was the partition's corner or the door's jamb and left it unpainted either way; with the glass mapped it reads as the slider's polished edge. It is left OUT of the polygon — it is the brightest thing in the alcove already, no material paints there, and screening it would only clip it. TOP: the line running across the door plane at y = 8.564 + 0.10716x, which Phase 1 measured and could not place; it is the glazing's head. BOTTOM: the bottom rail's top, y = 97.66 - 0.12x. The two outlines are kept separate because that is what was measured, but the compositor puts both into ONE clip path, so the lap is screened once.",
+  "_door_glass_alpha_note": "ALPHA 0.22, and ONE value serves a dark wall, a light one and a mid one, because screen is self-limiting: it adds in proportion to (255 - destination), so a near-white panel takes almost nothing while a dark one takes the whole reflection. Predicted lift, plate luminosity about 150 in the glazed field: on a dark slat wall (destination about 95) +19, a 20% lift; on a light Durasein sheet (destination about 205) +6.5, 3.2%. TUNED BY RENDER at 0.28 and 0.18. 0.28 flattened the dark slat panel — the wood lost its richness and the difference between the glazed field and the bare wall above the track read as a wash rather than as glazing. 0.18 held the wood but only just carried the leading edge. 0.22 sits between them. The light case never failed at any of the three, which is the self-limiting property doing its job, so no per-polygon alpha and no brightness weighting were needed.",
+  "doorGlass": {
+    "alpha": 0.22,
+    "polygons": {
+      "fixedPanel": [
+        [
+          16.45,
+          15.36
+        ],
+        [
+          31.22,
+          16.74
+        ],
+        [
+          31.22,
+          93.91
+        ],
+        [
+          16.45,
+          95.69
+        ]
+      ],
+      "slidingPanel": [
+        [
+          30.31,
+          16.66
+        ],
+        [
+          44.55,
+          17.99
+        ],
+        [
+          44.55,
+          92.31
+        ],
+        [
+          30.31,
+          94.02
+        ]
+      ]
+    }
+  },
+  "_door_glass_top_note": "THE TOP EDGE IS AT THE TRACK RAIL'S UNDERSIDE, not at the glazing's real head. Measured, the glass runs up to the line y = 8.564 + 0.10716x — the horizontal that Phase 1 found on the door plane and could not place. Carrying the polygon up there was tried and rejected on the render: it puts a hard tonal step straight across open wall at y 11-13, three percent above the rail, and reads as a horizontal seam ruled across the panels rather than as the top of a pane. Anchored instead at y = 15.55 + 0.0935(x - 18.5), the rail's own lower edge, the transition lands where the picture already has a line and reads as the shadow under the track. The cost is that the 3% band of genuinely glazed wall above the rail is not screened; it is mostly covered by the rail and the panel's top-edge treatment, and nothing in it reads as wrong."
 }
