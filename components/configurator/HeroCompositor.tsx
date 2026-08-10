@@ -1656,9 +1656,15 @@ export function HeroCompositor({
     // The miter, drawn as a joint rather than as a boundary between two regions. Its top follows
     // the splash: the seam is authored at the 4" height and lifted about the counter's back
     // edge, which is the one point on the joint that a height change cannot move.
+    //
+    // The foot is the back edge's RIGHT end (quad[2]), not its left (quad[3]). The joint stands
+    // at x=77.08, which is the right end of the run, and the back edge falls half a percent of
+    // plate height across the counter — anchoring the lift at the far end scaled the seam about
+    // a point half a percent below where it actually stands, and a 6" selection overran the
+    // splash's own top by a plate pixel.
     if (splashPainted && PLATE.seams.splashCorner) {
       const s = PLATE.seams.splashCorner;
-      const foot = R.vanityBacksplash.faces[0].quad[3][1];
+      const foot = R.vanityBacksplash.faces[0].quad[2][1];
       const k = (backsplashIn as number) / BACKSPLASH_BASE_IN;
       paintSeam(fctx, { ...s, from: [s.from[0], foot + (s.from[1] - foot) * k] }, fit);
     }

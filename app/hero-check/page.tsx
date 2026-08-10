@@ -176,8 +176,8 @@ const H2 = { color: "#fff", font: "12px monospace", margin: "0 0 6px" } as const
  *
  * The default is `cfg`, so opening the page bare still shows the three whole-room views.
  */
-type PanelGroup = "cfg" | "fixtures" | "bases" | "walls" | "outlines" | "sweep";
-const PANEL_GROUPS: PanelGroup[] = ["cfg", "fixtures", "bases", "walls", "outlines", "sweep"];
+type PanelGroup = "cfg" | "fixtures" | "bases" | "walls" | "outlines" | "sweep" | "plate2";
+const PANEL_GROUPS: PanelGroup[] = ["cfg", "fixtures", "bases", "walls", "outlines", "sweep", "plate2"];
 
 function usePanelGroup(): PanelGroup | null {
   const [panel, setPanel] = useState<PanelGroup | null>(null);
@@ -320,6 +320,48 @@ export default function HeroCheckPage() {
         </div>
       </section>
 
+      </>}
+
+      {/*
+        THE EDITED-PLATE PASS. Three configurations chosen for what the plate edit and the
+        splash rework can each get wrong, rather than for covering the range.
+
+        P1 is the dealer's own eyeball view with the counter swapped to a LIGHT solid surface:
+        light is the case where grain bleeding up from the plate would show, because a dark
+        counter hides the plate's own pattern under its own. P2 is the opposite extreme — the
+        Barnwood scan, which is the strongest pattern the counter range has, over a light floor:
+        if any of the plate's old wood survived the edit, a second grain at a different angle is
+        what it would look like. P3 exercises the 6" selection, where the drawn splash overruns
+        the plate's own and the miter has to scale with it.
+      */}
+      {panel === "plate2" && <>
+      <section>
+        <h2 style={H2}>P1 · eyeball config, LIGHT counter — wood slat, dark plank, Venetian, black base, {TOP_LIGHT?.name ?? "light"} top, 4&quot; splash</h2>
+        <div id="p1" style={{ width: BIG_W, height: BIG_H }}>
+          <PrecisionPanel
+            wall={WALL} floor={FLOOR_DARK} top={TOP_LIGHT}
+            cabinet="#2f5d50" base="black" finish="venetian-bronze"
+          />
+        </div>
+      </section>
+      <section>
+        <h2 style={H2}>P2 · grain-is-gone at the other extreme — {TOP?.name ?? "Barnwood"} counter, light floor, 4&quot; splash</h2>
+        <div id="p2" style={{ width: BIG_W, height: BIG_H }}>
+          <PrecisionPanel
+            wall={WALL} floor={FLOOR_LIGHT} top={TOP}
+            cabinet="#e6e3dc" base="white" finish="chrome"
+          />
+        </div>
+      </section>
+      <section>
+        <h2 style={H2}>P3 · 6&quot; splash — light counter, dark plank, so the band above the plate&apos;s own splash is visible</h2>
+        <div id="p3" style={{ width: BIG_W, height: BIG_H }}>
+          <PrecisionPanel
+            wall={WALL} floor={FLOOR_DARK} top={TOP_LIGHT}
+            cabinet="#2f5d50" base="black" finish="venetian-bronze" splashIn={6}
+          />
+        </div>
+      </section>
       </>}
 
       {panel === "outlines" && <section>
