@@ -137,14 +137,28 @@ const OCCLUDERS = {
     [74.9, 101], [75.6, 91.0], [73.6, 90.0], [73.0, 81.0], [73.2, 78.2],
     [76.0, 76.6], [80.5, 76.4], [80.7, 63.0],
   ],
-  // Hangs from the bar beside the toilet, over the wall and over the right end of the counter
+  // Hangs from the bar beside the toilet, over the wall and beside the right end of the counter
   // run. Generous on the RIGHT, where it overlaps nothing paintable and so costs nothing, and
   // tight on the LEFT, because the counter and cabinet run to x=77.3 and every tenth of a
   // percent this reaches past that restores the plate's own surfaces as a stripe beside the
   // selected material.
+  //
+  // THE LEFT EDGE WAS NOT TIGHT ENOUGH, and it is what made the splash's right RETURN render
+  // lighter than the splash face beside it — the exact inversion _side_splash_dropped set out to
+  // avoid. The old edge ran (77.4, 49) -> (76.6, 58) -> (76.5, 66.5), which is left of the
+  // counter's own end at 77.33 from y=49.8 downward, so the restore put raw plate back over the
+  // return at 77.08-77.33 and over the last few tenths of the splash face. Measured on the
+  // render: return/face came out 1.43 where the plate's own ratio is 0.80.
+  //
+  // WHERE THE TOWEL ACTUALLY IS: the rise through luminance 150 into its lit cloth sits at
+  // x=77.50 at every row from y=52 to 58 and at 77.76 from y=60 to 62. So the towel and the
+  // counter do not touch at all — there is 0.17% of bare wall between them — and the polygon can
+  // sit in that gap. At 77.45 it clears the counter by 0.12% and still starts 0.05% before the
+  // cloth, which is inside the feather, so no part of the towel goes unrestored. Below the
+  // counter it only has to clear the cabinet's 76.71, which 77.5 does comfortably.
   towel: [
     [77.8, 42.4], [82.9, 42.4], [82.9, 69.5], [78.3, 69.6],
-    [76.5, 66.5], [76.6, 58.0], [77.4, 49.0],
+    [77.5, 66.5], [77.45, 59.2], [77.45, 51.0],
   ],
 };
 

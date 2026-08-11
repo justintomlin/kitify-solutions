@@ -449,6 +449,88 @@
           49.14,
           57.46
         ]
+      ],
+      [
+        [
+          66.3,
+          56.669
+        ],
+        [
+          66.12,
+          56.763
+        ],
+        [
+          65.6,
+          56.855
+        ],
+        [
+          64.8,
+          56.936
+        ],
+        [
+          63.78,
+          56.998
+        ],
+        [
+          62.65,
+          57.035
+        ],
+        [
+          61.52,
+          57.043
+        ],
+        [
+          60.5,
+          57.021
+        ],
+        [
+          59.7,
+          56.972
+        ],
+        [
+          59.18,
+          56.9
+        ],
+        [
+          59,
+          56.812
+        ],
+        [
+          59.18,
+          56.717
+        ],
+        [
+          59.7,
+          56.624
+        ],
+        [
+          60.5,
+          56.543
+        ],
+        [
+          61.52,
+          56.482
+        ],
+        [
+          62.65,
+          56.446
+        ],
+        [
+          63.78,
+          56.439
+        ],
+        [
+          64.8,
+          56.461
+        ],
+        [
+          65.6,
+          56.51
+        ],
+        [
+          66.12,
+          56.582
+        ]
       ]
     ],
     "vanityTopEdge": [
@@ -491,7 +573,8 @@
         ]
       ]
     ],
-    "_floor_right_of_toilet_corrected": "THE FLOORING WAS BEING PAINTED ONTO THE WALL RIGHT OF THE TOILET, and that is the dark wedge the markup circled. The clip used to run [77.3,90] -> [101,91.7] -> [101,106], a chord carried over from an early pass. _floor_perimeter_verified already recorded that this line is PROJECTED rather than measured — it found no junction anywhere in x 84-99 — and concluded that it 'reads as an ordinary wall base'. That conclusion was checked the wrong way round: the test asked whether the RENDER's warmth crosses into the plank at the predicted row, which only proves the compositor obeys the clip, never that the clip is right. WHAT THE PLATE ACTUALLY HAS, in the warmth channel, which separates this plate's warm floor from its neutral wall at a glance: known floor left of the toilet reads R-B 53 to 56 and G-B 30 to 32; known wall right of the toilet, well above the line, reads R-B 26 and G-B 14. Every band below the old clip line — x 85-88 at y 90.5-93, x 88-91 at 91-94, x 91-95 at 92-96, x 95-101 at 92-97 and again at 97-100 — reads R-B 21 to 28 and G-B 10 to 15. That is the wall's signature at every one of them and nothing like the floor's. Scanned column by column at y 93-97 the floor's R-B holds 52-56 out to x=75.0 and collapses to 39 at 75.5 and 32.6 at 76.0, which is the toilet's pedestal, not a floor edge. So the room floor is simply not visible right of x=75 within this frame: the wall the toilet stands against runs down past the bottom of the picture. THE CLIP NOW STOPS AT x=77.3 and drops straight off the frame. Nothing visible is lost — the toilet's own occlusion polygon spans 74.9 to 87.4 continuously from y=90 to y=101, so it already covers every pixel between the floor's real right edge at 75.0 and the clip's new one, with 2.3% of overlap to spare — and the triangle at x 84-87.4, y 90-93 that the toilet does not cover measures R-B 23.5, i.e. wall, and is correctly left as plate now. VERIFIED BY COVERAGE, not by arithmetic: two renders whose floor, pan, cabinet, counter and finish all differ, diffed pixel by pixel over y 80-99.7, leave ZERO identical pixels outside the known occluders. No gap opened at the pan front, at the curb, at the cabinet toe or at the toilet."
+    "_floor_right_of_toilet_corrected": "THE FLOORING WAS BEING PAINTED ONTO THE WALL RIGHT OF THE TOILET, and that is the dark wedge the markup circled. The clip used to run [77.3,90] -> [101,91.7] -> [101,106], a chord carried over from an early pass. _floor_perimeter_verified already recorded that this line is PROJECTED rather than measured — it found no junction anywhere in x 84-99 — and concluded that it 'reads as an ordinary wall base'. That conclusion was checked the wrong way round: the test asked whether the RENDER's warmth crosses into the plank at the predicted row, which only proves the compositor obeys the clip, never that the clip is right. WHAT THE PLATE ACTUALLY HAS, in the warmth channel, which separates this plate's warm floor from its neutral wall at a glance: known floor left of the toilet reads R-B 53 to 56 and G-B 30 to 32; known wall right of the toilet, well above the line, reads R-B 26 and G-B 14. Every band below the old clip line — x 85-88 at y 90.5-93, x 88-91 at 91-94, x 91-95 at 92-96, x 95-101 at 92-97 and again at 97-100 — reads R-B 21 to 28 and G-B 10 to 15. That is the wall's signature at every one of them and nothing like the floor's. Scanned column by column at y 93-97 the floor's R-B holds 52-56 out to x=75.0 and collapses to 39 at 75.5 and 32.6 at 76.0, which is the toilet's pedestal, not a floor edge. So the room floor is simply not visible right of x=75 within this frame: the wall the toilet stands against runs down past the bottom of the picture. THE CLIP NOW STOPS AT x=77.3 and drops straight off the frame. Nothing visible is lost — the toilet's own occlusion polygon spans 74.9 to 87.4 continuously from y=90 to y=101, so it already covers every pixel between the floor's real right edge at 75.0 and the clip's new one, with 2.3% of overlap to spare — and the triangle at x 84-87.4, y 90-93 that the toilet does not cover measures R-B 23.5, i.e. wall, and is correctly left as plate now. VERIFIED BY COVERAGE, not by arithmetic: two renders whose floor, pan, cabinet, counter and finish all differ, diffed pixel by pixel over y 80-99.7, leave ZERO identical pixels outside the known occluders. No gap opened at the pan front, at the curb, at the cabinet toe or at the toilet.",
+    "_basin_hole": "THE SINK READS THROUGH THE COUNTER, as a hole in the vanityTop clip rather than as a restore pass — the mechanism _clip_note already documents ('an outline nested inside another punches a hole') and the one that needs no second full-canvas layer. The counter is an undermount install: the slab has a cutout and the bowl below it is china, so it takes no counter material at any selection, and the plate's own basin is what should show. WHY IT WAS INVISIBLE BEFORE: multiply does carry the basin's shading through proportionally — the bowl is a 19 percent dip against the counter around it, and 19 percent of a multiplied value is still 19 percent — but 19 percent is far below the Barnwood scan's own grain contrast, so the sink was legible under a flat tint and gone under a real sheet. MEASURED: the band mean per column against a fit through the clean columns either side drops from x=59.0, bottoms at -31.7 units at x=65, and recovers by x=66.4. That is 7.3 percent of plate width, which at the vanity's 0.4622 percent per inch is 15.8in — a normal bathroom bowl, and the check that the trough is the sink and not shading. Vertically it occupies 0.12 to 0.82 of the counter band's depth, read off the pixel grid at x=62 and x=65. Authored as a 20-point ellipse on those bounds; a six-point one was tried first and its corners were visible at zoom. The faucet does not interact: its tint box bottoms at y=56.3, above the hole's 56.44, and it is drawn after the counter in any case."
   },
   "_seams_note": "Ambient occlusion the compositor paints along a corner AFTER the materials land. The plate already carries its own corner darkening and multiply passes it straight through, so these are deliberately WEAKER than what is measured. MEASURED ON THIS PLATE, at y=30: the interior corner reads 150.2 at its darkest column against a smooth interpolation of its immediate neighbours at ~154, so the LOCAL crease is only about 4 units, 3% — the big fall from 178 at x=20 is the return's own shading, which multiply already carries. The right edge reads 147 against shoulders of 150 and 154, also about 4 units but over 0.3% of width rather than 3%. Strengths below are set near those measurements rather than imported from the previous plate, whose corner was three times deeper. `from`/`to` are the corner's endpoints and `halfWidthPct` the fade distance either side, both in plate percent. WHICH ARE PAINTED: alcoveInterior and alcoveRight after the wall pass; curbFloor after the pan; vanityLeft, vanityRight and vanityToe after the cabinet AND the floor, because two of the three divide the cabinet from the floor and would be painted over otherwise; splashCorner after the splashes. The previous pass measured the vanity three and painted none of them — the compositor's only call was on a key named `partitionFloor` that does not exist here, so it was a no-op every frame. That is why the cabinet floated and why both of its junctions read open: the coordinates had been corrected and nothing was drawing on them. panWallLeft stays unpainted and stays as the record.",
   "seams": {
@@ -509,10 +592,10 @@
       "strength": 0.065
     },
     "alcoveRight": {
-      "_measured": "Hard and narrow. Darkest column 44.486-44.500 at every height, depth ~4 units over 0.3%.",
+      "_measured": "Hard and narrow. Darkest column 44.486-44.500 at every height, depth ~4 units over 0.3%. TOP EXTENDED to the ceiling crease at 9.94, from the panel top at 10.24. The corner does not stop where the panels stop: the plate's own dark trough at x=44.6 is still there above the panel top (97 against 112 at x=43.2 on row y=10.1), because the alcove wall meets the partition all the way to the ceiling. Extending it covers the 0.30% clearance band, which is exactly where paintPanelTopEdge's two strokes terminate, so the crease now shades their ends instead of leaving them cut off against the partition's lit edge.",
       "from": [
         44.49,
-        10.24
+        9.94
       ],
       "to": [
         44.49,
@@ -598,6 +681,19 @@
       ],
       "halfWidthPct": 0.4,
       "strength": 0.07
+    },
+    "vanityCounterBottom": {
+      "_measured": "THE COUNTER'S UNDERSIDE, against the cabinet's top rail, along the shared B4 edge y = 60.581 - 0.02995x. The plate has this junction as a shadow: sampled at five columns, luminance ON the line runs 109.8 / 139.2 / 91.8 / 87.1 / 62.2 at x = 52 / 58 / 65 / 70 / 75 against a cabinet body of 152.8 / 173.9 / 132.1 / 112.4 / 85.7, a fall of 20 to 30 percent. Multiply carries that through on the CABINET side and the render shows it — the tinted face dips to 35 against a body of 57. What multiply cannot carry is the other side: the nosing is a different material from the cabinet, so where the plate had a neutral edge meeting a neutral rail this now puts a LIGHT counter hard against a dark cabinet, and the nosing's bottom row stays at full brightness right up to the edge. Measured on the dealer's own configuration, the brightest row in the whole junction sits at y 58.5 to 59.0 — the nosing's last rows — lifting 35 to 57 above the cabinet body at every column from x=51 to 66, which is the bright line the markup circled. STRENGTH is a third of the plate's own 25 percent fall, the same fraction vanityToe takes of its measured 48 percent. HALF-WIDTH is 0.28 percent of plate width, which is the 0.5 percent of plate height the shadow actually occupies converted into the units this type uses. Its job is to put the counter's own contact shadow back on BOTH sides of the line rather than to draw a line the photograph does not have.",
+      "from": [
+        49.14,
+        59.11
+      ],
+      "to": [
+        77.33,
+        58.26
+      ],
+      "halfWidthPct": 0.33,
+      "strength": 0.16
     }
   },
   "_fixture_note": "Boxes around the plate's baked-in matte-black hardware, for recolouring it to the dealer's selected finish. A group is one finish CHOICE and carries a list of PARTS, because the sliding door's hardware is one choice spread over fourteen separate pieces of metal. Each part is a box in plate percentages [x, y, w, h] plus the two numbers that decide which of its pixels are metal. CUTOFF AND FEATHER ARE PER PART, and that is the correction this pass makes. They used to be two globals — 112 and 12 — and 112 was above the fixture/background valley for EVERY group on this plate, which is why bright finishes smeared: the boxes were tinting the surface the fixture sits on as well as the fixture. Measured by Otsu on each part's own luminance histogram, computed twice — on the box alone, which biases low where the part nearly fills its box, and on the box grown by 0.6%, which biases high where it does not — and averaged. The valleys land between 77 and 109 depending on what the part sits on: 87 for the faucet against a lit countertop, 104 for the track span that crosses the door's glass lap, 109 for the left hanger. FEATHER is 0.35 of the span from the cutoff down to the part's own 5th-percentile core, so the alpha ramp covers roughly the antialiased rim rather than a fixed twelve units. It is deliberately not wider: at half the span the fixture's own mid-tones go part-transparent and the wall shows through the metal, which is what a previous pass hit at 26 against the old cutoff. MATTE BLACK IS UNAFFECTED by any of this — it has no entry in FINISH_TINTS, so no patch is built at all and the plate shows through untouched.",
@@ -906,5 +1002,8 @@
     }
   },
   "_door_glass_edges_verified": "THE EDGE LINES, PROBED AND CHECKED AGAINST THE POLYGONS, and the answer is that nothing needed moving. Four lines, each fitted per row and reported with its spread. (1) THE LAP'S LEFT EDGE: x = 30.3401 + 0.00034y, worst residual 0.006 over twelve heights from y=22 to 88 — dead vertical, one twentieth of a pixel of drift. It is a TROUGH, not a highlight: 166.7 at the top of the wall falling to 111.9 low down, against shoulders 13 to 20 units brighter. (2) THE LAP'S RIGHT EDGE: x = 31.220, residual 0.011, also a trough. (3) THE FIXED PANEL'S LEFT EDGE, the one line that IS bright: x = 16.623 over y=20 to 62, spread 0.011, peaking 172 to 178 against a field of 155 to 175 — the glazing catching light against the door post, which stands black at 8 to 62 immediately to its left. (4) THE SLIDER'S RIGHT: a trough at x = 44.48, then the bright band the previous passes measured, peaking 180 at x=45.13. VERDICTS. The lap's two lines both fall inside the polygon UNION — the left at 30.34 is 0.03 inside slidingPanel and well inside fixedPanel, the right at 31.22 sits exactly on fixedPanel's edge and 0.9 inside slidingPanel — and the compositor puts both outlines in one clip path wound the same way, so nonzero fill gives the union and neither line is cut. The fixed panel's bright line at 16.623 is 0.17 inside its polygon's 16.45 edge, whole. The slider's polygon ends at 44.55, which is 0.07 PAST the trough at 44.48, so it includes the trough entire and errs toward including rather than clipping. The bright band beyond stays out, and the reason still measures: nothing paints there — the back wall ends at 44.49 — so screening it would lift the plate's own brightest pixel from 180 to about 192 for no gain. MEASURED IN THE RENDER TOO: sampling render-over-plate across each boundary in bands clear of the slats shows no step at 16.45, at 30.31, at 31.22 or at 44.55; the variation across all of them is the wall texture, not the clip. WHAT DOES NOT READ, and it is not a polygon fault: the lap's edges are 13 to 20 units of trough on a 150 to 170 field, and after multiply by a slat panel and a 0.22 screen they contribute under 2 units to the composite, against slat grooves of 60. They are drawn whole and they are simply below the plate's own contrast against that material. Raising the alpha is the only lever and it is already tuned against the wood — see _door_glass_alpha_note.",
-  "_floor_perimeter_verified": "SEVEN NAMED POINTS, checked one at a time on the darkest plank in the range rather than by coverage sweep, because a sweep proves a pixel was painted and not that it was painted in the right place. Boundary found per column as the row where the render's warmth crosses from the neutral thing above (black pan, tinted cabinet, pale wall) into the plank's own warm cast. (1) PAN FRONT / CURB, against y = 103.64 - 0.13523x: rendered 98.7-98.9 at x=36 against 98.77 predicted, and 97.7 at x=44 against 97.69. Delta under 0.05. (2) PARTITION BASE, against a flat 97.30: rendered 97.27 to 97.37 at three columns. Delta under 0.07. (3) CABINET TOE, against y = 95.07 - 0.11338x: rendered 88.2 at x=60 against 88.27. Delta 0.07. At x=75 the toilet occludes the junction, correctly. (4) TOILET SURROUND after the silhouette correction: the toe board ends at 86.8 against 86.91 predicted and the plank runs on from there with the plate's contact shadow visible under the bowl. (5) RIGHT WALL BASE and (7) NEAR-RIGHT CORNER: rendered 91.1 at x=92 and 91.6 at x=99, against 91.05 and 91.55 from the clip — but that clip line is PROJECTED, not measured, and this pass is the record of why it has to be. Profiling the plate from x=84 to 99 over y=86 to 99 finds no junction at all: luminance drifts smoothly from 57 at x=88 to 128 at x=99 with warmth constant at 18 to 29 and no step anywhere. The corner beyond the toilet is deep shadow on both sides of a boundary the photograph does not show. Rendered, the line reads as an ordinary wall base and that is the only verdict available. (6) BOTTOM FRAME EDGE: the plank reaches y=99.9 at every unoccluded column tested — 26, 34, 46, 55, 65, 95, 99 — with the two that do not (x=12, x=85) being the left planter and the toilet, both correctly restored."
+  "_floor_perimeter_verified": "SEVEN NAMED POINTS, checked one at a time on the darkest plank in the range rather than by coverage sweep, because a sweep proves a pixel was painted and not that it was painted in the right place. Boundary found per column as the row where the render's warmth crosses from the neutral thing above (black pan, tinted cabinet, pale wall) into the plank's own warm cast. (1) PAN FRONT / CURB, against y = 103.64 - 0.13523x: rendered 98.7-98.9 at x=36 against 98.77 predicted, and 97.7 at x=44 against 97.69. Delta under 0.05. (2) PARTITION BASE, against a flat 97.30: rendered 97.27 to 97.37 at three columns. Delta under 0.07. (3) CABINET TOE, against y = 95.07 - 0.11338x: rendered 88.2 at x=60 against 88.27. Delta 0.07. At x=75 the toilet occludes the junction, correctly. (4) TOILET SURROUND after the silhouette correction: the toe board ends at 86.8 against 86.91 predicted and the plank runs on from there with the plate's contact shadow visible under the bowl. (5) RIGHT WALL BASE and (7) NEAR-RIGHT CORNER: rendered 91.1 at x=92 and 91.6 at x=99, against 91.05 and 91.55 from the clip — but that clip line is PROJECTED, not measured, and this pass is the record of why it has to be. Profiling the plate from x=84 to 99 over y=86 to 99 finds no junction at all: luminance drifts smoothly from 57 at x=88 to 128 at x=99 with warmth constant at 18 to 29 and no step anywhere. The corner beyond the toilet is deep shadow on both sides of a boundary the photograph does not show. Rendered, the line reads as an ordinary wall base and that is the only verdict available. (6) BOTTOM FRAME EDGE: the plank reaches y=99.9 at every unoccluded column tested — 26, 34, 46, 55, 65, 95, 99 — with the two that do not (x=12, x=85) being the left planter and the toilet, both correctly restored.",
+  "_layer_interaction_pass": "PHASE 8, AND EVERY DEFECT IN IT WAS ONE LAYER REACHING INTO ANOTHER RATHER THAN A POLYGON IN THE WRONG PLACE. The single rule that came out of it: THREE PASSES PUT PLATE PIXELS BACK OVER PAINTED MATERIAL — the occlusion restore, the glass screen and the fixture tint — and all three are only meaningful where the plate still SHOWS through what was painted, i.e. under a multiply. The shower base is the one surface composited differently: buildBasePatch REPLACES the pan with the plate's own pan re-toned. Put raw plate back over that and you are not restoring anything, you are undoing the re-tone. Both halves of FIX 1 are that rule applied twice, and it is worth stating because the next dark-surface feature will hit it again.",
+  "_rail_band_diagnosis": "THE MUDDY BAND ACROSS THE BLACK PAN — diagnosed by rendering the black-base config four ways at the rail crop and measuring the pan floor above the rail in each. ALL LAYERS ON 61.6. OCCLUSION OFF 61.6. RAIL TINT OFF 61.6. GLASS OFF 29.1. The tint model predicts 28.2 to 28.9 for those plate pixels, so the glass pass alone was more than doubling the pan and neither of the other two moved it by a single unit. CAUSE ONE, the glass. Its polygons' bottom edges run y 92.31 to 95.69, and the pan's front threshold is y = 98.082 - 0.12106x, so the sheets cover essentially the whole pan floor. Screening the raw plate there re-adds the white the re-tone removed. Fixed by punching the pan's own clip out of the glass layer before it composites — not by lowering the alpha, which would have dimmed the reflections on the walls too. CAUSE TWO, the occlusion restore, invisible until cause one was fixed. The mask keys the door hardware on luminosity, and the bottom rail is ONE plate pixel of metal keyed out of a white pan with a feather either side; over a black pan those feathered pixels restore a 160 onto a 29, which is the row of pale blocks along the rail. Same mechanism as Phase 6's gold streaks, resurfaced because the base re-tone landed after that fix. Fixed by skipping the restore inside (pan clip AND a doorHardware part box) — scoped to the hardware boxes rather than to the pan, because the right-hand planter's foot overlaps the curb and is a solid occluder that must still come back. Skipping rather than re-toning is the same result by a cheaper route: the destination inside the pan already IS the re-toned plate. RESULT, measured at the same crop: pan floor 61.6 -> 29.1, rail band peak 104 -> 63, and the band now reads identical to the occlusion-off reference. White is untouched to the byte (no re-tone, so no exclusion); beige 145.8 -> 133.2 and grey 126.4 -> 109.1 were being lifted by the glass too and are corrected with it.",
+  "_small_junctions_phase8": "THE FOUR SMALL JUNCTIONS, measured on the dealer's own configuration. Three were clean and are recorded so the next pass does not re-open them. (a) POT BASE: the plate's own pot edge, found per row as the fall off the lit pot into what is behind it, sits at 23.52 / 23.52 / 23.53 / 23.54 at y = 97.5 / 98.5 / 99 / 99.5 against a planterRight polygon that runs 23.51 to 23.54 over the same rows — agreement to 0.01 percent, a twelfth of a plate pixel. Nothing to fix; the junction only LOOKS hard because the pan beside it is now black, and the edge it meets is the polygon's, correctly placed. (c) TOILET LEFT: silhouette re-checked by the exact test rather than by a level — inside a restored occluder the compositor draws the plate's own pixels, so 'render equals plate' locates the edge with no threshold and works the same on a dark plank as on a light one. The pedestal edge lands at 75.66 / 75.54 / 75.28 at y = 93 / 96 / 99 against Phase 7's warmth measurement of 75.10 to 75.57, i.e. 0.1 to 0.2 percent, inside the 0.3 threshold. The seat's overlap with the cabinet's right end reads clean: cabinet luminance runs 32-33 out to x=73 and the porcelain is 197-215 from x=74.5, with no cabinet colour on the china and no plate stripe beside it. (d) FLOOR RIGHT TERMINATION: right of the toilet nothing is painted at all, so render must equal plate. Against a control area's 5.46-per-channel resample offset, only 0.3 percent of samples over x 87.6-100, y 88-99.5 exceed 6 per channel after correction, and the worst single sample is on the toilet's own feathered edge. A horizontal scan across x=77.3 below the foot runs 136, 139, 145, 151, 158 with no step: the clip's drop falls inside the toilet mask's 74.9-87.4 span as intended and does not peek out. (b) was the one real defect — see the towel note in build-occlusion-mask."
 }
