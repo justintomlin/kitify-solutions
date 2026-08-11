@@ -908,6 +908,22 @@ function paintSeam(frame: CanvasRenderingContext2D, seam: SeamShade, fit: Fit) {
  */
 const PANEL_EDGE_SHADOW = "rgba(0,0,0,0.20)";
 const PANEL_EDGE_HIGHLIGHT = "rgba(255,255,255,0.16)";
+/**
+ * How much of the run the outer end fades over, as a fraction of the edge's length.
+ *
+ * A product edge dies into the corner it runs into; it does not survive across it. Left square,
+ * these two strokes end in a blunt vertical cut at the alcove's right edge, and against the
+ * partition's lit face that cut is the pale notch the markup circled — measured against the
+ * plate, +18 units of highlight and -25 of shadow inside x=44.49 dropping to +1 outside it,
+ * over two plate pixels. The crease cannot fix it: alcoveRight is a 5% shade by measurement and
+ * five percent does not close a nineteen-unit step.
+ *
+ * Only the OUTER end fades. Corner i of the quad is corner i of the texture, so `tl` is the
+ * shared interior vertex on both alcove planes and `tr` is the far end of each — the alcove's
+ * right edge on the back wall, and off the top of the frame on the return. Fading `tl` too
+ * would open a gap at the one corner the two edges have to cross as one line.
+ */
+const PANEL_EDGE_FADE = 0.06;
 
 function paintPanelTopEdge(frame: CanvasRenderingContext2D, quad: Quad, fit: Fit) {
   const [tl, tr] = quad;
@@ -928,11 +944,22 @@ function paintPanelTopEdge(frame: CanvasRenderingContext2D, quad: Quad, fit: Fit
   const px = (SCENE.height * fit.scale) / SCENE.height;   // one plate pixel, in canvas pixels
   const w = Math.max(1, px);
 
+  // Both strokes fade out over the last PANEL_EDGE_FADE of the run, toward `b`. A gradient
+  // rather than a shorter line: stopping the stroke early would trade a bright cut for a blank
+  // one, and it is the discontinuity that reads, not the length.
+  const fade = (css: string) => {
+    const g = frame.createLinearGradient(ax, ay, bx, by);
+    g.addColorStop(0, css);
+    g.addColorStop(Math.max(0, 1 - PANEL_EDGE_FADE), css);
+    g.addColorStop(1, css.replace(/,[\d.]+\)$/, ",0)"));
+    return g;
+  };
+
   frame.save();
   frame.lineCap = "butt";
   // Shadow sits just ABOVE the edge, on the wall the panel stands proud of.
   frame.globalCompositeOperation = "multiply";
-  frame.strokeStyle = PANEL_EDGE_SHADOW;
+  frame.strokeStyle = fade(PANEL_EDGE_SHADOW);
   frame.lineWidth = w;
   frame.beginPath();
   frame.moveTo(ax, ay - w * 0.5);
@@ -940,7 +967,7 @@ function paintPanelTopEdge(frame: CanvasRenderingContext2D, quad: Quad, fit: Fit
   frame.stroke();
   // Highlight sits just BELOW it, on the panel's own top edge.
   frame.globalCompositeOperation = "source-over";
-  frame.strokeStyle = PANEL_EDGE_HIGHLIGHT;
+  frame.strokeStyle = fade(PANEL_EDGE_HIGHLIGHT);
   frame.beginPath();
   frame.moveTo(ax, ay + w * 0.6);
   frame.lineTo(bx, by + w * 0.6);
@@ -1585,16 +1612,26 @@ export function HeroCompositor({
           paintRegion(fctx, layer, { kind: "texture", region, img, tileIn, seamIn }, fit, blend, undefined, clipFor(id));
         }
       }
-      // The creases, once material is down. Skipped when nothing is painted — there is no
-      // corner to define between two patches of bare plate.
-      const anyWall = !!(wallImg || wallLeftImg || wallRightImg);
-      if (anyWall && PLATE.seams.alcoveInterior) paintSeam(fctx, PLATE.seams.alcoveInterior, fit);
-      if (anyWall && PLATE.seams.alcoveRight) paintSeam(fctx, PLATE.seams.alcoveRight, fit);
       // One continuous product edge round the alcove. Drawn per plane because each plane's top
       // is a different line, but they share endpoints at both corners so it reads as one.
       for (const [region, img] of planes) {
         if (img && region.faces.length) paintPanelTopEdge(fctx, region.faces[0].quad, fit);
       }
+      // The creases, once material is down. Skipped when nothing is painted — there is no
+      // corner to define between two patches of bare plate.
+      //
+      // AFTER THE PANEL TOP EDGE, not before, and that ordering is what closes the notch at the
+      // alcove's top right. paintPanelTopEdge lays a shadow stroke above the panel's top line
+      // and a highlight stroke below it, both running the full width of the plane and both
+      // ending in a blunt vertical cut at the corner — measured against the plate, +18 units of
+      // highlight and -25 of shadow inside x=44.49 collapsing to +1 outside it, which is a
+      // light/dark checker two plate pixels tall sitting against the partition's lit edge. Drawn
+      // before the strokes the crease could not touch them; drawn after, it shades the corner
+      // they run into, which is also the physical order — a product edge dies into a corner, it
+      // does not survive across it.
+      const anyWall = !!(wallImg || wallLeftImg || wallRightImg);
+      if (anyWall && PLATE.seams.alcoveInterior) paintSeam(fctx, PLATE.seams.alcoveInterior, fit);
+      if (anyWall && PLATE.seams.alcoveRight) paintSeam(fctx, PLATE.seams.alcoveRight, fit);
     } else if (wallImg) {
       paintRegion(fctx, layer, { kind: "texture", region: R.showerArea, img: wallImg, tileIn: { w: wallTileW, h: wallTileH }, seamIn: wallSeam }, fit, blend, masks.showerArea, clipFor("showerArea"));
     }
@@ -1640,6 +1677,14 @@ export function HeroCompositor({
     // single call paints both, each at its own real height. See PHOTO_FACES.vanityTop.
     if (topImg) paintRegion(fctx, layer, { kind: "texture", region: R.vanityTop, img: topImg, tileIn: { w: topTileW, h: topTileH } }, fit, blend, masks.vanityTop, clipFor("vanityTop"));
     else if (vanityTopColor) paintRegion(fctx, layer, { kind: "color", region: R.vanityTop, color: vanityTopColor, alpha: 0.88 }, fit, blend, masks.vanityTop, clipFor("vanityTop"));
+    // The counter's underside, AFTER the counter so it lands on the painted nosing rather than
+    // under it. This one is not a corner crease: the cabinet already gets the plate's shadow
+    // through multiply, and what it fixes is the other side of the line — a light counter's
+    // nosing running at full brightness straight into a dark cabinet, with the plate's own
+    // contact shadow too narrow to separate them. See seams.vanityCounterBottom.
+    if ((topImg || vanityTopColor) && PLATE.seams.vanityCounterBottom) {
+      paintSeam(fctx, PLATE.seams.vanityCounterBottom, fit);
+    }
     // The splash is the counter's material carried up the wall, so it follows whatever the
     // counter resolved to — real scan or hex — rather than deciding for itself.
     //
@@ -1678,8 +1723,42 @@ export function HeroCompositor({
     // every finish would render matte black. The one thing this order costs is that a tint box
     // must not overlap an occluder it does not own — which is why the door post's tint box
     // stops at y=65.5, where the plant's foliage starts climbing over it.
+    //
+    // NOT THE HARDWARE WHERE IT CROSSES A RE-TONED PAN. The same rule as the glass pass below,
+    // and the second half of this pass's worst defect. The restore puts back RAW plate, and the
+    // door's bottom rail crosses the pan: one plate pixel of metal keyed out of a WHITE pan, with
+    // a feather either side of it. Over a white pan those feathered pixels land on the colour
+    // they came from and nothing shows. Over a pan re-toned to black they are a 160 restored onto
+    // a 29, which is the row of pale blocks along the rail — the same mechanism as Phase 6's gold
+    // streaks, resurfaced because the base re-tone landed after that fix and changed what the
+    // feather lands on.
+    //
+    // Skipped rather than re-toned, and those are the same thing here: the destination inside the
+    // pan IS the plate re-toned, so restoring a re-toned plate over it would be a no-op — except
+    // that it would also wipe the curbFloor seam. Skipping is the cheaper identity.
+    //
+    // Scoped to the hardware's own boxes, NOT to the pan as a whole, because the right-hand
+    // planter's foot overlaps the curb and is a solid occluder that must still come back.
     if (occluders) {
-      fctx.drawImage(occluders, fit.ox, fit.oy, SCENE.width * fit.scale, SCENE.height * fit.scale);
+      const hw = basePatch ? PLATE.fixtureParts.doorHardware ?? [] : [];
+      const lctx = hw.length && panClip?.length ? layer.getContext("2d") : null;
+      if (lctx) {
+        lctx.clearRect(0, 0, layer.width, layer.height);
+        lctx.drawImage(occluders, fit.ox, fit.oy, SCENE.width * fit.scale, SCENE.height * fit.scale);
+        lctx.save();
+        tracePolygons(lctx, panClip as Polygon[], fit);
+        lctx.clip("evenodd");
+        lctx.globalCompositeOperation = "destination-out";
+        for (const part of hw) {
+          const [bx, by, bw, bh] = part.box;
+          const [x0, y0] = toPx([bx, by], fit);
+          lctx.fillRect(x0, y0, bw * SCENE.width * fit.scale, bh * SCENE.height * fit.scale);
+        }
+        lctx.restore();
+        fctx.drawImage(layer, 0, 0);
+      } else {
+        fctx.drawImage(occluders, fit.ox, fit.oy, SCENE.width * fit.scale, SCENE.height * fit.scale);
+      }
     }
 
     // The glass, put back over the materials.
@@ -1701,25 +1780,59 @@ export function HeroCompositor({
     // Screen is also self-limiting, which is why one alpha serves both a dark wall and a light
     // one: the amount added is proportional to (255 - destination), so a near-white Durasein
     // panel takes almost nothing while a dark slat panel takes the full reflection.
+    //
+    // NOT OVER A RE-TONED PAN, and that exception is the whole of this pass's worst defect.
+    // Screening the PLATE back over the frame is only meaningful where the plate still shows
+    // through what was painted — i.e. under a multiply, where the plate's own brightness is
+    // still a factor of the result and screen is restoring the specular part of it. The shower
+    // base is the one surface that is not composited that way: buildBasePatch REPLACES the pan
+    // with the plate's own pan re-toned, and those source pixels already contain everything the
+    // glazing did to them, glass reflections included. Screening the raw plate on top therefore
+    // does not restore a reflection, it puts back the white the re-tone just removed — measured
+    // on the black pan, the floor renders 61.6 with this pass and 29.1 without it, against 28.2
+    // to 28.9 predicted by the tint model, so the glass was more than doubling it. The pan's own
+    // gloss is already modelled, by the knee/spec split in BaseTint, which is what keeps a black
+    // acrylic pan glossy without any help from here.
+    //
+    // Conditional on basePatch rather than unconditional because with no re-tone the pan IS the
+    // plate, so screening it is the same mild, self-limiting sheen every other plate surface
+    // gets — measured, 13 units on a 160 pan, which is the behaviour white has always had.
     if (PLATE.glass && PLATE.glass.alpha > 0) {
-      fctx.save();
-      fctx.beginPath();
-      // Both sheets go into ONE path. They overlap by the 0.91% of plate width where the sliding
-      // panel laps the fixed one, and a clip region is a set — so the lap is screened once, not
-      // twice. Filling them separately would put a bright stripe down the overlap, which is the
-      // one place the plate is actually a shade DARKER for having two thicknesses of glass.
-      for (const poly of PLATE.glass.polygons) {
-        poly.forEach((pt, i) => {
-          const [px, py] = toPx(pt, fit);
-          if (i === 0) fctx.moveTo(px, py); else fctx.lineTo(px, py);
-        });
-        fctx.closePath();
+      const lctx = layer.getContext("2d");
+      if (lctx) {
+        lctx.clearRect(0, 0, layer.width, layer.height);
+        lctx.save();
+        lctx.beginPath();
+        // Both sheets go into ONE path. They overlap by the 0.91% of plate width where the sliding
+        // panel laps the fixed one, and a clip region is a set — so the lap is screened once, not
+        // twice. Filling them separately would put a bright stripe down the overlap, which is the
+        // one place the plate is actually a shade DARKER for having two thicknesses of glass.
+        for (const poly of PLATE.glass.polygons) {
+          poly.forEach((pt, i) => {
+            const [px, py] = toPx(pt, fit);
+            if (i === 0) lctx.moveTo(px, py); else lctx.lineTo(px, py);
+          });
+          lctx.closePath();
+        }
+        lctx.clip();
+        lctx.drawImage(base, fit.ox, fit.oy, SCENE.width * fit.scale, SCENE.height * fit.scale);
+        lctx.restore();
+        // Punch the re-toned pan back out. Done here rather than by subtracting polygons from
+        // the clip above because even-odd would also take the pan OUTSIDE the glass, and the
+        // pan reaches past the sheets at both ends.
+        if (basePatch && panClip?.length) {
+          lctx.save();
+          lctx.globalCompositeOperation = "destination-out";
+          tracePolygons(lctx, panClip, fit);
+          lctx.fill("evenodd");
+          lctx.restore();
+        }
+        fctx.save();
+        fctx.globalCompositeOperation = "screen";
+        fctx.globalAlpha = PLATE.glass.alpha;
+        fctx.drawImage(layer, 0, 0);
+        fctx.restore();
       }
-      fctx.clip();
-      fctx.globalCompositeOperation = "screen";
-      fctx.globalAlpha = PLATE.glass.alpha;
-      fctx.drawImage(base, fit.ox, fit.oy, SCENE.width * fit.scale, SCENE.height * fit.scale);
-      fctx.restore();
     }
 
     // Fixtures last, over every painted surface.

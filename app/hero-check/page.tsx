@@ -176,8 +176,8 @@ const H2 = { color: "#fff", font: "12px monospace", margin: "0 0 6px" } as const
  *
  * The default is `cfg`, so opening the page bare still shows the three whole-room views.
  */
-type PanelGroup = "cfg" | "fixtures" | "bases" | "walls" | "outlines" | "sweep" | "plate2";
-const PANEL_GROUPS: PanelGroup[] = ["cfg", "fixtures", "bases", "walls", "outlines", "sweep", "plate2"];
+type PanelGroup = "cfg" | "fixtures" | "bases" | "walls" | "outlines" | "sweep" | "plate2" | "layers";
+const PANEL_GROUPS: PanelGroup[] = ["cfg", "fixtures", "bases", "walls", "outlines", "sweep", "plate2", "layers"];
 
 function usePanelGroup(): PanelGroup | null {
   const [panel, setPanel] = useState<PanelGroup | null>(null);
@@ -360,6 +360,124 @@ export default function HeroCheckPage() {
             wall={WALL} floor={FLOOR_DARK} top={TOP_LIGHT}
             cabinet="#2f5d50" base="black" finish="venetian-bronze" splashIn={6}
           />
+        </div>
+      </section>
+      </>}
+
+      {/*
+        THE LAYER-INTERACTION PASS. Everything here is judged on the DEALER'S OWN CONFIGURATION
+        — light stone alcove, green cabinet, wood-tone counter, black pan, dark hardware — because
+        that is the combination the defects were reported on, and every one of them is a layer
+        interacting with another rather than a polygon in the wrong place.
+
+        The black pan is what makes this config diagnostic and not just representative. Three
+        separate layers put the PLATE's own pixels back over painted material — the occlusion
+        restore, the glass screen pass and the fixture tint — and the plate's pan is WHITE. While
+        the pan rendered white too, all three were invisible; re-toned to black at a factor of
+        0.177 the same pixels are a 130-unit lift. Any of them that reaches past what it owns
+        shows up here and nowhere else.
+      */}
+      {panel === "layers" && <>
+      <section>
+        <h2 style={H2}>L1 · config (a) — the dealer&apos;s view: {WALL_SHEET?.name ?? "stone"} alcove, green cabinet, {TOP?.name ?? "wood"} counter, black pan, Venetian</h2>
+        <div id="cfgA2" style={{ width: BIG_W, height: BIG_H }}>
+          <PrecisionPanel
+            wall={WALL_SHEET} floor={FLOOR_DARK} top={TOP}
+            cabinet="#2f5d50" base="black" finish="venetian-bronze"
+          />
+        </div>
+      </section>
+      <section>
+        <h2 style={H2}>L2 · config (b) — the contrast reverse: dark slat, light cabinet, light counter, light floor, white pan, Champagne</h2>
+        <div id="cfgB2" style={{ width: BIG_W, height: BIG_H }}>
+          <PrecisionPanel
+            wall={WALL} floor={FLOOR_LIGHT} top={TOP_LIGHT}
+            cabinet="#e6e3dc" base="white" finish="champagne-bronze"
+          />
+        </div>
+      </section>
+
+      {/* THE RAIL, over all four bases. The bottom rail crosses the pan at y 92.3-94.7 and the
+          glass sheets' bottom edges land in the same band (92.3 to 95.7), so this crop is where
+          the occlusion restore, the glass screen and the rail's own tint all overlap. */}
+      <section>
+        <h2 style={H2}>L3 · the door&apos;s bottom rail across the pan — four bases, Venetian</h2>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }} id="rail4">
+          {SHOWER_BASE_COLORS.map((c) => (
+            <figure key={c.id} style={{ margin: 0 }}>
+              <figcaption style={{ color: "#aaa", font: "11px monospace", marginBottom: 3 }}>{c.name}</figcaption>
+              <FixtureCrop finishId="venetian-bronze" at={[38, 93.4]} big={2600} wall wallMat={WALL_SHEET}
+                base={c.id} floor={FLOOR_DARK} view={[620, 210]} />
+            </figure>
+          ))}
+        </div>
+        <h2 style={{ ...H2, marginTop: 10 }}>L3b · the same rail, black pan, three finishes</h2>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }} id="rail3f">
+          {["chrome", "champagne-bronze", "matte-black"].map((f) => (
+            <figure key={f} style={{ margin: 0 }}>
+              <figcaption style={{ color: "#aaa", font: "11px monospace", marginBottom: 3 }}>{f}</figcaption>
+              <FixtureCrop finishId={f} at={[38, 93.4]} big={2600} wall wallMat={WALL_SHEET}
+                base="black" floor={FLOOR_DARK} view={[620, 210]} />
+            </figure>
+          ))}
+        </div>
+      </section>
+
+      {/* THE BASIN, under both counter materials. The plate photographs an undermount bowl and
+          the counter region's quad spans straight across it. */}
+      <section>
+        <h2 style={H2}>L4 · the sink basin — wood-tone counter and light solid surface</h2>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }} id="basin">
+          {[["wood-tone (Barnwood)", TOP], ["light (Bianca Sabbia)", TOP_LIGHT], ["no material — tint only", null]].map(([label, t]) => (
+            <figure key={label as string} style={{ margin: 0 }}>
+              <figcaption style={{ color: "#aaa", font: "11px monospace", marginBottom: 3 }}>{label as string}</figcaption>
+              <FixtureCrop finishId="venetian-bronze" at={[64.5, 56.5]} big={3000} top={t as TopMat}
+                cabinet="#2f5d50" view={[620, 260]} />
+            </figure>
+          ))}
+        </div>
+      </section>
+
+      {/* THE COUNTER/CABINET LINE at two cabinet tones, and the ALCOVE'S TOP-RIGHT CORNER at two
+          panel tones — both are junctions whose read depends on what is either side of them. */}
+      <section>
+        <h2 style={H2}>L5 · counter bottom / cabinet top — dark and light cabinet</h2>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }} id="cabline">
+          {[["green #2f5d50", "#2f5d50"], ["light #e6e3dc", "#e6e3dc"]].map(([label, hex]) => (
+            <figure key={label} style={{ margin: 0 }}>
+              <figcaption style={{ color: "#aaa", font: "11px monospace", marginBottom: 3 }}>{label}</figcaption>
+              <FixtureCrop finishId="venetian-bronze" at={[62, 58.8]} big={3000} cabinet={hex} view={[620, 200]} />
+            </figure>
+          ))}
+        </div>
+        <h2 style={{ ...H2, marginTop: 10 }}>L6 · alcove top-right, where panel, ceiling and partition meet</h2>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }} id="corner">
+          {[["light stone", WALL_SHEET], ["dark slat", WALL]].map(([label, w]) => (
+            <figure key={label as string} style={{ margin: 0 }}>
+              <figcaption style={{ color: "#aaa", font: "11px monospace", marginBottom: 3 }}>{label as string}</figcaption>
+              <FixtureCrop finishId="venetian-bronze" at={[45.2, 10.6]} big={3400} wall wallMat={w as WallMat}
+                base="black" view={[520, 260]} />
+            </figure>
+          ))}
+        </div>
+      </section>
+
+      {/* THE FOUR SMALL JUNCTIONS. Each on config (a), which is the one they were circled on. */}
+      <section>
+        <h2 style={H2}>L7 · small junctions — pot base, counter right end, toilet left, floor right termination</h2>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }} id="small">
+          {([
+            ["a · pot base (planter/pan/floor)", [22, 95.5] as [number, number], 3000, [560, 180] as [number, number]],
+            ["b · counter right end + miter", [77.3, 55.5] as [number, number], 3400, [520, 300] as [number, number]],
+            ["c · toilet left / cabinet end", [75.5, 87] as [number, number], 3000, [560, 320] as [number, number]],
+            ["d · floor right termination", [82, 94] as [number, number], 3000, [560, 200] as [number, number]],
+          ]).map(([label, at, big, view]) => (
+            <figure key={label as string} style={{ margin: 0 }}>
+              <figcaption style={{ color: "#aaa", font: "11px monospace", marginBottom: 3 }}>{label as string}</figcaption>
+              <FixtureCrop finishId="venetian-bronze" at={at as [number, number]} big={big as number} wall wallMat={WALL_SHEET}
+                base="black" floor={FLOOR_DARK} cabinet="#2f5d50" view={view as [number, number]} />
+            </figure>
+          ))}
         </div>
       </section>
       </>}
@@ -549,13 +667,19 @@ function AlcoveCrop({ back, left, right }: { back: WallMat; left: WallMat; right
  * and looking through a small hole at it — which is exactly what a scrolled, overflow-hidden
  * box does. No scaling, so what is on screen is what the pixels actually are.
  */
-function FixtureCrop({ finishId, at, big, wall, base, view, floor }: {
+function FixtureCrop({ finishId, at, big, wall, base, view, floor, wallMat, cabinet, top }: {
   finishId: string; at: [number, number]; big?: number; wall?: boolean;
   /** Shower base colour id. Omitted leaves the plate's own white pan. */
   base?: string;
   /** Window size, when the default 170x130 is the wrong shape for what is being judged. */
   view?: [number, number];
   floor?: (typeof FLOORING_COLORS)[number] | null;
+  /** Overrides the alcove panel when `wall` is set — for judging a junction against a light plane. */
+  wallMat?: WallMat;
+  /** Cabinet colour, for the crops that include the vanity. Omitted leaves the plate's own. */
+  cabinet?: string;
+  /** Counter material, when the default Barnwood is the wrong thing to judge against. */
+  top?: TopMat;
 }) {
   // 2.3x the plate. Enough magnification to judge whether a recoloured fixture reads as
   // metal, and low enough that fourteen of these on one page don't exhaust canvas memory —
@@ -577,12 +701,14 @@ function FixtureCrop({ finishId, at, big, wall, base, view, floor }: {
         <HeroCompositor
           width={BIG}
           height={BIG_H}
-          wallMaterialBack={wall ? WALL : null}
-          wallMaterialLeft={wall ? WALL : null}
-          wallMaterialRight={wall ? WALL : null}
+          wallMaterialBack={wall ? wallMat ?? WALL : null}
+          wallMaterialLeft={wall ? wallMat ?? WALL : null}
+          wallMaterialRight={wall ? wallMat ?? WALL : null}
           floorMaterial={floor ? { textureUrl: floor.image, name: floor.name } : null}
-          vanityTopMaterial={TOP}
+          vanityColor={cabinet ?? null}
+          vanityTopMaterial={top === undefined ? TOP : top}
           vanityTopColor="#9a7b57"
+          backsplashIn={4}
           showerBaseColor={base ?? null}
           fixtureFinishId={finishId}
           showDisclaimer={false}
