@@ -1133,6 +1133,31 @@ export const dictionary: Record<Lang, Record<string, any>> = {
       savedToProject: "Saved to {name}",
       viewProject: "View project",
       shower: {
+        // HPL (Nature Panel) bill of materials — real per-SKU counts, shown in place of the
+        // flat wall-kit line. SPC showers do not use these keys.
+        hplBom: {
+          panel: "{decor} panels ×{n}",
+          interiorCorner: "Interior corner trim ×{n}",
+          baseProfile: "Base profile ×{n}",
+          endCap: "End cap ×{n}",
+          sealant: "Sealant ×{n}",
+          sprayCleaner: "Spray cleaner ×{n}",
+          wipes: "Cleaning wipes ×{n}",
+          endCapEstimated:
+            "End cap count is an estimate for this size — confirm before ordering.",
+        },
+        // HPL upsells. COPY IS A FIRST DRAFT — the panel one especially is JT's to workshop.
+        hplUpsell: {
+          heading: "Before you order",
+          sub: "Optional extras. Nothing is added unless you tick it.",
+          dismiss: "Hide these suggestions",
+          discount: "{pct}% off",
+          panel: "Everyone makes mistakes — add one more {decor} panel at 25% off?",
+          sealant: "Add a spare tube of sealant, in case you run out mid-install?",
+          interiorCorner: "Add a spare interior corner trim?",
+          baseProfile: "Add a spare base profile?",
+          endCap: "Add a spare end cap?",
+        },
         chooseBaseFirst: "Start by choosing a base type.",
         palletNote: "Dealer (KD) pricing. Pallet fee applies at order level (2–9 pcs +$1; 10+ waived).",
         stepBaseType: "Base type",
@@ -2939,6 +2964,31 @@ export const dictionary: Record<Lang, Record<string, any>> = {
       savedToProject: "Guardado en {name}",
       viewProject: "Ver proyecto",
       shower: {
+        // Lista de materiales HPL (Nature Panel) — conteos reales por SKU, en lugar de la
+        // línea única del kit de pared. Las duchas de SPC no usan estas claves.
+        hplBom: {
+          panel: "Paneles {decor} ×{n}",
+          interiorCorner: "Perfil de esquina interior ×{n}",
+          baseProfile: "Perfil de base ×{n}",
+          endCap: "Tapa de remate ×{n}",
+          sealant: "Sellador ×{n}",
+          sprayCleaner: "Limpiador en aerosol ×{n}",
+          wipes: "Toallitas de limpieza ×{n}",
+          endCapEstimated:
+            "El conteo de tapas de remate es estimado para esta medida — confírmelo antes de pedir.",
+        },
+        // Ofertas adicionales HPL. TEXTO PRELIMINAR — el del panel lo definirá JT.
+        hplUpsell: {
+          heading: "Antes de pedir",
+          sub: "Extras opcionales. No se agrega nada a menos que lo marque.",
+          dismiss: "Ocultar estas sugerencias",
+          discount: "{pct}% de descuento",
+          panel: "Todos cometemos errores — ¿agrega otro panel {decor} con 25% de descuento?",
+          sealant: "¿Agrega un tubo de sellador de repuesto, por si se acaba durante la instalación?",
+          interiorCorner: "¿Agrega un perfil de esquina interior de repuesto?",
+          baseProfile: "¿Agrega un perfil de base de repuesto?",
+          endCap: "¿Agrega una tapa de remate de repuesto?",
+        },
         chooseBaseFirst: "Comience eligiendo un tipo de base.",
         palletNote: "Precio de distribuidor (KD). La tarifa de tarima aplica a nivel de pedido (2–9 pzs +$1; 10+ exenta).",
         stepBaseType: "Tipo de base",
