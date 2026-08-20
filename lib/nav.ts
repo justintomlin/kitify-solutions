@@ -11,6 +11,7 @@ import {
   Users,
   FileSearch,
   Building2,
+  Boxes,
   type LucideIcon,
 } from "lucide-react";
 
@@ -44,6 +45,9 @@ export const adminNav: NavItem[] = [
   { key: "crm", href: "/portal/admin/crm", icon: Users, adminOnly: true },
   { key: "leads", href: "/portal/admin/leads", icon: FileSearch, adminOnly: true },
   { key: "insideLeads", href: "/portal/admin/inside-leads", icon: Building2, adminOnly: true },
+  // Kitify's OWN stock — SKU/component level, admin-only at every layer (nav, page guard,
+  // RLS). Never surfaced to a contractor.
+  { key: "inventory", href: "/portal/admin/inventory", icon: Boxes, adminOnly: true },
   { key: "approvals", href: "/portal/approvals", icon: Inbox, adminOnly: true },
   { key: "content", href: "/portal/content", icon: FileText, adminOnly: true },
 ];
