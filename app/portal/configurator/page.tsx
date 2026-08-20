@@ -556,6 +556,9 @@ export default function Page() {
                   initialPartitions={room?.selections.partitions}
                   onChange={onRoomChange}
                   onComplete={onRoomComplete}
+                  // Same call the module tab above makes — but reachable without scrolling
+                  // back up past the drawing.
+                  onBack={() => setActiveKind(null)}
                   primaryLabel={room ? t("configurator.updateRoom") : t("configurator.addToQuote")}
                 />
               )}

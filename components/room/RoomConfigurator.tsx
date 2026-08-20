@@ -13,7 +13,7 @@
  */
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { RotateCcw, Undo2 } from "lucide-react";
+import { ArrowLeft, RotateCcw, Trash2, Undo2 } from "lucide-react";
 import { SHOWER_BASES as BASES, TUBS, VANITY_SIZES, VANITY_DEPTH as VANITY_D, WALL_PANEL, wallPanelTakeoff, FLOORING_COLORS, FLOORING_LINE, flooringTakeoff, WALL_BASE_COLORS, WALL_BASE_HEIGHTS, wallBaseTakeoff, type FlooringColor } from "@/lib/catalog";
 import { resolveDefault } from "@/lib/defaults";
 import { useLanguage } from "@/components/LanguageContext";
@@ -543,6 +543,36 @@ function nearestWallAnchor(pt: Pt, edges: Edge[]): { side: string; offsetIn: num
   }
   return best;
 }
+/**
+ * Nearest surface to a room-space point, with the offset along it clamped so an item of
+ * width `w` stays fully on that surface.
+ *
+ * Same projection as nearestWallAnchor above, with two differences that matter for fixtures:
+ * it returns a surface INDEX (a fixture addresses surfaces by index — a partition face and a
+ * perimeter wall can share neither), and it skips any surface too short to hold the item, so
+ * a drag can never park a 60" vanity on a 24" return wall.
+ *
+ * `t` is normalised (0..1) to match the fixture model; nearestWallAnchor returns inches
+ * because a partition anchor is stored that way.
+ */
+function nearestSurfaceFor(pt: Pt, surfaces: Edge[], w: number): { edge: number; side: string; t: number } | null {
+  let best: { edge: number; side: string; t: number } | null = null;
+  let bestD = Infinity;
+  for (let i = 0; i < surfaces.length; i++) {
+    const e = surfaces[i];
+    const v = edgeVec(e);
+    if (w > v.L) continue; // the item cannot sit on this surface at all
+    const raw = (pt[0] - e.a[0]) * v.ux + (pt[1] - e.a[1]) * v.uy;
+    const clamped = Math.max(0, Math.min(v.L, raw));
+    const proj: Pt = [e.a[0] + v.ux * clamped, e.a[1] + v.uy * clamped];
+    const d = Math.hypot(pt[0] - proj[0], pt[1] - proj[1]);
+    if (d >= bestD) continue;
+    const half = w / 2 / v.L;
+    bestD = d;
+    best = { edge: i, side: e.side, t: half >= 0.5 ? 0.5 : Math.max(half, Math.min(1 - half, raw / v.L)) };
+  }
+  return best;
+}
 // Does a partition sit fully inside the room? The anchored end is on the wall by
 // construction; check the free end and the two free-side corners.
 function partInside(p: RoomPartition, edges: Edge[], verts: Pt[], cen: Pt): boolean {
@@ -889,10 +919,13 @@ const BTN_ACTIVE = "border-accent bg-accent-soft text-accent";
 type EditTarget = { type: "dim"; d: "w" | "d" } | { type: "seg"; p: string; len: number };
 type EditorState = { left: number; top: number; value: string; target: EditTarget } | null;
 
-export function RoomConfigurator({ mode = "dealer", onComplete, onChange, initialBath = null, initialVanity = null, initialTreatments = null, initialFlooring = null, initialWallBase = null, initialPartitions = null, primaryLabel }: {
+export function RoomConfigurator({ mode = "dealer", onComplete, onChange, onBack, initialBath = null, initialVanity = null, initialTreatments = null, initialFlooring = null, initialWallBase = null, initialPartitions = null, primaryLabel }: {
   mode?: "dealer" | "customer";
   onComplete?: (config: RoomConfig) => void;
   onChange?: (config: RoomConfig) => void;
+  // Step out of the drawing tool. Optional so the standalone demo host (app/room/page.tsx),
+  // which has nowhere to go back TO, renders no Back button at all.
+  onBack?: () => void;
   initialBath?: { kind: "shower" | "tub"; baseId: string } | null;
   initialVanity?: { size: number; sinks: 1 | 2; sinkShape?: "oval" | "rectangle" } | null;
   // Per-wall treatments to restore on mount (from a saved quote). Keyed by side identity;
@@ -928,6 +961,12 @@ export function RoomConfigurator({ mode = "dealer", onComplete, onChange, initia
   const [shapeNote, setShapeNote] = useState(false);
   const [editor, setEditor] = useState<EditorState>(null);
 
+  // A drag that ends over empty plan area makes the browser fire a click on the <svg> itself,
+  // which the background handler reads as "tapped nothing — deselect". Harmless while drags
+  // were short slides along one wall; now that a fixture can be dragged clear across the room
+  // it fires constantly, and it silently breaks "move it, then hit Remove". Set once a drag
+  // actually moves, and consumed by the click that immediately follows.
+  const draggedRef = useRef(false);
   const historyRef = useRef<string[]>([]);
   const docRef = useRef(doc); docRef.current = doc;
   const svgRef = useRef<SVGSVGElement>(null);
@@ -1009,12 +1048,39 @@ export function RoomConfigurator({ mode = "dealer", onComplete, onChange, initia
     if (k === "w" && (van.sinks || 1) > maxSinks(v)) patch.sinks = 1;
     patchFix("vanity", patch, true);
   }
-  function del(k: Kind) { commit((prev) => ({ ...prev, [k]: null })); setSel(null); }
+  // Memoised because the keyboard effect and the toolbar both call these; a fresh identity
+  // every render would re-subscribe the keydown listener on each one.
+  const del = useCallback((k: Kind) => { commit((prev) => ({ ...prev, [k]: null })); setSel(null); }, [commit]);
 
   // ---- placement ---- `i` indexes into surfaces (a perimeter wall OR a partition face), so
   // a fixture mounts to either by the same offset-along-surface model.
-  function placeOnWall(i: number) {
+  //
+  // rx/ry are the room-space point the user actually tapped. When present, the fixture lands
+  // THERE rather than wherever the fitting algorithm would have chosen. They are optional
+  // because the coordinate can be absent (no svg ref yet), in which case the original
+  // auto-placement is used unchanged.
+  function placeOnWall(i: number, rx?: number, ry?: number) {
     const m = modelRef.current; const { verts, surfaces, cen } = m; const surf = surfaces[i]; if (!surf) return; const L = edgeVec(surf).L;
+
+    // Offset along this surface for the tap, clamped so the item stays fully on the wall.
+    // Null when there is no tap point, or the item is wider than the wall — the caller then
+    // keeps its existing auto-placement.
+    const tapOffset = (w: number): number | null => {
+      if (rx === undefined || ry === undefined) return null;
+      const v = edgeVec(surf);
+      const half = w / 2 / v.L;
+      if (half >= 0.5) return null;
+      const raw = ((rx - surf.a[0]) * v.ux + (ry - surf.a[1]) * v.uy) / v.L;
+      return Math.max(half, Math.min(1 - half, raw));
+    };
+    // As above, but honoured only where the item genuinely fits. WARN-DON'T-BLOCK: a tap into
+    // a spot the fixture can't occupy (past a corner on an L-shaped room, say) falls back to
+    // the algorithm's nearest legal offset instead of refusing the placement outright.
+    const tapFitting = (w: number, d: number): number | null => {
+      const tt = tapOffset(w);
+      return tt !== null && fits(verts, surf, tt, w, d, cen) ? tt : null;
+    };
+
     if (armed === "door") {
       // Widest-first, so when the preferred size doesn't fit this wall resolveDefault's
       // fall-through lands on the largest that does — the long-standing behaviour.
@@ -1025,21 +1091,29 @@ export function RoomConfigurator({ mode = "dealer", onComplete, onChange, initia
       // Editable from the door panel either way — this is the starting point, not a lock.
       const pref = ada ? ADA_DOOR_W : DEFAULT_DOOR_W;
       const w = resolveDefault(undefined, allow, (x) => x, (x) => x === pref)!;
-      commit((prev) => ({ ...prev, door: { edge: i, side: surf.side, t: 0.5, w, type: "opening", swing: "in-r" } })); setSel("door");
+      // A door sits IN the wall rather than projecting into the room, so there is no footprint
+      // to fit-test — clamping to the rough opening is the whole constraint.
+      const t = tapOffset(roOf(w)) ?? 0.5;
+      commit((prev) => ({ ...prev, door: { edge: i, side: surf.side, t, w, type: "opening", swing: "in-r" } })); setSel("door");
     } else if (armed === "toilet") {
-      // Land in clear space on this surface (freeFit approach for a fixed-size fixture).
-      const t = placeClear(verts, surfaces, i, TOILET_W, TOILET_D, cen, "toilet", m.fx);
+      // Land where tapped; otherwise clear space on this surface (freeFit approach for a
+      // fixed-size fixture).
+      const t = tapFitting(TOILET_W, TOILET_D) ?? placeClear(verts, surfaces, i, TOILET_W, TOILET_D, cen, "toilet", m.fx);
       commit((prev) => ({ ...prev, toilet: { edge: i, side: surf.side, t, rough: 12 } })); setSel("toilet");
     } else if (armed === "vanity") {
+      // freeFit still picks the SIZE — the tap only decides where that size lands.
       const f = freeFit(verts, surfaces, i, VANITY_SIZES, VANITY_D, cen, "vanity", m.fx); if (!f) return;
-      commit((prev) => ({ ...prev, vanity: { edge: i, side: surf.side, t: f.t, w: f.w, sinks: maxSinks(f.w) } })); setSel("vanity");
+      const t = tapFitting(f.w, VANITY_D) ?? f.t;
+      commit((prev) => ({ ...prev, vanity: { edge: i, side: surf.side, t, w: f.w, sinks: maxSinks(f.w) } })); setSel("vanity");
     } else if (armed === "bath") {
       // Choose a base that fits this surface (prefer 60x32), then land it in clear space.
       const pref = BASES.find((x) => x.id === "60x32"); let sku: Sku | undefined;
       if (pref && pref.w <= L && [pref.w / 2 / L, 1 - pref.w / 2 / L, 0.5].some((t) => fits(verts, surf, t, pref.w, pref.d, cen))) sku = pref;
       if (!sku) { const bf = bestFit(verts, surf, BASES, cen); if (bf) sku = bf.sku; }
       if (!sku) return;
-      const t = placeClear(verts, surfaces, i, sku.w, sku.d, cen, "bath", m.fx);
+      // Size selection above is untouched — the tap decides WHERE, the catalogue still decides
+      // WHAT fits this wall.
+      const t = tapFitting(sku.w, sku.d) ?? placeClear(verts, surfaces, i, sku.w, sku.d, cen, "bath", m.fx);
       commit((prev) => ({ ...prev, bath: { edge: i, side: surf.side, t, kind: "shower", sku: sku!.id, rot: false, snapped: null } })); setSel("bath");
     }
     if (shapeNote) setShapeNote(false);
@@ -1083,17 +1157,23 @@ export function RoomConfigurator({ mode = "dealer", onComplete, onChange, initia
     const p0 = docRef.current.partitions.find((p) => p.id === id); if (!p0) return;
     const move = (ev: PointerEvent) => {
       ev.preventDefault();
+      draggedRef.current = true;
       const m = modelRef.current;
-      const eIdx = m.edges.findIndex((ed) => ed.side === p0.side); if (eIdx < 0) return;
-      const e2 = m.edges[eIdx], v = edgeVec(e2);
       const [rx, ry] = evToRoom(ev, svg);
-      let off = Math.round((rx - e2.a[0]) * v.ux + (ry - e2.a[1]) * v.uy);
-      off = Math.max(0, Math.min(Math.round(v.L), off));
-      const cand: RoomPartition = { ...p0, offsetIn: off };
-      if (!partInside(cand, m.edges, m.verts, m.cen)) return; // freeze where it would leave the room
-      setDoc((prev) => ({ ...prev, partitions: prev.partitions.map((pp) => (pp.id === id ? { ...pp, offsetIn: off } : pp)) }));
+      // Free between walls: re-derive the anchor wall from the pointer on every move rather
+      // than staying on the wall the partition started on.
+      const a = nearestWallAnchor([rx, ry], m.edges); if (!a) return;
+      const cand: RoomPartition = { ...p0, side: a.side, offsetIn: a.offsetIn };
+      // A partition projects perpendicular from its wall, so a cross-wall move can push its
+      // free end outside the room in a way a wall-hugging fixture never can. Freeze at the
+      // last valid spot rather than refusing the gesture — the drag simply stops following.
+      if (!partInside(cand, m.edges, m.verts, m.cen)) return;
+      setDoc((prev) => ({ ...prev, partitions: prev.partitions.map((pp) => (pp.id === id ? { ...pp, side: a.side, offsetIn: a.offsetIn } : pp)) }));
     };
-    const up = () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); };
+    // The click the browser synthesises after this pointerup is dispatched before a macrotask
+    // runs, so releasing the guard on a 0ms timeout lets exactly that one click be ignored
+    // and no later ones.
+    const up = () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); if (draggedRef.current) setTimeout(() => { draggedRef.current = false; }, 0); };
     window.addEventListener("pointermove", move); window.addEventListener("pointerup", up);
   }, []);
   // ---- partition resize (drag the free end: change lengthIn; whole-inch, clamped inside) ----
@@ -1104,6 +1184,7 @@ export function RoomConfigurator({ mode = "dealer", onComplete, onChange, initia
     const p0 = docRef.current.partitions.find((p) => p.id === id); if (!p0) return;
     const move = (ev: PointerEvent) => {
       ev.preventDefault();
+      draggedRef.current = true;
       const m = modelRef.current;
       const f = anchorFrame({ side: p0.side, offsetIn: p0.offsetIn }, m.edges, m.cen); if (!f) return;
       const [rx, ry] = evToRoom(ev, svg);
@@ -1112,7 +1193,10 @@ export function RoomConfigurator({ mode = "dealer", onComplete, onChange, initia
       if (fitted < 1) return;
       setDoc((prev) => ({ ...prev, partitions: prev.partitions.map((pp) => (pp.id === id ? { ...pp, lengthIn: fitted } : pp)) }));
     };
-    const up = () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); };
+    // The click the browser synthesises after this pointerup is dispatched before a macrotask
+    // runs, so releasing the guard on a 0ms timeout lets exactly that one click be ignored
+    // and no later ones.
+    const up = () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); if (draggedRef.current) setTimeout(() => { draggedRef.current = false; }, 0); };
     window.addEventListener("pointermove", move); window.addEventListener("pointerup", up);
   }, []);
 
@@ -1126,7 +1210,16 @@ export function RoomConfigurator({ mode = "dealer", onComplete, onChange, initia
     const fitted = clampInsideLen({ ...p, lengthIn: Math.max(1, Math.round(newLen)) }, m.edges, m.verts, m.cen);
     if (fitted >= 1) patchPart(id, { lengthIn: fitted });
   }
-  const delPart = (id: string) => { commit((prev) => ({ ...prev, partitions: prev.partitions.filter((p) => p.id !== id) })); setSelPart(null); };
+  const delPart = useCallback((id: string) => { commit((prev) => ({ ...prev, partitions: prev.partitions.filter((p) => p.id !== id) })); setSelPart(null); }, [commit]);
+
+  // One entry point for "delete whatever is selected", shared by the toolbar button and the
+  // Delete/Backspace keys. A partition and a fixture can never both be selected — selecting
+  // either clears the other — so the order here is a formality rather than a precedence rule.
+  const canRemove = !!(effSel || effSelPart);
+  const removeSelected = useCallback(() => {
+    if (effSelPart) { delPart(effSelPart); return; }
+    if (effSel) del(effSel);
+  }, [effSel, effSelPart, del, delPart]);
 
   // ---- drag ----
   const startDrag = useCallback((e: React.PointerEvent, kind: Kind) => {
@@ -1135,21 +1228,31 @@ export function RoomConfigurator({ mode = "dealer", onComplete, onChange, initia
     const svg = svgRef.current; if (!svg) return;
     const move = (ev: PointerEvent) => {
       ev.preventDefault();
+      draggedRef.current = true;
       const rr = svg.getBoundingClientRect();
       const ux = (ev.clientX - rr.left) * (W / rr.width), uy = (ev.clientY - rr.top) * (H / rr.height);
       const m = modelRef.current; const rf = m[kind]; if (!rf) return;
-      const edge = m.surfaces[rf.edge]; if (!edge) return;
-      const v = edgeVec(edge);
       const rx = (ux - m.ox) / m.s, ry = (uy - m.oy) / m.s;
-      const t = ((rx - edge.a[0]) * v.ux + (ry - edge.a[1]) * v.uy) / v.L;
       const wf = kind === "door" ? roOf((rf as RoomDoor).w) : kind === "toilet" ? TOILET_W : kind === "vanity" ? (rf as RoomVanity).w : bathDims(rf as RoomBath).w;
+      // Free between walls: the target surface is re-derived from the pointer on EVERY move,
+      // not fixed at drag start. Writing the new `edge` is also what produces the live
+      // rotation — every Art component derives its orientation from the current edge's vector
+      // and normal on each render, so the fixture turns to face the new wall as it crosses.
+      const hit = nearestSurfaceFor([rx, ry], m.surfaces, wf); if (!hit) return;
+      const edge = m.surfaces[hit.edge]; if (!edge) return;
+      const v = edgeVec(edge);
+      // Whole-inch along the surface, as before.
       const half = wf / 2 / v.L;
-      let tt = half >= 0.5 ? 0.5 : Math.max(half, Math.min(1 - half, t));
-      const inches = Math.round(tt * v.L); tt = Math.max(half, Math.min(1 - half, inches / v.L));
-      const finalT = half >= 0.5 ? 0.5 : tt;
-      setDoc((prev) => (prev[kind] ? { ...prev, [kind]: { ...(prev[kind] as object), t: finalT } } : prev));
+      const inches = Math.round(hit.t * v.L);
+      const finalT = half >= 0.5 ? 0.5 : Math.max(half, Math.min(1 - half, inches / v.L));
+      // Collisions are NOT blocked here — an overlap is surfaced by the clearance system
+      // (checkClearances → ClearanceBox) rather than by refusing the move.
+      setDoc((prev) => (prev[kind] ? { ...prev, [kind]: { ...(prev[kind] as object), edge: hit.edge, side: hit.side, t: finalT } } : prev));
     };
-    const up = () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); };
+    // The click the browser synthesises after this pointerup is dispatched before a macrotask
+    // runs, so releasing the guard on a 0ms timeout lets exactly that one click be ignored
+    // and no later ones.
+    const up = () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); if (draggedRef.current) setTimeout(() => { draggedRef.current = false; }, 0); };
     window.addEventListener("pointermove", move); window.addEventListener("pointerup", up);
   }, []);
 
@@ -1165,6 +1268,15 @@ export function RoomConfigurator({ mode = "dealer", onComplete, onChange, initia
       }
       const tag = (ev.target as HTMLElement)?.tagName?.toLowerCase();
       if (tag === "input" || tag === "textarea") return;
+      // Delete the selection. Placed after the input guard so it can't fire while someone is
+      // backspacing in the dimension editor, and before the `!sel` bail-out below so it also
+      // covers a selected PARTITION, which `sel` never holds.
+      if (ev.key === "Delete" || ev.key === "Backspace") {
+        if (!sel && !effSelPart) return;
+        ev.preventDefault();
+        removeSelected();
+        return;
+      }
       if (!sel) return;
       const m = modelRef.current; const rf = m[sel]; if (!rf) return;
       const step = ev.shiftKey ? 6 : 1; let dir = 0;
@@ -1176,7 +1288,7 @@ export function RoomConfigurator({ mode = "dealer", onComplete, onChange, initia
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [sel, undo, patchFix, partAnchor]);
+  }, [sel, undo, patchFix, partAnchor, effSelPart, removeSelected]);
 
   // ---- inline dimension editor ----
   function openEditor(vbX: number, vbY: number, value: string, target: EditTarget) {
@@ -1305,6 +1417,14 @@ export function RoomConfigurator({ mode = "dealer", onComplete, onChange, initia
           could otherwise use. */}
       <div ref={containerRef} className="relative rounded-2xl border border-line bg-card p-2.5 sm:p-4">
         <div className="mb-2.5 flex flex-wrap items-center gap-2">
+          {/* Back sits inside the tool because the only other way out is the module tab strip
+              above it, which is off-screen once a contractor has scrolled down to draw.
+              Rendered only when a host supplies somewhere to go. */}
+          {onBack && (
+            <button onClick={onBack} className={`${BTN} inline-flex items-center gap-1`}>
+              <ArrowLeft className="h-3.5 w-3.5" /> {t("configurator.back")}
+            </button>
+          )}
           <span className="mr-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-muted">{t("configurator.room.add")}</span>
           {([["door", "configurator.room.addDoor"], ["bath", "configurator.room.addBath"], ["toilet", "configurator.room.addToilet"], ["vanity", "configurator.room.addVanity"]] as [Kind, string][]).map(([k, label]) => (
             <button key={k} onClick={() => arm(k)} className={`${BTN} ${armed === k ? BTN_ACTIVE : ""}`}>{t(label)}</button>
@@ -1313,11 +1433,16 @@ export function RoomConfigurator({ mode = "dealer", onComplete, onChange, initia
           <span className="min-w-[8px] flex-1" />
           {armHint && <span className="text-xs font-semibold text-accent">{armHint}</span>}
           <button onClick={undo} title="Undo (Ctrl+Z)" className={`${BTN} inline-flex items-center gap-1`}><Undo2 className="h-3.5 w-3.5" /> {t("configurator.room.undo")}</button>
+          {/* Remove lives up here as well as in the properties panel below: on a phone the
+              panel copy is several screens down from the item you just tapped. Grouped with
+              the other destructive action rather than beside the Add buttons. */}
+          <button onClick={removeSelected} disabled={!canRemove} title={t("configurator.remove")}
+            className={`${BTN} inline-flex items-center gap-1`}><Trash2 className="h-3.5 w-3.5" /> {t("configurator.remove")}</button>
           <button onClick={resetAll} className={`${BTN} inline-flex items-center gap-1`}><RotateCcw className="h-3.5 w-3.5" /> {t("configurator.room.reset")}</button>
         </div>
 
         <Plan svgRef={svgRef} model={model} armed={armed} showClear={showClear} sel={effSel}
-          onBackground={() => { setSel(null); setSelPart(null); }} onPlace={placeOnWall}
+          onBackground={() => { if (draggedRef.current) { draggedRef.current = false; return; } setSel(null); setSelPart(null); }} onPlace={placeOnWall}
           onSelect={(k) => { setSel(k); setSelPart(null); }} onDragStart={startDrag} onEdit={openEditor} S={S}
           selPart={effSelPart} onSelectPart={(id) => { setSelPart(id); setSel(null); }} onPartSlideStart={startPartSlide} onPartResizeStart={startPartResize}
           armPartition={armPartition} onPlanPoint={onPlanPoint} onPlanHover={onPlanHover}
@@ -1498,7 +1623,9 @@ function handleCenterFor(m: Model, kind: Kind): Pt | null {
 function Plan({ svgRef, model, armed, showClear, sel, onBackground, onPlace, onSelect, onDragStart, onEdit, S, interactive = true, showDimensions = true, className,
   selPart = null, onSelectPart, onPartSlideStart, onPartResizeStart, armPartition = false, onPlanPoint, onPlanHover, partAnchorPt = null, partPreview = null }: {
   svgRef: React.RefObject<SVGSVGElement | null>; model: Model; armed: Kind | null; showClear: boolean; sel: Kind | null;
-  onBackground?: () => void; onPlace?: (i: number) => void; onSelect?: (k: Kind) => void;
+  // rx/ry are the tapped point in room coords. Optional so any caller that has no coordinate
+  // gets the original auto-placement rather than a broken one.
+  onBackground?: () => void; onPlace?: (i: number, rx?: number, ry?: number) => void; onSelect?: (k: Kind) => void;
   onDragStart?: (e: React.PointerEvent, k: Kind) => void; onEdit?: (x: number, y: number, value: string, target: EditTarget) => void;
   S: RoomDims; interactive?: boolean; showDimensions?: boolean; className?: string;
   // partitions (interior stud walls) — rendered in both editor and read-only plan. Slide drags
@@ -1555,7 +1682,12 @@ function Plan({ svgRef, model, armed, showClear, sel, onBackground, onPlace, onS
     // drawing back under the 600px height this is all for. Better to draw it as large as the
     // width allows and let the last ~100px sit below the fold — the properties panel is down
     // there anyway, so the page is scrolled regardless.
-    <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} aria-label="Room plan" className={`block h-auto w-full rounded-[10px]${className ? " " + className : ""}`} style={interactive ? { background: PAPER } : { background: PAPER, pointerEvents: "none" }}
+    // touch-action:none is what actually stops the page scrolling under a drag. With Pointer
+    // Events the browser decides pan-vs-drag at gesture START, so the preventDefault() calls in
+    // the drag handlers arrive too late — by then it has already fired pointercancel. Applied
+    // ONLY to the interactive branch: the read-only plan is what a homeowner pinch-zooms on a
+    // shared proposal, and taking that gesture away would be a real regression.
+    <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} aria-label="Room plan" className={`block h-auto w-full rounded-[10px]${className ? " " + className : ""}`} style={interactive ? { background: PAPER, touchAction: "none", userSelect: "none" } : { background: PAPER, pointerEvents: "none" }}
       onClick={interactive ? (e) => { if (e.target === e.currentTarget) onBackground?.(); } : undefined}>
       {floorImage && (
         <defs>
@@ -1715,7 +1847,18 @@ function Plan({ svgRef, model, armed, showClear, sel, onBackground, onPlace, onS
 
       {/* placement targets sit above all artwork. TOUCH-wide so tapping a wall to place a
           fixture works with a fingertip, not just a mouse pointer. */}
-      {hits.map((h) => <line key={`h${h.i}`} x1={h.ax} y1={h.ay} x2={h.bx} y2={h.by} stroke={ACCENT} strokeOpacity={0.16} strokeWidth={TOUCH} strokeLinecap="round" style={{ cursor: "pointer" }} onClick={(ev) => { ev.stopPropagation(); onPlace?.(h.i); }} />)}
+      {/* The tap POINT is passed through, not just the wall index — that band is TOUCH units
+          wide, so where along it the finger landed is the whole of "place it where I tapped".
+          Same client→viewBox→room conversion the partition catcher below uses. */}
+      {hits.map((h) => <line key={`h${h.i}`} x1={h.ax} y1={h.ay} x2={h.bx} y2={h.by} stroke={ACCENT} strokeOpacity={0.16} strokeWidth={TOUCH} strokeLinecap="round" style={{ cursor: "pointer" }}
+        onClick={(ev) => {
+          ev.stopPropagation();
+          const svg = svgRef.current;
+          if (!svg) { onPlace?.(h.i); return; }
+          const rr = svg.getBoundingClientRect();
+          const ux = (ev.clientX - rr.left) * (W / rr.width), uy = (ev.clientY - rr.top) * (H / rr.height);
+          onPlace?.(h.i, (ux - model.ox) / model.s, (uy - model.oy) / model.s);
+        }} />)}
 
       {/* partition placement catcher — topmost when arming, so a click anywhere in the plan
           registers a point (and hover drives the preview). */}
