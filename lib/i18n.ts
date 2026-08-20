@@ -1076,6 +1076,8 @@ export const dictionary: Record<Lang, Record<string, any>> = {
       notAdded: "Not added yet",
       edit: "Edit",
       remove: "Remove",
+      // In-tool exit from a configurator module back to the overview.
+      back: "Back",
       total: "Total",
       selectToBegin: "Select a configurator above to begin.",
       selectedProducts: "Selected products",
@@ -2888,6 +2890,8 @@ export const dictionary: Record<Lang, Record<string, any>> = {
       notAdded: "Aún no agregado",
       edit: "Editar",
       remove: "Quitar",
+      // Salida desde un módulo del configurador de vuelta al resumen.
+      back: "Volver",
       total: "Total",
       selectToBegin: "Seleccione un configurador arriba para comenzar.",
       selectedProducts: "Productos seleccionados",
