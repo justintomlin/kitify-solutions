@@ -1,0 +1,2 @@
+sku,name,category,subcategory,uom,cost_usd,default_ship_weight_g,dimensions_note,notes,is_sample,active
+SPC-AB-24x94.5,SPC Wall Panel — Amber Beige,wall-panel,SPC,each,42.50,11000,24×94.5×0.16in,Example row — delete before importing,false,true
