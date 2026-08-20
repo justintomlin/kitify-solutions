@@ -8,6 +8,14 @@ import { useLanguage } from "@/components/LanguageContext";
 import { AdminGuard } from "@/components/AdminGuard";
 import { getProfile, listOrders, type Profile, type Order } from "@/lib/store";
 import { OrderStatusChip } from "@/components/projects/ui";
+import {
+  setInventoryTracking,
+  listPartnerStock,
+  listPartnerSkus,
+  listPartnerMovements,
+  refKey,
+  rowRef,
+} from "@/lib/partner-inventory";
 
 const money = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 const fmtDate = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString() : "—");
@@ -108,6 +116,9 @@ function ContractorDetail() {
         </div>
       </div>
 
+      {/* Inventory tracking — the per-contractor feature toggle (Phase 2). */}
+      <InventoryTrackingSection profile={profile} onChanged={(v) => setProfile({ ...profile, inventoryTrackingEnabled: v })} />
+
       {/* Performance metrics */}
       <Section title={t("crm.sectionMetrics")}>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -168,6 +179,113 @@ function ContractorDetail() {
         )}
       </Section>
     </div>
+  );
+}
+
+/**
+ * "Inventory tracking" toggle plus, when on, a summary of what this contractor is tracking.
+ *
+ * The write goes through set_inventory_tracking() rather than a profiles UPDATE: 0002 gives
+ * profiles an UPDATE policy of id = auth.uid() with no admin equivalent, so a direct update
+ * on someone else's row matches zero rows and fails silently. See 0015 for why the RPC is
+ * scoped to this one column instead of widening the policy.
+ */
+function InventoryTrackingSection({ profile, onChanged }: { profile: Profile; onChanged: (v: boolean) => void }) {
+  const { t } = useLanguage();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [summary, setSummary] = useState<{ items: number; pieces: number; skus: number; recent: number } | null>(null);
+
+  const enabled = profile.inventoryTrackingEnabled;
+
+  useEffect(() => {
+    if (!enabled) {
+      setSummary(null);
+      return;
+    }
+    let active = true;
+    const since = new Date(Date.now() - 30 * 86_400_000).toISOString();
+    Promise.all([
+      listPartnerStock(profile.id),
+      listPartnerSkus(profile.id),
+      listPartnerMovements({ ownerId: profile.id, since }),
+    ])
+      .then(([stock, skus, movements]) => {
+        if (!active) return;
+        setSummary({
+          items: new Set(stock.map((s) => refKey(rowRef(s)))).size,
+          pieces: stock.reduce((a, s) => a + s.quantity, 0),
+          skus: skus.length,
+          recent: movements.length,
+        });
+      })
+      .catch(() => active && setSummary(null));
+    return () => {
+      active = false;
+    };
+  }, [enabled, profile.id]);
+
+  async function toggle() {
+    setBusy(true);
+    setError("");
+    try {
+      onChanged(await setInventoryTracking(profile.id, !enabled));
+    } catch {
+      setError(t("crm.invTrackError"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Section title={t("crm.invTrackTitle")} subtitle={t("crm.invTrackSubtitle")}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-sm text-ink">{enabled ? t("crm.invTrackOn") : t("crm.invTrackOff")}</div>
+          <div className="mt-0.5 text-xs leading-relaxed text-muted">
+            {enabled ? t("crm.invTrackOnHint") : t("crm.invTrackOffHint")}
+          </div>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={enabled}
+          aria-label={t("crm.invTrackTitle")}
+          disabled={busy}
+          onClick={toggle}
+          className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition disabled:opacity-50 ${
+            enabled ? "bg-accent" : "bg-line"
+          }`}
+        >
+          <span
+            className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition ${
+              enabled ? "translate-x-6" : "translate-x-1"
+            }`}
+          />
+        </button>
+      </div>
+
+      {error && (
+        <div className="mt-3 rounded-lg border border-amber/30 bg-amber/10 px-3 py-2 text-sm text-amber">{error}</div>
+      )}
+
+      {enabled && (
+        <div className="mt-4 border-t border-line pt-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <StatCard label={t("crm.invTrackItems")} value={summary ? String(summary.items) : "—"} />
+            <StatCard label={t("crm.invTrackPieces")} value={summary ? String(summary.pieces) : "—"} />
+            <StatCard label={t("crm.invTrackOwnSkus")} value={summary ? String(summary.skus) : "—"} />
+            <StatCard label={t("crm.invTrackRecent")} value={summary ? String(summary.recent) : "—"} />
+          </div>
+          <Link
+            href={`/portal/admin/inventory/partner/${profile.id}`}
+            className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-line px-4 py-2 text-sm font-medium text-muted transition hover:border-accent hover:text-accent"
+          >
+            {t("crm.invTrackView")}
+          </Link>
+        </div>
+      )}
+    </Section>
   );
 }
 

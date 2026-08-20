@@ -36,7 +36,13 @@ function NavLink({ item, active, label }: { item: NavItem; active: boolean; labe
 function SidebarPanel({ onClose }: { onClose?: () => void }) {
   const pathname = usePathname();
   const { t } = useLanguage();
-  const { isAdmin } = useAuth();
+  const { isAdmin, profile } = useAuth();
+
+  // Feature-toggled items drop out of the nav entirely rather than rendering disabled — a
+  // contractor without inventory tracking should not know the section exists.
+  const visiblePrimaryNav = primaryNav.filter(
+    (item) => !item.requiresInventoryTracking || !!profile?.inventoryTrackingEnabled,
+  );
 
   return (
     <div className="flex h-full flex-col bg-ink text-white">
@@ -57,7 +63,7 @@ function SidebarPanel({ onClose }: { onClose?: () => void }) {
       </div>
 
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-        {primaryNav.map((item) => (
+        {visiblePrimaryNav.map((item) => (
           <NavLink
             key={item.href}
             item={item}

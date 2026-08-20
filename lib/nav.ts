@@ -20,6 +20,9 @@ export type NavItem = {
   href: string;
   icon: LucideIcon;
   adminOnly?: boolean;
+  /** Shown only when the signed-in profile has inventory_tracking_enabled. Per-contractor
+   *  feature toggle, set by an admin from the CRM detail page. */
+  requiresInventoryTracking?: boolean;
 };
 
 // Primary partner-facing navigation.
@@ -32,6 +35,15 @@ export const primaryNav: NavItem[] = [
   // The contractor's own homeowner book — distinct from the admin CRM (which tracks
   // contractors) even though both use the Users icon.
   { key: "myCustomers", href: "/portal/my-customers", icon: Users },
+  // The contractor's OWN stock — their catalog and Kitify items they hold. Sits between
+  // customers and orders because it tracks work-in-progress material, which is upstream of
+  // a committed order. Hidden entirely unless an admin has enabled tracking for them.
+  {
+    key: "inventoryTracking",
+    href: "/portal/inventory",
+    icon: Boxes,
+    requiresInventoryTracking: true,
+  },
   // Single Orders hub — replaces the old "Order tracking" + "Place an order" items.
   { key: "orders", href: "/portal/orders", icon: Package },
   { key: "projects", href: "/portal/projects", icon: FolderKanban },

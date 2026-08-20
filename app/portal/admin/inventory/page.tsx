@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Search, Plus, MapPin, ArrowUpDown } from "lucide-react";
+import { Search, Plus, MapPin, ArrowUpDown, Users } from "lucide-react";
 import { useLanguage } from "@/components/LanguageContext";
 import { AdminGuard } from "@/components/AdminGuard";
 import {
@@ -179,6 +179,11 @@ function InventoryDashboard() {
         sub={t("inventory.subtitle")}
         right={
           <div className="flex shrink-0 flex-wrap gap-2">
+            {/* Partner inventory is a separate view of separate tables — contractors' own
+                stock never merges into the Kitify list below. */}
+            <Link href="/portal/admin/inventory/partners" className={BTN_GHOST}>
+              <Users className="h-4 w-4" /> {t("partnerInv.partnersTab")}
+            </Link>
             <Link href="/portal/admin/inventory/locations" className={BTN_GHOST}>
               <MapPin className="h-4 w-4" /> {t("inventory.locations")}
             </Link>

@@ -1137,6 +1137,9 @@ export type Profile = {
   invitedAt: string | null;
   firstLoginAt: string | null;
   createdAt: string;
+  /** "Inventory tracking" feature toggle (Phase 2). Reads false when the migration that adds
+   *  the column has not run yet, so this stays safe ahead of 0014. */
+  inventoryTrackingEnabled: boolean;
 };
 
 type ProfileRow = {
@@ -1156,6 +1159,7 @@ type ProfileRow = {
   invited_at: string | null;
   first_login_at: string | null;
   created_at: string;
+  inventory_tracking_enabled?: boolean;
 };
 
 function rowToProfile(r: ProfileRow): Profile {
@@ -1177,6 +1181,7 @@ function rowToProfile(r: ProfileRow): Profile {
     invitedAt: r.invited_at ?? null,
     firstLoginAt: r.first_login_at ?? null,
     createdAt: r.created_at,
+    inventoryTrackingEnabled: r.inventory_tracking_enabled ?? false,
   };
 }
 

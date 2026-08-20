@@ -23,6 +23,10 @@ export type Profile = {
   mustChangePassword: boolean; // admin-created accounts must set a permanent password first
   profileConfirmed: boolean; // contractor must confirm their info on first login
   firstLoginAt: string | null;
+  /** "Inventory tracking" feature toggle, admin-set per contractor. Gates the nav item and
+   *  the /portal/inventory routes. False until the Phase 2 migration runs — the `?? false`
+   *  in rowToProfile means a missing column reads as "off" rather than throwing. */
+  inventoryTrackingEnabled: boolean;
 };
 
 type AuthResult = { error: string | null };
@@ -47,12 +51,14 @@ type ProfileRow = {
   company_logo?: string | null; company_tagline?: string | null; company_website?: string | null;
   role: Role; status: Profile["status"];
   must_change_password?: boolean; profile_confirmed?: boolean; first_login_at?: string | null;
+  inventory_tracking_enabled?: boolean;
 };
 const rowToProfile = (r: ProfileRow): Profile => ({
   id: r.id, name: r.name, email: r.email, company: r.company ?? null, phone: r.phone ?? null, territory: r.territory ?? null,
   companyLogo: r.company_logo ?? null, companyTagline: r.company_tagline ?? null, companyWebsite: r.company_website ?? null,
   role: r.role, status: r.status,
   mustChangePassword: !!r.must_change_password, profileConfirmed: !!r.profile_confirmed, firstLoginAt: r.first_login_at ?? null,
+  inventoryTrackingEnabled: r.inventory_tracking_enabled ?? false,
 });
 
 // Load the user's profile, creating it if missing. This is what keeps the profiles row
