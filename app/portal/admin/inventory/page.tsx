@@ -3,10 +3,10 @@
 // Inventory dashboard — Kitify's own stock at a glance, plus the searchable SKU table.
 // Admin-only (AdminGuard + admin-only RLS on every inventory table).
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Search, Plus, MapPin, ArrowUpDown, Users } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Search, Plus, MapPin, ArrowUpDown, Users, Upload, BarChart3 } from "lucide-react";
 import { useLanguage } from "@/components/LanguageContext";
 import { AdminGuard } from "@/components/AdminGuard";
 import {
@@ -49,7 +49,10 @@ const THIRTY_DAYS_MS = 30 * 86_400_000;
 export default function InventoryDashboardPage() {
   return (
     <AdminGuard>
-      <InventoryDashboard />
+      {/* Suspense: the category drill-through from the reports screen reads a search param. */}
+      <Suspense fallback={<EmptyCard>…</EmptyCard>}>
+        <InventoryDashboard />
+      </Suspense>
     </AdminGuard>
   );
 }
@@ -64,8 +67,17 @@ function InventoryDashboard() {
   const [recent, setRecent] = useState<Movement[]>([]);
   const [error, setError] = useState("");
 
+  // ?category=<enum> preselects the filter — the drill-through from the reports screen's
+  // by-category panel. Ignored when it isn't a real category, so a stale link degrades to
+  // the unfiltered list rather than an empty one.
+  const searchParams = useSearchParams();
+  const initialCategory = useMemo(() => {
+    const raw = searchParams.get("category");
+    return raw && (CATEGORIES as readonly string[]).includes(raw) ? (raw as InventoryCategory) : "all";
+  }, [searchParams]);
+
   const [query, setQuery] = useState("");
-  const [category, setCategory] = useState<InventoryCategory | "all">("all");
+  const [category, setCategory] = useState<InventoryCategory | "all">(initialCategory);
   const [subcategory, setSubcategory] = useState("all");
   const [locationId, setLocationId] = useState("all");
   const [stockFilter, setStockFilter] = useState<StockFilter>("all");
@@ -181,6 +193,12 @@ function InventoryDashboard() {
           <div className="flex shrink-0 flex-wrap gap-2">
             {/* Partner inventory is a separate view of separate tables — contractors' own
                 stock never merges into the Kitify list below. */}
+            <Link href="/portal/admin/inventory/reports" className={BTN_GHOST}>
+              <BarChart3 className="h-4 w-4" /> {t("invReports.tab")}
+            </Link>
+            <Link href="/portal/admin/inventory/import" className={BTN_GHOST}>
+              <Upload className="h-4 w-4" /> {t("invImport.tab")}
+            </Link>
             <Link href="/portal/admin/inventory/partners" className={BTN_GHOST}>
               <Users className="h-4 w-4" /> {t("partnerInv.partnersTab")}
             </Link>

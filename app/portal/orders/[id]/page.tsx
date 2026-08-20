@@ -3,13 +3,17 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ArrowLeft, Check, Truck, CheckCircle2, ShieldCheck, Camera, Ban, ChevronRight, Settings2 } from "lucide-react";
+import { ArrowLeft, Check, Truck, CheckCircle2, ShieldCheck, Camera, Ban, ChevronRight, Settings2, Boxes } from "lucide-react";
 import { useLanguage } from "@/components/LanguageContext";
 import { useAuth } from "@/components/AuthContext";
 import {
   canTransition, getOrder, updateOrder, updateOrderStatus, InvalidStatusTransition,
   type Order, type OrderStatus, type OrderStatusFields,
 } from "@/lib/store";
+import {
+  recordOrderShipment, retryOrderShipment, listOrderShipments,
+  type OrderShipment, type ShipmentOutcome, type ShipmentStatus,
+} from "@/lib/inventory-orders";
 import { OrderStatusChip, WarrantyStatusChip } from "@/components/projects/ui";
 import { RoomPlanSVG, type RoomConfig } from "@/components/room/RoomConfigurator";
 import { ShowerPreviewFromConfig, type ShowerConfig } from "@/components/shower/ShowerConfigurator";
@@ -89,6 +93,25 @@ export default function OrderDetailPage() {
   const [ship, setShip] = useState({ carrier: "", tracking: "", eta: "" });
   const [confirmCancel, setConfirmCancel] = useState(false);
 
+  // Inventory coupling (admin-only). `shipment` is the just-run outcome, shown inline right
+  // after shipping; `shipments` is the recorded history.
+  const [shipment, setShipment] = useState<ShipmentOutcome | null>(null);
+  const [shipments, setShipments] = useState<OrderShipment[]>([]);
+
+  const refreshShipments = useCallback(async () => {
+    if (!isAdmin) return;
+    try {
+      setShipments(await listOrderShipments(id));
+    } catch {
+      // Admin-only convenience panel — never let it break the order page.
+      setShipments([]);
+    }
+  }, [id, isAdmin]);
+
+  useEffect(() => {
+    void refreshShipments();
+  }, [refreshShipments]);
+
   async function advance(to: OrderStatus, fields?: OrderStatusFields) {
     setAdminBusy(true);
     setAdminError("");
@@ -99,6 +122,19 @@ export default function OrderDetailPage() {
       setShipOpen(false);
       setConfirmCancel(false);
       setShip({ carrier: "", tracking: "", eta: "" });
+
+      // ---- inventory seam ----------------------------------------------------
+      // 'in_transit' is the ship hand-off (it stamps shipped_at); there is no 'shipped'
+      // status. Runs AFTER the transition has committed and is deliberately awaited but
+      // never allowed to throw: recordOrderShipment resolves on failure, so a coupling
+      // problem shows as a notice beside a shipped order rather than as a failed ship.
+      // Admin-only — the RPC refuses a contractor, which lands here as ok:false and is
+      // simply not shown to them.
+      if (to === "in_transit" && isAdmin) {
+        const outcome = await recordOrderShipment(id);
+        setShipment(outcome);
+        void refreshShipments();
+      }
     } catch (e) {
       // A rejected transition means this page is stale, which is worth saying plainly.
       setAdminError(t(e instanceof InvalidStatusTransition ? "orders.transitionError" : "orders.actionError"));
@@ -303,6 +339,19 @@ export default function OrderDetailPage() {
         </Section>
       )}
 
+      {/* Inventory shipment — admin-only. Never rendered for a contractor: it describes
+          Kitify's own stock, which is not their business. */}
+      {isAdmin && (shipments.length > 0 || shipment) && (
+        <Section title={t("invShip.section")} icon={<Boxes className="h-4 w-4 text-muted" />}>
+          <InventoryShipmentPanel
+            orderId={id}
+            latest={shipments[0] ?? null}
+            justRan={shipment}
+            onRetried={() => { setShipment(null); void refreshShipments(); }}
+          />
+        </Section>
+      )}
+
       {/* Timeline */}
       <Section title={t("orders.sectionTimeline")}>
         {order.status === "cancelled" && (
@@ -405,6 +454,139 @@ export default function OrderDetailPage() {
           </div>
           {error && <p className="mt-3 rounded-md border border-amber/30 bg-amber/10 px-3 py-2 text-sm text-amber">{error}</p>}
         </Section>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The order's inventory-coupling record.
+ *
+ * Under the current mapping strategy nothing is auto-decremented — the attempt records what
+ * WOULD move so an admin can see it and act. The panel therefore leads with that fact rather
+ * than showing a green tick that would imply stock had changed. See the strategy note in
+ * supabase/migrations/0016_inventory_reporting.sql.
+ */
+function InventoryShipmentPanel({
+  orderId,
+  latest,
+  justRan,
+  onRetried,
+}: {
+  orderId: string;
+  latest: OrderShipment | null;
+  justRan: ShipmentOutcome | null;
+  onRetried: () => void;
+}) {
+  const { t } = useLanguage();
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+
+  // The just-run outcome may have failed before any row was written; show that plainly.
+  if (justRan && !justRan.ok && !latest) {
+    return (
+      <p className="rounded-md border border-amber/30 bg-amber/10 px-3 py-2 text-sm text-amber">
+        {t("invShip.attemptFailed")}
+      </p>
+    );
+  }
+  if (!latest) return <p className="text-sm text-muted">{t("invShip.none")}</p>;
+
+  const tone: Record<ShipmentStatus, "success" | "amber" | "muted"> = {
+    success: "success",
+    partial: "amber",
+    failed: "amber",
+    skipped: "muted",
+  };
+  const chip = {
+    success: "border-success/30 bg-success/10 text-success",
+    amber: "border-amber/30 bg-amber/10 text-amber",
+    muted: "border-line bg-paper text-muted",
+  }[tone[latest.status]];
+
+  const canRetry = latest.status === "partial" || latest.status === "failed" || latest.status === "skipped";
+  const matched = latest.lines.filter((l) => l.matched).length;
+
+  async function retry() {
+    setBusy(true);
+    setErr("");
+    try {
+      await retryOrderShipment(orderId, latest!.id);
+      onRetried();
+    } catch {
+      setErr(t("invShip.retryError"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className={`inline-flex items-center rounded-full border px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] ${chip}`}>
+          {t(`invShip.status.${latest.status}`)}
+        </span>
+        <span className="text-sm text-muted">
+          {t("invShip.summary", {
+            applied: String(latest.linesApplied),
+            attempted: String(latest.linesAttempted),
+          })}
+        </span>
+        <span className="ml-auto text-xs text-muted">{fmtDate(latest.attemptedAt)}</span>
+      </div>
+
+      {latest.status === "skipped" && <p className="text-xs leading-relaxed text-muted">{t("invShip.skippedNote")}</p>}
+      {latest.errorNote && latest.status === "failed" && (
+        <p className="rounded-md border border-amber/30 bg-amber/10 px-3 py-2 text-sm text-amber">{latest.errorNote}</p>
+      )}
+
+      {latest.lines.length > 0 && (
+        <>
+          <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted">
+            {t("invShip.lines")}{" "}
+            <span className="normal-case tracking-normal">
+              ({t("invShip.matchedOf", { matched: String(matched), total: String(latest.lines.length) })})
+            </span>
+          </div>
+          <div className="overflow-x-auto rounded-lg border border-line">
+            <table className="w-full min-w-[520px] text-sm">
+              <thead>
+                <tr className="border-b border-line text-left font-mono text-[10px] uppercase tracking-[0.12em] text-muted">
+                  <th className="px-3 py-2">{t("invShip.colItem")}</th>
+                  <th className="px-3 py-2">{t("invShip.colSku")}</th>
+                  <th className="px-3 py-2 text-right">{t("invShip.colNeeded")}</th>
+                  <th className="px-3 py-2 text-right">{t("invShip.colAvailable")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {latest.lines.map((l, i) => (
+                  <tr key={i} className="border-b border-line/60 last:border-0">
+                    <td className="px-3 py-2 text-ink">{l.skuLabel}</td>
+                    <td className="px-3 py-2 font-mono text-[12px] text-muted">{l.skuCode ?? "—"}</td>
+                    <td className="px-3 py-2 text-right text-muted">{l.requested}</td>
+                    <td className="px-3 py-2 text-right">
+                      {!l.matched ? (
+                        <span className="text-muted">{t("invShip.unmatched")}</span>
+                      ) : l.available !== null && l.available < l.requested ? (
+                        <span className="font-semibold text-amber">{l.available}</span>
+                      ) : (
+                        <span className="text-ink">{l.available}</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
+      {err && <p className="rounded-md border border-amber/30 bg-amber/10 px-3 py-2 text-sm text-amber">{err}</p>}
+
+      {canRetry && (
+        <button onClick={retry} disabled={busy} className={ADMIN_GHOST}>
+          {busy ? t("orders.saving") : t("invShip.retry")}
+        </button>
       )}
     </div>
   );

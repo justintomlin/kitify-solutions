@@ -472,6 +472,64 @@ export async function lastMovementByLocation(
   return new Map(entries.filter((e): e is readonly [string, string] => e !== null));
 }
 
+/**
+ * EVERY movement at or after `since`, paginated.
+ *
+ * listMovements() without an explicit limit is capped by PostgREST's default max-rows (1000),
+ * which silently truncates rather than erroring — fine for a recent-activity strip, wrong for
+ * a report that has to add up to the real total. This pages until a short batch comes back.
+ *
+ * `hardCap` is a runaway guard, not a business limit; the caller is told when it bites so the
+ * UI can say the view is partial instead of quietly under-reporting.
+ */
+export async function listAllMovementsSince(
+  since: string,
+  hardCap = 20_000,
+): Promise<{ movements: Movement[]; truncated: boolean }> {
+  const PAGE = 1000;
+  const rows: MovementRowRaw[] = [];
+  let offset = 0;
+
+  for (;;) {
+    const { data, error } = await supabase
+      .from("inventory_movements")
+      .select("*")
+      .gte("performed_at", since)
+      .order("performed_at", { ascending: false })
+      .range(offset, offset + PAGE - 1);
+    if (error) fail("listAllMovementsSince", error);
+    const batch = (data ?? []) as MovementRowRaw[];
+    rows.push(...batch);
+    if (batch.length < PAGE || rows.length >= hardCap) {
+      const names = await resolvePerformerNames(rows);
+      return { movements: rows.map((r) => rowToMovement(r, names)), truncated: batch.length === PAGE };
+    }
+    offset += PAGE;
+  }
+}
+
+/**
+ * Most recent movement timestamp per SKU, across all time.
+ *
+ * Reads a bounded newest-first slice and keeps the first timestamp seen for each SKU — which
+ * is that SKU's latest, since the rows arrive ordered. A SKU whose last movement falls outside
+ * the slice reports no date, which the stale-stock panel treats the same as "never moved":
+ * both mean "nothing recent", which is exactly what that panel is looking for.
+ */
+export async function lastMovementBySku(sampleSize = 5000): Promise<Map<string, string>> {
+  const { data, error } = await supabase
+    .from("inventory_movements")
+    .select("sku_id, performed_at")
+    .order("performed_at", { ascending: false })
+    .limit(sampleSize);
+  if (error) fail("lastMovementBySku", error);
+  const out = new Map<string, string>();
+  for (const r of (data ?? []) as { sku_id: string; performed_at: string }[]) {
+    if (!out.has(r.sku_id)) out.set(r.sku_id, r.performed_at);
+  }
+  return out;
+}
+
 export async function countMovementsForSku(skuId: string): Promise<number> {
   const { count, error } = await supabase
     .from("inventory_movements")
