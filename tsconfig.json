@@ -10,6 +10,10 @@
     "module": "esnext",
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
+    // Node's built-in test runner strips types but resolves relative imports as real ESM, so
+    // lib/__tests__ must import "../hpl-shower-takeoff.ts" with the extension. Safe here
+    // because noEmit is on — tsc never writes JS, and Next compiles through SWC.
+    "allowImportingTsExtensions": true,
     "isolatedModules": true,
     "jsx": "preserve",
     "incremental": true,

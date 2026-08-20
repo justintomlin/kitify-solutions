@@ -27,9 +27,17 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Check, RotateCcw, Plus, Minus, DoorOpen, Square } from "lucide-react";
 import { SHOWER_BASES, TUBS as CATALOG_TUBS, SHOWER_BASE_COLORS, type BaseSku } from "@/lib/catalog";
 import { getPanelCollections, getPanelImage, getPanelSpecs, getPanel } from "@/lib/naturepanel-catalog";
+import {
+  computeHplShowerBom,
+  type HplShowerBom,
+  type HplShowerConfig,
+  type HplShowerType,
+  type HplWallSpec,
+} from "@/lib/hpl-shower-takeoff";
 import { getAllDuraseinColors, duraseinSheetTexture } from "@/lib/durasein-catalog";
 import { resolveDefault, DEFAULT_FINISH_ID, INCLUDED_QTY, OPT_IN_QTY } from "@/lib/defaults";
 import { useLanguage } from "@/components/LanguageContext";
+import { HplUpsellPopup } from "@/components/shower/HplUpsellPopup";
 
 // Price-line display text is resolved at render (never stored) so a quote saved in
 // one language reads correctly when reopened in another. See lib/i18n.ts.
@@ -114,6 +122,12 @@ export type ShowerSelections = {
   wallMode?: WallMode;
   door: { seriesId: string; finish: string } | null;
   accessories: AccessoryState;
+  /**
+   * HPL upsell offer ids the dealer accepted. Stored in the selections (not derived) because
+   * an accepted upsell is a decision that has to survive save-and-reopen. HPL only — an SPC
+   * shower never populates this.
+   */
+  hplUpsells?: string[];
 };
 
 // A price line carries a dictionary key + interpolation params rather than a finished
@@ -126,6 +140,14 @@ export type ShowerConfig = {
   // (Kept for the future AI render pipeline; the hub now draws the live SVG preview.)
   media?: ShowerMedia;
   price: { total: number; lines: PriceLine[] };
+  /**
+   * The real HPL bill of materials — SKU codes and counts — when the walls are HPL, null
+   * otherwise. This is what the proposal, the order snapshot and the Phase 3 inventory
+   * shipment extractor read instead of the old label-only wall-panel line.
+   *
+   * SPC showers keep `hplBom: null` and the legacy flat kit line until an SPC takeoff exists.
+   */
+  hplBom?: HplShowerBom | null;
   isComplete: boolean;
   label: string;
 };
@@ -397,16 +419,86 @@ export function doorsForItem(catalog: ShowerCatalog, path: Path | undefined, ite
   return pool.filter((d) => d.w === item.doorWidth).sort((a, b) => a.rank - b.rank);
 }
 
-export function computeShowerPrice(catalog: ShowerCatalog, s: ShowerSelections): { total: number; lines: PriceLine[] } {
+/** The HPL wall material id. Anything else falls through to the legacy flat kit pricing. */
+const HPL_MATERIAL_ID = "hpl";
+export const isHplShower = (s: ShowerSelections) => s.materialId === HPL_MATERIAL_ID;
+
+// PLACEHOLDER PRICING — a nominal $1 per unit, matching every other price in this module.
+// Real per-SKU pricing loads from supplier spreadsheets; the BOM *quantities* are real now,
+// the money is not.
+const HPL_PLACEHOLDER_UNIT_PRICE = 1;
+
+/**
+ * The inventory SKU code for an HPL decor.
+ *
+ * Nature Panel's own code (`sku_ref`, e.g. MP638) is used where the catalogue has one — 14 of
+ * the 21 decors. The seven Wood decors carry no supplier code, so they fall back to their
+ * catalogue id. Either way the code is stable and namespaced, which is what the inventory
+ * seam matches on.
+ */
+export function hplPanelSkuCode(panelId?: string): string | null {
+  if (!panelId) return null;
+  const p = getPanel(panelId);
+  return `HPL-${p?.skuRef ?? panelId}`.toUpperCase();
+}
+
+/**
+ * Shower selections → the takeoff's wall list.
+ *
+ * The configurator models three walls (WALL_INDEX: back, left, right) sized from the base:
+ * the back wall runs the base's width, the two returns run its depth. It has no way to
+ * express a two-wall corner shower today, so that configuration is reachable through the
+ * takeoff API and the fixture but not yet through this UI — see the Phase B report.
+ */
+export function buildHplShowerConfig(catalog: ShowerCatalog, s: ShowerSelections): HplShowerConfig | null {
+  if (!isHplShower(s)) return null;
+  const item = itemsForPath(catalog, s.path).find((b) => b.id === s.baseId);
+  if (!item) return null;
+  const mat = findWallMaterial(catalog, s.materialId);
+  const decorName = (i: number) => mat?.colors.find((c) => c.id === s.wallColors[i])?.name;
+  const widths = [item.w, item.d, item.d];
+  const walls: HplWallSpec[] = WALL_INDEX.map((i) => ({
+    id: ["back", "left", "right"][i],
+    widthIn: widths[i],
+    skuCode: hplPanelSkuCode(s.wallColors[i]),
+    skuLabel: decorName(i),
+  }));
+  const type: HplShowerType = s.path === "tub" ? "tub-surround" : "alcove";
+  return { type, walls };
+}
+
+export function computeShowerPrice(
+  catalog: ShowerCatalog,
+  s: ShowerSelections,
+): { total: number; lines: PriceLine[]; hplBom: HplShowerBom | null } {
   const lines: PriceLine[] = [];
   const item = itemsForPath(catalog, s.path).find((b) => b.id === s.baseId);
   // Placeholder SKUs (dealerPrice 0, pricing TBD) never contribute a price line.
   if (item && !item.placeholder) lines.push({ key: s.path === "tub" ? "configurator.priceLine.tub" : "configurator.priceLine.showerBase", params: { label: item.label }, amount: item.price });
   const mat = findWallMaterial(catalog, s.materialId);
-  if (mat && item) {
+
+  // ---- wall panels -------------------------------------------------------
+  // HPL gets a real per-SKU takeoff. Everything else — SPC today, Solid Surface on a
+  // reopened legacy quote — keeps the flat kit line it has always had. That fallback is a
+  // known deficiency, deliberately left in place until an SPC takeoff is specced; do not
+  // extend the HPL rules to cover it, the panels are a different physical product.
+  let hplBom: HplShowerBom | null = null;
+  const hplConfig = buildHplShowerConfig(catalog, s);
+  if (hplConfig) {
+    hplBom = computeHplShowerBom(hplConfig, { acceptedUpsellIds: s.hplUpsells ?? [] });
+    for (const l of hplBom.lines) {
+      const gross = l.qty * HPL_PLACEHOLDER_UNIT_PRICE;
+      lines.push({
+        key: l.labelKey,
+        params: { ...(l.labelParams ?? {}), n: String(l.qty) },
+        amount: Math.round(gross * (1 - (l.discountPct ?? 0) / 100)),
+      });
+    }
+  } else if (mat && item) {
     const factor = item.w / 48; // wall area scales with width (placeholder)
     lines.push({ key: "configurator.priceLine.wallPanels", params: { material: mat.name }, amount: Math.round(mat.kitPrice * factor) });
   }
+
   if (s.door) {
     const series = (s.path === "tub" ? catalog.tubDoors : catalog.doors).find((d) => d.id === s.door!.seriesId);
     const amt = series?.finishes[s.door.finish];
@@ -420,7 +512,7 @@ export function computeShowerPrice(catalog: ShowerCatalog, s: ShowerSelections):
     lines.push({ key: "configurator.priceLine.grabBar", params: { size: sz?.label ?? "", qty: String(a.grabBar.qty) }, amount: a.grabBar.qty * (sz?.price ?? 0) });
   }
   const total = lines.reduce((x, l) => x + l.amount, 0);
-  return { total, lines };
+  return { total, lines, hplBom };
 }
 
 /**
@@ -539,6 +631,7 @@ export function ShowerConfigurator({
 }) {
   const { t } = useLanguage();
   const [s, setS] = useState<ShowerSelections>(() => seedShowerSelections(catalog, initialKind, initialBaseId, initialBaseColor));
+  const [upsellsDismissed, setUpsellsDismissed] = useState(false);
   const price = useMemo(() => computeShowerPrice(catalog, s), [catalog, s]);
   const complete = isComplete(s);
   const set = (patch: Partial<ShowerSelections>) => setS((prev) => ({ ...prev, ...patch }));
@@ -553,7 +646,7 @@ export function ShowerConfigurator({
   // whole config on a language switch would push a draft over a committed quote.
   const onPreviewRef = useRef(onPreview); onPreviewRef.current = onPreview;
   useEffect(() => {
-    onPreviewRef.current?.({ selections: s, media: buildShowerMedia(catalog, s), price, isComplete: isComplete(s), label: buildLabel(catalog, s, t) });
+    onPreviewRef.current?.({ selections: s, media: buildShowerMedia(catalog, s), price, hplBom: price.hplBom, isComplete: isComplete(s), label: buildLabel(catalog, s, t) });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [s, price, catalog]);
 
@@ -670,8 +763,14 @@ export function ShowerConfigurator({
     else setWall(activeWall, id);
   }
   function setAllWalls(colorId: string) { set({ wallColors: [colorId, colorId, colorId] }); }
+  // Accepting an upsell is a selection, so it lives in `s` and persists with the quote.
+  // Dismissal is view-only — it hides the block for this session without recording anything.
+  function toggleUpsell(offerId: string) {
+    const cur = s.hplUpsells ?? [];
+    set({ hplUpsells: cur.includes(offerId) ? cur.filter((x) => x !== offerId) : [...cur, offerId] });
+  }
   function startOver() { setS(initial); }
-  function addToQuote() { if (complete) onComplete?.({ selections: s, media: buildShowerMedia(catalog, s), price, isComplete: true, label: buildLabel(catalog, s, t) }); }
+  function addToQuote() { if (complete) onComplete?.({ selections: s, media: buildShowerMedia(catalog, s), price, hplBom: price.hplBom, isComplete: true, label: buildLabel(catalog, s, t) }); }
 
   const acc = catalog.accessories;
   const stepAcc = (key: keyof AccessoryState, delta: number) =>
@@ -699,6 +798,25 @@ export function ShowerConfigurator({
               ))}
               {price.lines.length === 0 && <div className="text-xs text-muted">{t("configurator.shower.chooseBaseFirst")}</div>}
             </div>
+
+            {/* An end-cap count the lookup doesn't cover. Warn, never block — the BOM is still
+                usable, the dealer just needs to know that one figure is an estimate. */}
+            {price.hplBom?.trim.endCapEstimated && (
+              <p className="mt-2 rounded-md border border-amber/30 bg-amber/10 px-2 py-1.5 text-[11px] leading-relaxed text-amber">
+                {t("configurator.shower.hplBom.endCapEstimated")}
+              </p>
+            )}
+
+            {/* HPL upsells. Never rendered for SPC — see HplUpsellPopup's header. */}
+            {price.hplBom && !upsellsDismissed && (
+              <HplUpsellPopup
+                bom={price.hplBom}
+                accepted={s.hplUpsells ?? []}
+                onToggle={toggleUpsell}
+                onDismissAll={() => setUpsellsDismissed(true)}
+              />
+            )}
+
             <button onClick={addToQuote} disabled={!complete}
               className="mt-4 w-full rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40">
               {complete ? (primaryLabel ?? t("configurator.addToQuote")) : t("configurator.finishToAdd")}

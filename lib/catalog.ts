@@ -12,6 +12,8 @@
  * once a SKU has both confirmed pricing and approval to quote.
  */
 
+import { getPanelSpecs } from "./naturepanel-catalog";
+
 // `h` is the finished height in inches measured floor-to-rim — for a skirted tub that is the
 // apron face the installer sees. Optional because a shower base's curb height is a different
 // measurement that hasn't been sourced; only the tubs carry it today.
@@ -132,8 +134,26 @@ export function wallBaseTakeoff(baseboardLF: number, wastePct = 10) {
   return { withWasteLF, sticks, coverageLF, overageLF, cost };
 }
 
-// Wall panel stock: 24" wide × 110" tall, installed vertically.
-export const WALL_PANEL = { widthIn: 24, heightIn: 110 };
+/**
+ * Wall panel stock, installed vertically — the real Nature Panel HPL size, read from the
+ * catalogue rather than restated.
+ *
+ * This was hardcoded to { widthIn: 24, heightIn: 110 }, which matched no product: Nature
+ * Panel is 22.75" × 94.5" (lib/data/naturepanel-catalog.json panel_specs). Two consequences
+ * of the correction, both intended:
+ *   • Room panel counts rise slightly — 24" was over-crediting each sheet by 1.25".
+ *   • panelHeightExceeded now actually fires. At 110" it never could (no residential ceiling
+ *     is that tall), so the warning was effectively dead. At 94.5" a standard 96" ceiling
+ *     genuinely does exceed a full-height panel, and the dealer should be told.
+ *
+ * SUBSTRATE NOTE: this describes HPL. When SPC room walls are supported it will need to
+ * become substrate-aware — SPC is a different physical size. Not this phase.
+ *
+ * The SHOWER takeoff does not use this constant. It lives in lib/hpl-shower-takeoff.ts with
+ * its own per-wall rule, because a shower is not a room — see that file's header.
+ */
+const HPL_SPECS = getPanelSpecs();
+export const WALL_PANEL = { widthIn: HPL_SPECS.width_in, heightIn: HPL_SPECS.height_in };
 
 export type WallPanelTakeoff = { fullPanels: number; binsUsed: number; totalPanels: number };
 
