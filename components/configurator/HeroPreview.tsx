@@ -52,8 +52,17 @@ type HeroWall = {
   tileIn: { w: number; h: number };
 };
 
-/** Panel height for the wall kits, and the sheet size solid surface ships in. */
+/** Panel height for the wall kits. Every wall tier Kitify sells is panelled and lands here. */
 const PANEL_TILE_H_IN = 94.5;
+/**
+ * A sheet standing upright on a wall — 30" x 144".
+ *
+ * LEGACY. Solid surface was retired as a wall tier in Aug 2026, so nothing selectable resolves
+ * to sheet goods on a wall any more; this is reached only by a quote saved while it was
+ * selectable (see LEGACY_WALL_MATERIALS in ShowerConfigurator), which is exactly the case that
+ * would otherwise render an old quote's alcove with joints the product never had. Not to be
+ * confused with DURASEIN_SHEET_IN, the live COUNTERTOP tile, which is the same sheet laid down.
+ */
 const SHEET_TILE_IN = { w: 30, h: 144 };
 
 type HeroInputs = {
@@ -138,7 +147,9 @@ export function heroInputsFrom(src: HeroSource): HeroInputs {
 
   // The tile IS the panel for panelled goods, which is what makes the seam count real rather
   // than decorative: tiling at 24"x94.5" and drawing a joint at every tile boundary are the
-  // same statement made twice. Sheet goods tile at sheet size and draw nothing.
+  // same statement made twice. Sheet goods tile at sheet size and draw nothing — a legacy-only
+  // branch on walls now (see SHEET_TILE_IN), kept because dropping it would put joints on an
+  // old quote's solid-surface alcove rather than leave it blank.
   const toWall = (m: { textureUrl: string; name: string; panelWidthIn: number | null } | null): HeroWall | null => {
     if (!m) return null;
     const seamIn = wallSeamIn(m);

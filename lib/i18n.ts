@@ -868,14 +868,6 @@ export const dictionary: Record<Lang, Record<string, any>> = {
             pure: "Pure",
           },
         },
-        // Durasein (Solid Surface) colors. Color names, SKUs, pattern codes and collection
-        // names are Durasein's own and render straight from the catalogue in both languages
-        // — only the labels around them are translated.
-        surface: {
-          brand: "Durasein",
-          viewProduct: "View on durasein.com",
-          rangeNote: "{n} colors across {c} Durasein collections. Swatch imagery from durasein.com.",
-        },
         stepDoor: "Shower door",
         optional: "optional",
         stepAccessories: "Accessories",
@@ -888,13 +880,12 @@ export const dictionary: Record<Lang, Record<string, any>> = {
         tierGood: "Good",
         tierBetter: "Better",
         tierBest: "Best",
-        materialNote: "One material for the whole shower. HPL shows the real Nature Panel range and Solid Surface the full Durasein range; the SPC palette is still placeholder.",
-        // Shown instead of the note above once SPC and Solid Surface are gated.
+        materialNote: "One material for the whole shower. HPL shows the real Nature Panel range; the SPC palette is still placeholder.",
+        // Shown instead of the note above once SPC is gated.
         materialNoteLive: "Nature Panel HPL — high pressure laminate wall panels by Grant Westfield. One material for the whole shower.",
         comingSoon: "Coming soon",
         hplName: "Nature Panel HPL",
         spcComingSoon: "SPC wall panels coming soon.",
-        ssComingSoon: "Solid Surface panels coming soon.",
         quickFill: "Quick fill all walls:",
         allWalls: "All walls {name}",
         wallBack: "Back wall",
@@ -2378,11 +2369,6 @@ export const dictionary: Record<Lang, Record<string, any>> = {
             pure: "Puro",
           },
         },
-        surface: {
-          brand: "Durasein",
-          viewProduct: "Ver en durasein.com",
-          rangeNote: "{n} colores en {c} colecciones Durasein. Imágenes de muestra de durasein.com.",
-        },
         stepDoor: "Puerta de ducha",
         optional: "opcional",
         stepAccessories: "Accesorios",
@@ -2395,12 +2381,11 @@ export const dictionary: Record<Lang, Record<string, any>> = {
         tierGood: "Bueno",
         tierBetter: "Mejor",
         tierBest: "Superior",
-        materialNote: "Un solo material para toda la ducha. HPL muestra la gama real de Nature Panel y Solid Surface la gama completa de Durasein; la paleta de SPC sigue siendo provisional.",
+        materialNote: "Un solo material para toda la ducha. HPL muestra la gama real de Nature Panel; la paleta de SPC sigue siendo provisional.",
         materialNoteLive: "Nature Panel HPL — paneles de pared de laminado de alta presión de Grant Westfield. Un solo material para toda la ducha.",
         comingSoon: "Próximamente",
         hplName: "Nature Panel HPL",
         spcComingSoon: "Los paneles de pared SPC estarán disponibles próximamente.",
-        ssComingSoon: "Los paneles de superficie sólida estarán disponibles próximamente.",
         quickFill: "Llenar todas las paredes:",
         allWalls: "Todas las paredes {name}",
         wallBack: "Pared trasera",

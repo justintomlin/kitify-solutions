@@ -1,4 +1,20 @@
-// Durasein (Solid Surface) wall-panel lookup — swatch imagery and color data, keyed by SKU.
+// Durasein (Solid Surface) lookup — swatch imagery, sheet scans and color data, keyed by SKU.
+//
+// WHAT THIS FEEDS: the VANITY COUNTERTOP program. Durasein was also the shower's third wall
+// tier until Aug 2026, when solid surface was retired as a wall product; the shower module
+// keeps a read-only legacy palette (LEGACY_WALL_MATERIALS) so old quotes still resolve, but
+// nothing selects a Durasein WALL any more. Countertops are unaffected and live.
+//
+// Two access patterns, and they are not interchangeable:
+//   · by SKU ("DM1001")            — getDuraseinColor / getAllDuraseinColors /
+//                                    getDuraseinCollections / getDuraseinColorsByCollection /
+//                                    getDuraseinSwatchUrl
+//   · by colour-name slug ("bone") — getDuraseinColorByNameSlug
+// The countertop path uses the slug lookup (the vanity's own swatch ids are name slugs), plus
+// DURASEIN_SHEET_IN and duraseinSheetTexture. The SKU accessors were the wall picker's and
+// currently have no callers — kept, not deleted: this is the read API of a catalogue that
+// still ships, and a countertop picker browsing the range by collection is the obvious next
+// consumer. Same for DURASEIN_BRAND / DURASEIN_MATERIAL / DURASEIN_PRODUCT_URL.
 //
 // Same shape as lib/naturepanel-catalog.ts: the data lives in lib/data/*.json so a refreshed
 // crawl is a data commit, not a code change, and every lookup returns null/[] rather than
@@ -8,8 +24,7 @@
 // as a plain WordPress upload, so the URLs are stored whole and used as-is. Nothing is
 // stored locally, and no size parameters are appended (the CDN offers none).
 //
-// NO PRICING: the catalog carries no prices. Wall-kit pricing stays on the shower module's
-// placeholder tier price until a real price book lands.
+// NO PRICING: the catalog carries no prices.
 
 import catalog from "./data/durasein-catalog.json";
 

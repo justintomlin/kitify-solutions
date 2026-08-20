@@ -56,25 +56,11 @@ const WALL_MID = {
   seamIn: 24,
   tileIn: { w: 24, h: 94.5 },
 };
-/**
- * Solid surface: a sheet, so it must render with NO joints.
- *
- * From the full-sheet SCAN, matching what ShowerConfigurator resolves. It used to come from
- * the swatch master, which is a photograph of a slab corner — so this panel was checking the
- * wall against an image the app never puts there. On a wall the sheet stands upright, hence
- * the transposed tile.
- */
-const WALL_SHEET = (() => {
-  const c = getDuraseinColorByNameSlug("bianca-sabbia");
-  return c?.sheetUrl
-    ? {
-        textureUrl: duraseinSheetTexture(c.sheetUrl),
-        name: c.name,
-        seamIn: null,
-        tileIn: { w: DURASEIN_SHEET_IN.h, h: DURASEIN_SHEET_IN.w },
-      }
-    : null;
-})();
+// There is no sheet-goods WALL fixture here any more. Solid surface was retired as a wall
+// tier in Aug 2026 — wall panels are SPC and HPL, both panelled, so every alcove this harness
+// can be asked to draw carries a seam. The seamless path did not go away with it: it is what
+// the COUNTERTOP renders through, and its acceptance check lives on the counter crops below
+// (L4, and the grain-scale reference in 1d).
 const FLOOR = FLOORING_COLORS.find((c) => c.id === "vmd-01") ?? FLOORING_COLORS[0];
 
 /**
@@ -85,6 +71,12 @@ const FLOOR = FLOORING_COLORS.find((c) => c.id === "vmd-01") ?? FLOORING_COLORS[
  * shadow, and the full-sheet scan is a flat edge-to-edge capture. This harness used to pass
  * the swatch, which is what put a giant slab edge across the counter. Mirroring the real
  * resolver here means the harness renders what the app renders.
+ *
+ * SHEET-SCALE / SEAMLESS ACCEPTANCE lives here now that solid surface is countertop-only. The
+ * tile is DURASEIN_SHEET_IN — 144" x 30.75", laid down, not transposed — and the counter path
+ * passes no seamIn at all, so a 61" counter must read as ~42% of ONE scan: continuous grain,
+ * no joint, no visible repeat. A second grain, a tile edge or a pattern that repeats twice
+ * across the counter is the failure this checks for.
  */
 const topMaterial = (slug: string) => {
   const c = getDuraseinColorByNameSlug(slug);
@@ -148,7 +140,7 @@ const SWEEP: Array<{
 }> = [
   { label: "a · real-world — wood slat, stainless, mid cabinet", back: WALL, left: WALL, floor: FLOOR, cabinet: "#8d8f8a", base: "white", finish: "stainless" },
   { label: "b · dark everything — slat walls, black base, dark floor, matte black", back: WALL, left: WALL, floor: FLOOR_DARK, cabinet: "#2b2f31", base: "black", finish: "matte-black" },
-  { label: "c · light everything — solid surface sheet, white base, light floor, chrome", back: WALL_SHEET, left: WALL_SHEET, floor: FLOOR_LIGHT, cabinet: "#e6e3dc", base: "white", finish: "chrome" },
+  { label: "c · light everything — light panel, white base, light floor, chrome", back: WALL_LIGHT, left: WALL_LIGHT, floor: FLOOR_LIGHT, cabinet: "#e6e3dc", base: "white", finish: "chrome" },
   { label: "d · per-wall contrast — light back, dark return, champagne", back: WALL_LIGHT, left: WALL, floor: FLOOR, cabinet: "#2f5d50", base: "grey", finish: "champagne-bronze" },
   { label: "e · shared-material legacy quote — one selection everywhere", back: WALL_MID, left: WALL_MID, floor: FLOOR, cabinet: "#6b7b6e", base: "biscuit", finish: "polished-nickel" },
 ];
@@ -308,13 +300,18 @@ export default function HeroCheckPage() {
         </div>
       </section>
       <section>
-        <h2 style={H2}>1d · precision pass B — light Durasein counter, light cabinet, light floor, solid surface walls, Chrome, 6&quot; splash</h2>
+        <h2 style={H2}>1d · precision pass B — light Durasein counter, light cabinet, light floor, light panel walls, Chrome, 6&quot; splash</h2>
         {/* 6" rather than 4", so the height selection is exercised somewhere: the back splash
             and its right return are both scaled now, and the miter they share only stays shut
-            if they scale together. */}
+            if they scale together.
+
+            This is also the SHEET-SCALE reference: TOP_LIGHT is the light Durasein scan, and a
+            light counter is where a wrong tile size shows — grain that repeats across a 61"
+            counter, or a joint the counter path never asked for. The walls beside it are
+            panelled, so the two tilings are visibly different products in one frame. */}
         <div id="cfgB" style={{ width: BIG_W, height: BIG_H }}>
           <PrecisionPanel
-            wall={WALL_SHEET} floor={FLOOR_LIGHT} top={TOP_LIGHT}
+            wall={WALL_LIGHT} floor={FLOOR_LIGHT} top={TOP_LIGHT}
             cabinet="#e6e3dc" base="white" finish="chrome" splashIn={6}
           />
         </div>
@@ -366,7 +363,7 @@ export default function HeroCheckPage() {
 
       {/*
         THE LAYER-INTERACTION PASS. Everything here is judged on the DEALER'S OWN CONFIGURATION
-        — light stone alcove, green cabinet, wood-tone counter, black pan, dark hardware — because
+        — light panel alcove, green cabinet, wood-tone counter, black pan, dark hardware — because
         that is the combination the defects were reported on, and every one of them is a layer
         interacting with another rather than a polygon in the wrong place.
 
@@ -379,10 +376,10 @@ export default function HeroCheckPage() {
       */}
       {panel === "layers" && <>
       <section>
-        <h2 style={H2}>L1 · config (a) — the dealer&apos;s view: {WALL_SHEET?.name ?? "stone"} alcove, green cabinet, {TOP?.name ?? "wood"} counter, black pan, Venetian</h2>
+        <h2 style={H2}>L1 · config (a) — the dealer&apos;s view: {WALL_LIGHT.name} alcove, green cabinet, {TOP?.name ?? "wood"} counter, black pan, Venetian</h2>
         <div id="cfgA2" style={{ width: BIG_W, height: BIG_H }}>
           <PrecisionPanel
-            wall={WALL_SHEET} floor={FLOOR_DARK} top={TOP}
+            wall={WALL_LIGHT} floor={FLOOR_DARK} top={TOP}
             cabinet="#2f5d50" base="black" finish="venetian-bronze"
           />
         </div>
@@ -406,7 +403,7 @@ export default function HeroCheckPage() {
           {SHOWER_BASE_COLORS.map((c) => (
             <figure key={c.id} style={{ margin: 0 }}>
               <figcaption style={{ color: "#aaa", font: "11px monospace", marginBottom: 3 }}>{c.name}</figcaption>
-              <FixtureCrop finishId="venetian-bronze" at={[38, 93.4]} big={2600} wall wallMat={WALL_SHEET}
+              <FixtureCrop finishId="venetian-bronze" at={[38, 93.4]} big={2600} wall wallMat={WALL_LIGHT}
                 base={c.id} floor={FLOOR_DARK} view={[620, 210]} />
             </figure>
           ))}
@@ -416,7 +413,7 @@ export default function HeroCheckPage() {
           {["chrome", "champagne-bronze", "matte-black"].map((f) => (
             <figure key={f} style={{ margin: 0 }}>
               <figcaption style={{ color: "#aaa", font: "11px monospace", marginBottom: 3 }}>{f}</figcaption>
-              <FixtureCrop finishId={f} at={[38, 93.4]} big={2600} wall wallMat={WALL_SHEET}
+              <FixtureCrop finishId={f} at={[38, 93.4]} big={2600} wall wallMat={WALL_LIGHT}
                 base="black" floor={FLOOR_DARK} view={[620, 210]} />
             </figure>
           ))}
@@ -424,9 +421,15 @@ export default function HeroCheckPage() {
       </section>
 
       {/* THE BASIN, under both counter materials. The plate photographs an undermount bowl and
-          the counter region's quad spans straight across it. */}
+          the counter region's quad spans straight across it.
+
+          Doubles as the SEAMLESS/SHEET-SCALE acceptance check now that no wall is sheet goods.
+          Both materials are full-sheet Durasein scans tiled at 144" x 30.75" with no seamIn, so
+          across a 61" counter each must show a single continuous run of grain — one partial
+          sheet, no joint line, no second copy of the pattern. Barnwood is the strongest pattern
+          in the range and Bianca Sabbia the one a wrong scale shows up on first. */}
       <section>
-        <h2 style={H2}>L4 · the sink basin — wood-tone counter and light solid surface</h2>
+        <h2 style={H2}>L4 · the sink basin — wood-tone counter and light solid surface, sheet-scale check</h2>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }} id="basin">
           {[["wood-tone (Barnwood)", TOP], ["light (Bianca Sabbia)", TOP_LIGHT], ["no material — tint only", null]].map(([label, t]) => (
             <figure key={label as string} style={{ margin: 0 }}>
@@ -452,7 +455,7 @@ export default function HeroCheckPage() {
         </div>
         <h2 style={{ ...H2, marginTop: 10 }}>L6 · alcove top-right, where panel, ceiling and partition meet</h2>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }} id="corner">
-          {[["light stone", WALL_SHEET], ["dark slat", WALL]].map(([label, w]) => (
+          {[["light panel", WALL_LIGHT], ["dark slat", WALL]].map(([label, w]) => (
             <figure key={label as string} style={{ margin: 0 }}>
               <figcaption style={{ color: "#aaa", font: "11px monospace", marginBottom: 3 }}>{label as string}</figcaption>
               <FixtureCrop finishId="venetian-bronze" at={[45.2, 10.6]} big={3400} wall wallMat={w as WallMat}
@@ -474,7 +477,7 @@ export default function HeroCheckPage() {
           ]).map(([label, at, big, view]) => (
             <figure key={label as string} style={{ margin: 0 }}>
               <figcaption style={{ color: "#aaa", font: "11px monospace", marginBottom: 3 }}>{label as string}</figcaption>
-              <FixtureCrop finishId="venetian-bronze" at={at as [number, number]} big={big as number} wall wallMat={WALL_SHEET}
+              <FixtureCrop finishId="venetian-bronze" at={at as [number, number]} big={big as number} wall wallMat={WALL_LIGHT}
                 base="black" floor={FLOOR_DARK} cabinet="#2f5d50" view={view as [number, number]} />
             </figure>
           ))}
@@ -523,8 +526,14 @@ export default function HeroCheckPage() {
         </div>
       </section>}
 
-      {/* The four wall configurations the corner split has to survive. Each tile is a real
-          full-room render cropped to the alcove, so what is on screen is the actual pixels. */}
+      {/* The wall configurations the corner split has to survive. Each tile is a real full-room
+          render cropped to the alcove, so what is on screen is the actual pixels.
+
+          Every config here is PANELLED and expects a seam every 24". There used to be a fourth,
+          a solid-surface sheet expecting no seams at all; solid surface is no longer a wall
+          product, so a seamless alcove is not something the app can now produce and checking
+          for one would be checking a case that cannot occur. The seamless renderer itself is
+          alive and is exercised on the counter — see topMaterial() and L4. */}
       {panel === "walls" && <section>
         <h2 style={H2}>4 · alcove wall configs — corner split, panel seams, scale</h2>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }} id="walls">
@@ -532,7 +541,6 @@ export default function HeroCheckPage() {
             { label: "a · same panel, all three planes", back: WALL, left: WALL, right: WALL },
             { label: "b · three different (dark left / light back / mid right)", back: WALL_LIGHT, left: WALL, right: WALL_MID },
             { label: "c · shared-material mode (one selection)", back: WALL, left: WALL, right: WALL },
-            { label: "d · solid surface sheet — expect NO seams", back: WALL_SHEET, left: WALL_SHEET, right: WALL_SHEET },
           ].map((cfg) => (
             <figure key={cfg.label} style={{ margin: 0 }}>
               <figcaption style={{ color: "#aaa", font: "11px monospace", marginBottom: 3 }}>{cfg.label}</figcaption>

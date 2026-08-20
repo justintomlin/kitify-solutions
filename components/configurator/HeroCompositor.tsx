@@ -105,13 +105,15 @@ export type HeroMaterial = {
   tileIn?: { w: number; h: number };
   /**
    * Panel width in inches, for drawing joints. Null/omitted for sheet goods, which show no
-   * joint across a wall this size — a Durasein sheet is 30"x144" and covers the alcove whole.
+   * joint across the surface at all. The countertop is the live consumer of that case — one
+   * Durasein sheet is 144"x30.75" and runs a 61" counter whole. On a WALL it is now legacy
+   * only: both wall tiers Kitify sells are panelled.
    */
   seamIn?: number | null;
 };
 
 export type HeroCompositorProps = {
-  /** Shower wall panel / solid surface — painted into the alcove, not the whole room. */
+  /** Shower wall panel — painted into the alcove, not the whole room. */
   wallMaterial?: HeroMaterial | null;
   /**
    * Per-plane overrides for the alcove, when the dealer picked a different panel per wall.
@@ -207,8 +209,9 @@ export type HeroCompositorProps = {
  *
  * Wall: one panel. The kits ship 24" wide by 94.5" tall, which is why a 60" back wall comes
  * out as exactly two and a half panels and a 32" return as one and a third — the seam counts
- * fall out of the arithmetic rather than being chosen. Sheet goods override this with their
- * own tileIn; a Durasein sheet is 30" x 144" and shows no joint across an alcove at all.
+ * fall out of the arithmetic rather than being chosen. Every wall tier on the catalogue is
+ * panelled, so this default is the shape of the real product; a legacy quote carrying the
+ * retired solid-surface tier overrides it with its own 30" x 144" sheet and no joints.
  * Floor: the Durato swatch photography is about five 7" planks across and one plank long.
  */
 const DEFAULT_WALL_TILE = { w: 24, h: 94.5 };
@@ -662,8 +665,9 @@ const SEAM_ALPHA = 0.22;
  *
  * `seamIn` draws the panel joints. Panelled goods arrive in fixed widths and a real install
  * shows a line every panel — 24" for these kits, so a 60" back wall carries two and a 32"
- * return carries one. Sheet goods (Durasein solid surface, which comes 30"x144") show no joint
- * across a wall this size at all, and pass null.
+ * return carries one. Sheet goods pass null and get no joints: that is the COUNTERTOP path,
+ * where one Durasein sheet (144"x30.75") runs the whole counter, and on a wall it is now
+ * reached only by a legacy quote from when solid surface was still a wall tier.
  */
 function buildSurface(
   img: HTMLImageElement, face: Face, tileIn: { w: number; h: number },

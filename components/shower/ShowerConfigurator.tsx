@@ -11,19 +11,23 @@
  * Real data (ThermaGlass/NuVo): bases, tubs, doors, accessories + dealer (KD) prices.
  * Real data (Nature Panel): the HPL wall palette — 21 catalogued decors with swatch
  * photography, via lib/naturepanel-catalog.ts. Carries no pricing.
- * Real data (Durasein): the Solid-Surface wall palette — 64 catalogued colors across 7
- * collections with swatch imagery, via lib/durasein-catalog.ts. Carries no pricing.
  * PLACEHOLDER (flagged): the SPC wall palette (seeded with the 6 real NuVo composite
  * colors as a stand-in) and wall-kit pricing for every tier.
+ *
+ * Wall panels are SPC and HPL only. Solid surface (Durasein) was offered as a third wall
+ * tier and was retired in Aug 2026 — Kitify is not selling solid-surface shower wall
+ * systems. It survives here ONLY as LEGACY_WALL_MATERIALS, which no picker renders and
+ * only findWallMaterial() resolves, so a quote saved while it was selectable still shows
+ * and prices what it saved. Durasein COUNTERTOPS are a separate, live program (see
+ * components/vanity/VanityConfigurator.tsx) and are unaffected.
  * Drain options are data-driven per size (L/R/Center aren't offered on every size).
  */
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import Image from "next/image";
 import { Check, RotateCcw, Plus, Minus, DoorOpen, Square } from "lucide-react";
 import { SHOWER_BASES, TUBS as CATALOG_TUBS, SHOWER_BASE_COLORS, type BaseSku } from "@/lib/catalog";
 import { getPanelCollections, getPanelImage, getPanelSpecs, getPanel } from "@/lib/naturepanel-catalog";
-import { getDuraseinCollections, getDuraseinColor, getAllDuraseinColors, duraseinSheetTexture } from "@/lib/durasein-catalog";
+import { getAllDuraseinColors, duraseinSheetTexture } from "@/lib/durasein-catalog";
 import { resolveDefault, DEFAULT_FINISH_ID, INCLUDED_QTY, OPT_IN_QTY } from "@/lib/defaults";
 import { useLanguage } from "@/components/LanguageContext";
 
@@ -129,10 +133,11 @@ export type ShowerConfig = {
 /**
  * Which wall materials a dealer may actually pick.
  *
- * SPC and Solid Surface are unfinished — SPC still shows the NuVo stand-in palette rather
- * than its own, and neither has wall-kit pricing — so on a deployed build they are visible
- * but not selectable, and HPL is the only live tier. Set NEXT_PUBLIC_SHOW_ALL_MATERIALS=true
- * in .env.local to work on them locally.
+ * The picker offers two tiers and SPC is the unfinished one — it still shows the NuVo
+ * stand-in palette rather than its own, and has no wall-kit pricing — so on a deployed build
+ * it is visible but not selectable, and HPL is the only live tier. Set
+ * NEXT_PUBLIC_SHOW_ALL_MATERIALS=true in .env.local to unlock SPC and work on it locally;
+ * that is the flag's only remaining purpose, and it retires with SPC's own palette.
  *
  * Read from the env rather than sniffing window.location.hostname: the value is inlined at
  * build time, so it is identical on the server and the first client render and cannot cause a
@@ -170,10 +175,9 @@ const NUVO_COLORS: Swatch[] = [
   { id: "winter-white", name: "Winter White", hex: "#eeeee9" },
 ];
 
-// Two tiers have a real catalogue behind them: HPL is the 21-panel Nature Panel lineup with
-// swatch photography from Grant Westfield's CDNs (lib/naturepanel-catalog.ts), and Solid
-// Surface is the 64-color Durasein US range served from durasein.com (lib/durasein-catalog.ts).
-// SPC stays on the NuVo stand-in above until its palette arrives.
+// HPL is the one tier with a real catalogue behind it: the 21-panel Nature Panel lineup with
+// swatch photography from Grant Westfield's CDNs (lib/naturepanel-catalog.ts). SPC stays on
+// the NuVo stand-in above until its palette arrives.
 //
 // `hex` is a single neutral per catalogue rather than a guessed per-decor colour — the real
 // appearance comes from the swatch image, and inventing hex values for products whose colours
@@ -189,6 +193,12 @@ const HPL_PANELS: Swatch[] = getPanelCollections().flatMap((c) =>
   })),
 );
 
+// LEGACY ONLY — the 64-color Durasein US range as it was wired for WALLS before solid
+// surface was retired as a wall tier (Aug 2026). Nothing selects from this palette any more;
+// it exists so LEGACY_WALL_MATERIALS can resolve a Durasein SKU saved on an old quote back to
+// its real name and texture instead of rendering a blank wall. Durasein COUNTERTOPS do not
+// come through here — they resolve by colour-name slug in HeroPreview (getDuraseinColorByNameSlug).
+//
 // Durasein publishes two different images per color and they are NOT interchangeable: the
 // swatch master is an angled render of a slab corner (great thumbnail, unusable as a
 // repeating texture) while the full-sheet scan is a flat edge-to-edge capture of the
@@ -294,10 +304,11 @@ function toBaseItem(sku: BaseSku, meta: ShowerMeta | undefined, colors: Swatch[]
 export const SAMPLE_SHOWER_CATALOG: ShowerCatalog = {
   bases: SHOWER_BASES.map((s) => toBaseItem(s, BASE_META[s.id], BASE_COLORS)),
   tubs: CATALOG_TUBS.map((s) => toBaseItem(s, TUB_META[s.id], WHITE_ONLY)),
+  // Wall panels are SPC and HPL. Anything a dealer may pick lives here and nowhere else —
+  // the picker renders this array, so adding a tier to it is what makes a tier selectable.
   materials: [
     { id: "spc", name: "SPC", tier: "Good", kitPrice: 1, colors: NUVO_COLORS },
     { id: "hpl", name: "HPL", tier: "Better", kitPrice: 1, colors: HPL_PANELS },
-    { id: "ss", name: "Solid Surface", tier: "Best", kitPrice: 1, colors: SS_COLORS },
   ],
   // Ranks: Pacific (entry slider) 1 → Rainier Deluxe 2 → frameless (Salishan 48" / Tetherow
   // 60") 3 → Trillium Slider + Panel 4. Salishan isn't a separate tier — it's the 48"
@@ -325,6 +336,32 @@ export const SAMPLE_SHOWER_CATALOG: ShowerCatalog = {
     },
   },
 };
+
+/**
+ * Wall materials that are no longer offered but may still appear on a saved quote.
+ *
+ * READ ONLY. Nothing renders this list — the picker maps SAMPLE_SHOWER_CATALOG.materials, so a
+ * tier here is unreachable by selection. It exists so a quote saved while solid surface was a
+ * wall tier (retired Aug 2026) still resolves to the Durasein colour it stored: the hero paints
+ * the wall the dealer saw, the preview keeps its tint, and the wall-panel price line survives a
+ * recompute instead of silently dropping off the total. Deleting this would not throw, it would
+ * quietly re-price and re-render old quotes as something the dealer never picked.
+ */
+const LEGACY_WALL_MATERIALS: Material[] = [
+  { id: "ss", name: "Solid Surface", tier: "Best", kitPrice: 1, colors: SS_COLORS },
+];
+
+/**
+ * A wall material by id — the pickable tiers first, then the retired ones.
+ *
+ * Every wall resolution in this module goes through here rather than reaching into
+ * `catalog.materials` directly, which is what keeps "can be chosen" and "can be read back"
+ * two different questions. The picker is the one place that still reads `catalog.materials`
+ * straight, because offering a tier is exactly what it must not do for a retired one.
+ */
+function findWallMaterial(catalog: ShowerCatalog, id?: string): Material | undefined {
+  return catalog.materials.find((m) => m.id === id) ?? LEGACY_WALL_MATERIALS.find((m) => m.id === id);
+}
 
 // ------------------------------ Engine ------------------------------------
 const money = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
@@ -365,7 +402,7 @@ export function computeShowerPrice(catalog: ShowerCatalog, s: ShowerSelections):
   const item = itemsForPath(catalog, s.path).find((b) => b.id === s.baseId);
   // Placeholder SKUs (dealerPrice 0, pricing TBD) never contribute a price line.
   if (item && !item.placeholder) lines.push({ key: s.path === "tub" ? "configurator.priceLine.tub" : "configurator.priceLine.showerBase", params: { label: item.label }, amount: item.price });
-  const mat = catalog.materials.find((m) => m.id === s.materialId);
+  const mat = findWallMaterial(catalog, s.materialId);
   if (mat && item) {
     const factor = item.w / 48; // wall area scales with width (placeholder)
     lines.push({ key: "configurator.priceLine.wallPanels", params: { material: mat.name }, amount: Math.round(mat.kitPrice * factor) });
@@ -404,7 +441,7 @@ export function isComplete(s: ShowerSelections): boolean {
 
 function buildLabel(catalog: ShowerCatalog, s: ShowerSelections, t: Tr): string {
   const item = itemsForPath(catalog, s.path).find((b) => b.id === s.baseId);
-  const mat = catalog.materials.find((m) => m.id === s.materialId);
+  const mat = findWallMaterial(catalog, s.materialId);
   if (!item) return t("configurator.label.newShower");
   const kind = t(s.path === "tub" ? "configurator.label.tub" : "configurator.label.shower");
   const drain = s.drain ? t("configurator.label.drain" + s.drain.charAt(0).toUpperCase() + s.drain.slice(1)) : "";
@@ -414,8 +451,8 @@ function buildLabel(catalog: ShowerCatalog, s: ShowerSelections, t: Tr): string 
   // differ from the back.
   const named = (i: number) => mat?.colors.find((c) => c.id === s.wallColors[i]);
   const one = named(0);
-  // The style qualifier only exists on the Nature Panel decors — a Durasein color carries no
-  // style, so it reads as its name alone rather than trailing an empty pair of parentheses.
+  // The style qualifier only exists on the Nature Panel decors — an SPC or legacy Durasein
+  // colour carries none, so it reads as its name alone rather than trailing empty parentheses.
   const style = one?.style ? styleLabel(t, one.style) : "";
   const decor = wallMode(s) === "all"
     ? (one?.imageUrl ? (style ? `${one.name} (${style})` : one.name) : "")
@@ -426,7 +463,7 @@ function buildLabel(catalog: ShowerCatalog, s: ShowerSelections, t: Tr): string 
 // swatches — so image fields stay undefined and swatchHex carries the wall (or base)
 // colour for the consumer to render a colour chip. No image paths are invented.
 function buildShowerMedia(catalog: ShowerCatalog, s: ShowerSelections): ShowerMedia {
-  const material = catalog.materials.find((m) => m.id === s.materialId);
+  const material = findWallMaterial(catalog, s.materialId);
   const palette = material?.colors ?? NUVO_COLORS;
   const wall = palette.find((c) => c.id === s.wallColors[0]);
   const item = itemsForPath(catalog, s.path).find((b) => b.id === s.baseId);
@@ -550,13 +587,15 @@ export function ShowerConfigurator({
 
   const items = itemsForPath(catalog, s.path);
   const item = items.find((b) => b.id === s.baseId);
-  const material = catalog.materials.find((m) => m.id === s.materialId);
+  // Resolves retired tiers too, so this module answers "what is this material" the same way
+  // everywhere — see LEGACY_WALL_MATERIALS. Only a saved config can hold a retired id; the
+  // picker below cannot produce one.
+  const material = findWallMaterial(catalog, s.materialId);
   const palette = material?.colors ?? NUVO_COLORS;
   const availDoors = doorsForItem(catalog, s.path, item);
   const baseColor = SHOWER_BASE_COLORS.find((c) => c.id === (s.baseColor ?? "white"))?.hex ?? SHOWER_BASE_COLORS[0].hex;
   const wallHex = (i: number) => palette.find((c) => c.id === s.wallColors[i])?.hex ?? "#dad6cd";
   const isHpl = s.materialId === "hpl";
-  const isSs = s.materialId === "ss";
   const wMode = wallMode(s);
   // Which wall the per-wall picker is editing. Local UI state — never part of the quote.
   const [activeWall, setActiveWall] = useState(0);
@@ -583,9 +622,9 @@ export function ShowerConfigurator({
     const sw = palette.find((c) => c.id === s.wallColors[i]);
     return sw?.textureUrl;
   };
-  // Both catalogued tiers get the enlarged decor card under the preview; the flat-colour
-  // SPC tier has nothing to show there.
-  const selectedDecor = isHpl || isSs ? palette.find((c) => c.id === s.wallColors[0]) : undefined;
+  // The catalogued tier gets the enlarged decor card under the preview; the flat-colour SPC
+  // tier has nothing to show there.
+  const selectedDecor = isHpl ? palette.find((c) => c.id === s.wallColors[0]) : undefined;
 
   function choosePath(p: Path) { setS({ ...initial, path: p }); }
   function chooseBase(id: string) {
@@ -603,9 +642,9 @@ export function ShowerConfigurator({
     set({ materialId: id, wallColors: [undefined, undefined, undefined] });
   }
   // With only one tier selectable there is nothing to choose, so pick it. Guarded on the
-  // field being EMPTY, never overwriting a value: a quote saved on a dev build with Solid
-  // Surface must keep it when reopened, or the dealer's own choice would be silently
-  // rewritten and the quote would price something they never picked.
+  // field being EMPTY, never overwriting a value: a quote carrying a retired tier (a dev-build
+  // Solid Surface wall) must keep it when reopened, or the dealer's own choice would be
+  // silently rewritten and the quote would price something they never picked.
   useEffect(() => {
     if (SHOW_ALL_MATERIALS || s.materialId || !s.path || !s.baseId) return;
     setS((prev) => (prev.materialId ? prev : { ...prev, materialId: LIVE_MATERIAL_ID }));
@@ -647,7 +686,7 @@ export function ShowerConfigurator({
             wallImages={[wallImage(0), wallImage(1), wallImage(2)]}
             door={doorViz} niche={s.accessories.niche.qty > 0} shelf={s.accessories.cornerShelf.qty > 0} bar={s.accessories.grabBar.qty > 0} />
           {/* Selected decor, at a size a dealer can actually judge the pattern from. */}
-          {selectedDecor && <SelectedDecorCard swatch={selectedDecor} solidSurface={isSs} />}
+          {selectedDecor && <SelectedDecorCard swatch={selectedDecor} />}
           <div className="border-t border-line p-4">
             <div className="mb-2 flex items-center justify-between">
               <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">{mode === "dealer" ? t("configurator.dealerPrice") : t("configurator.estimate")}</span>
@@ -734,7 +773,7 @@ export function ShowerConfigurator({
 
         {item && (
           <Step n={4} title={t("configurator.shower.stepWallMaterial")} hint={t("configurator.shower.onePerShower")}>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               {catalog.materials.map((m) => {
                 const live = materialAvailable(m.id);
                 const selected = s.materialId === m.id;
@@ -767,7 +806,7 @@ export function ShowerConfigurator({
                 dealer only needs to know why. */}
             {comingSoon && (
               <p className="mt-2 rounded-lg bg-amber/10 px-3 py-2 text-xs text-amber" role="status">
-                {t(comingSoon === "spc" ? "configurator.shower.spcComingSoon" : "configurator.shower.ssComingSoon")}
+                {t("configurator.shower.spcComingSoon")}
               </p>
             )}
             <p className="mt-2 text-xs text-muted">
@@ -799,10 +838,7 @@ export function ShowerConfigurator({
                       <button key={i} type="button" onClick={() => setActiveWall(i)}
                         className={`flex min-w-0 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 transition ${activeWall === i ? "border-accent bg-accent-soft/50" : "border-line hover:bg-ink/5"}`}>
                         <span className="h-4 w-4 shrink-0 overflow-hidden rounded-full border border-line" style={{ background: picked?.hex ?? "#dad6cd" }}>
-                          {/* Durasein's masters are megabytes each — far too much for a 16px
-                              dot — so those go through the optimizer; Nature Panel's URLs
-                              are already CDN-sized. */}
-                          {picked?.imageUrl && <SwatchImage src={picked.imageUrl} name="" px={isSs ? 32 : undefined} className="h-full w-full" />}
+                          {picked?.imageUrl && <SwatchImage src={picked.imageUrl} name="" className="h-full w-full" />}
                         </span>
                         <span className="min-w-0">
                           <span className="block font-mono text-[9px] uppercase tracking-wide text-muted">{t(WALL_KEYS[i])}</span>
@@ -818,8 +854,6 @@ export function ShowerConfigurator({
 
             {isHpl ? (
               <PanelPicker selectedId={activeSelection} onSelect={assignWall} />
-            ) : isSs ? (
-              <SolidSurfacePicker selectedId={activeSelection} onSelect={assignWall} />
             ) : (
               <div className="flex flex-wrap gap-2">
                 {palette.map((c) => (
@@ -1004,93 +1038,37 @@ function PanelPicker({ selectedId, onSelect }: { selectedId?: string; onSelect: 
   );
 }
 
-// ----------------------- Durasein solid-surface picker ---------------------
-// The 64-color Durasein US range, grouped by collection behind tabs — same shape as the
-// panel picker above, but the tile's second line is the SKU (what a dealer orders by)
-// rather than a decor style, which solid surface doesn't have.
-//
-// Collection names are Durasein's own product-line names and render straight from the
-// catalogue in both languages, exactly like the panel and door-series names elsewhere.
-function SolidSurfacePicker({ selectedId, onSelect }: { selectedId?: string; onSelect: (colorId: string) => void }) {
-  const { t } = useLanguage();
-  const collections = getDuraseinCollections();
-  // Open on the collection holding the current pick, so reopening the step doesn't hide it.
-  const [openId, setOpenId] = useState(() => getDuraseinColor(selectedId)?.collection ?? collections[0]?.id);
-  const active = collections.find((c) => c.id === openId) ?? collections[0];
-  const total = useMemo(() => collections.reduce((n, c) => n + c.colors.length, 0), [collections]);
-
-  return (
-    <div>
-      <div className="mb-3 flex flex-wrap gap-1.5">
-        {collections.map((c) => (
-          <button key={c.id} type="button" onClick={() => setOpenId(c.id)}
-            className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${c.id === active?.id ? "border-accent bg-accent-soft/50 text-ink" : "border-line text-muted hover:bg-ink/5"}`}>
-            {c.name} <span className="font-mono text-[10px] text-muted">{c.colors.length}</span>
-          </button>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-        {active?.colors.map((c) => {
-          const chosen = c.id === selectedId;
-          return (
-            <button key={c.id} type="button" onClick={() => onSelect(c.id)} title={`${c.name} · ${c.id}`}
-              className={`overflow-hidden rounded-xl border text-left transition ${chosen ? "border-accent ring-2 ring-accent/30" : "border-line hover:border-ink/30"}`}>
-              <SwatchImage src={c.swatchUrl} name={c.name} px={200} />
-              <div className="p-1.5">
-                <div className="truncate text-[11px] font-medium leading-tight text-ink">{c.name}</div>
-                <div className="truncate font-mono text-[9px] uppercase tracking-wide text-muted">{c.id}</div>
-              </div>
-            </button>
-          );
-        })}
-      </div>
-
-      <p className="mt-3 text-[11px] text-muted">
-        {t("configurator.shower.surface.rangeNote", { n: String(total), c: String(collections.length) })}
-      </p>
-    </div>
-  );
-}
-
 // A swatch tile. Falls back to the neutral tint if the CDN can't serve the image, so the
-// grid keeps its shape rather than collapsing to broken-image icons.
-//
-// `px` routes the image through next/image at that pixel size. Durasein's swatches need it —
-// they're raw WordPress masters of 1–8 MB with no sizing parameters available, so a tab of
-// them is unusable on a tablet unless something resizes them. Nature Panel's URLs already
-// carry width/height for its CDN, so those stay on a plain <img> and skip the optimizer.
-function SwatchImage({ src, name, px, className = "aspect-square w-full" }: {
-  src: string | null; name: string; px?: number; className?: string;
+// grid keeps its shape rather than collapsing to broken-image icons. Nature Panel's URLs
+// already carry width/height for its CDN, so a plain <img> is the right element — nothing
+// here needs the next/image optimizer.
+function SwatchImage({ src, name, className = "aspect-square w-full" }: {
+  src: string | null; name: string; className?: string;
 }) {
   const [failed, setFailed] = useState(false);
   useEffect(() => { setFailed(false); }, [src]);
-  const imgClass = "h-full w-full object-cover";
   return (
     <div className={`overflow-hidden bg-ink/5 ${className}`}>
-      {src && !failed && (px
-        ? <Image src={src} alt={name} width={px} height={px} loading="lazy" onError={() => setFailed(true)} className={imgClass} />
-        : <img src={src} alt={name} loading="lazy" onError={() => setFailed(true)} className={imgClass} />
+      {src && !failed && (
+        <img src={src} alt={name} loading="lazy" onError={() => setFailed(true)} className="h-full w-full object-cover" />
       )}
     </div>
   );
 }
 
 // The chosen decor at a size the pattern actually reads at, under the shower preview.
-// Serves both catalogued tiers: Nature Panel decors carry a style, shadow line and SKU ref;
-// Durasein colors carry a SKU, pattern code and a link back to the product page.
-function SelectedDecorCard({ swatch, solidSurface }: { swatch: Swatch; solidSurface: boolean }) {
+// Nature Panel decors carry a style, shadow line and SKU ref; SPC's flat colours have
+// nothing to show here, so the card is HPL-only (see selectedDecor).
+function SelectedDecorCard({ swatch }: { swatch: Swatch }) {
   const { t } = useLanguage();
-  const panel = solidSurface ? null : getPanel(swatch.id);
-  const color = solidSurface ? getDuraseinColor(swatch.id) : null;
-  const src = solidSurface ? color?.swatchUrl ?? null : getPanelImage(swatch.id, 200, 200);
+  const panel = getPanel(swatch.id);
   return (
     <div className="flex items-center gap-3 border-t border-line bg-paper/40 p-3">
-      <SwatchImage src={src} name={swatch.name} px={solidSurface ? 152 : undefined}
+      <SwatchImage src={getPanelImage(swatch.id, 200, 200)} name={swatch.name}
         className="h-[76px] w-[76px] shrink-0 rounded-lg border border-line" />
       <div className="min-w-0">
         <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-muted">
-          {t(solidSurface ? "configurator.shower.surface.brand" : "configurator.shower.panel.brand")}
+          {t("configurator.shower.panel.brand")}
         </div>
         <div className="truncate text-sm font-semibold text-ink">{swatch.name}</div>
         {panel && (
@@ -1100,17 +1078,6 @@ function SelectedDecorCard({ swatch, solidSurface }: { swatch: Swatch; solidSurf
               <div className="truncate text-[11px] text-muted">{t("configurator.shower.panel.shadowLine")}: {panel.shadowLine}</div>
             )}
             {panel.skuRef && <div className="font-mono text-[10px] uppercase tracking-wide text-muted">{panel.skuRef}</div>}
-          </>
-        )}
-        {color && (
-          <>
-            <div className="font-mono text-[10px] uppercase tracking-wide text-muted">
-              {color.id}{color.patternCode ? ` · ${color.patternCode}` : ""}
-            </div>
-            <a href={color.pageUrl} target="_blank" rel="noopener noreferrer"
-              className="text-[11px] text-accent underline-offset-2 hover:underline">
-              {t("configurator.shower.surface.viewProduct")}
-            </a>
           </>
         )}
       </div>
@@ -1247,7 +1214,7 @@ function ShowerDoorSVG({ kind, finishHex, path }: { kind: DoorKind; finishHex: s
 export function ShowerPreviewFromConfig({ config, className }: { config: ShowerConfig; className?: string }) {
   const catalog = SAMPLE_SHOWER_CATALOG;
   const s = config.selections;
-  const material = catalog.materials.find((m) => m.id === s.materialId);
+  const material = findWallMaterial(catalog, s.materialId);
   const palette = material?.colors ?? NUVO_COLORS;
   const wallHex = (i: number) => palette.find((c) => c.id === s.wallColors[i])?.hex ?? "#dad6cd";
   // Only a flat material image may tile the walls (see Swatch.textureUrl) — a room photo or
@@ -1277,7 +1244,7 @@ export function ShowerPreviewFromConfig({ config, className }: { config: ShowerC
  */
 export function showerWallPanel(config: ShowerConfig): { id: string; name: string; style?: string; imageUrl: string } | null {
   const s = config.selections;
-  const material = SAMPLE_SHOWER_CATALOG.materials.find((m) => m.id === s.materialId);
+  const material = findWallMaterial(SAMPLE_SHOWER_CATALOG, s.materialId);
   const swatch = material?.colors.find((c) => c.id === s.wallColors[0]);
   if (!swatch?.imageUrl) return null;
   return { id: swatch.id, name: swatch.name, style: swatch.style, imageUrl: swatch.imageUrl };
@@ -1290,10 +1257,9 @@ export function showerWallPanel(config: ShowerConfig): { id: string; name: strin
  * one returns the thumbnail — the image that identifies the decor in a chip or a card, and
  * every catalogued decor has one. This one returns only `textureUrl`, the flat edge-to-edge
  * material capture, which is the single kind of image that may be repeated across a surface.
- * Roughly half the range has no such asset (Nature Panel's Tile and Pure decors publish room
- * photography; 13 Durasein colors have no sheet scan), and tiling a photographed bathroom
- * across a wall of the previewed bathroom is unmistakably a bug. Those return null, and the
- * compositor leaves the alcove as the base scene.
+ * Roughly half the range has no such asset — Nature Panel's Tile and Pure decors publish room
+ * photography — and tiling a photographed bathroom across a wall of the previewed bathroom is
+ * unmistakably a bug. Those return null, and the compositor leaves the alcove as the base scene.
  */
 export function showerWallTexture(config: ShowerConfig): ShowerWallTexture | null {
   return showerWallTextureAt(config, 0);
@@ -1306,14 +1272,18 @@ export type ShowerWallTexture = {
   /**
    * Panel width in inches, or null for sheet goods.
    *
-   * SPC and HPL ship as panels and a real install shows a joint every panel width. Solid
-   * surface ships as sheet — 30"x144" — which covers an alcove wall whole, so it must NOT be
+   * SPC and HPL ship as panels and a real install shows a joint every panel width — both wall
+   * tiers Kitify sells are panelled, so this is a number for every new quote. Null is the
+   * sheet-goods case, now reachable only from a legacy quote carrying the retired solid-surface
+   * tier: that ships as sheet — 30"x144" — and covers an alcove wall whole, so it must NOT be
    * drawn with joints or it reads as the wrong product.
    */
   panelWidthIn: number | null;
 };
 
-/** Nominal panel width for the panelled tiers. Solid surface is excluded deliberately. */
+// Nominal panel width for the panelled tiers. Defined as a positive list rather than "not
+// solid surface", so a future sheet-goods tier gets seamless treatment by omission instead of
+// inheriting joints it doesn't have.
 const PANEL_WIDTH_IN = 24;
 const PANELLED_MATERIALS = new Set(["spc", "hpl"]);
 
@@ -1327,7 +1297,7 @@ const PANELLED_MATERIALS = new Set(["spc", "hpl"]);
  */
 export function showerWallTextureAt(config: ShowerConfig, wall: 0 | 1 | 2): ShowerWallTexture | null {
   const s = config.selections;
-  const material = SAMPLE_SHOWER_CATALOG.materials.find((m) => m.id === s.materialId);
+  const material = findWallMaterial(SAMPLE_SHOWER_CATALOG, s.materialId);
   if (!material) return null;
   const colorId = wallMode(s) === "perWall" ? s.wallColors[wall] ?? s.wallColors[0] : s.wallColors[0];
   const swatch = material.colors.find((c) => c.id === colorId);
