@@ -25,7 +25,14 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Check, RotateCcw, Plus, Minus, DoorOpen, Square } from "lucide-react";
-import { SHOWER_BASES, TUBS as CATALOG_TUBS, SHOWER_BASE_COLORS, type BaseSku } from "@/lib/catalog";
+import {
+  SHOWER_BASE_SKUS, ALCOVE_TUB_SKUS, SHOWER_BASE_COLORS, COMPOSITE_BASE_COLORS,
+  SHOWER_DOORS, DOOR_FAMILIES, DEFAULT_DOOR_FAMILY,
+  matchSpcWallKit, spcKitCode, SPC_CEILING_HEIGHTS, DEFAULT_SPC_CEILING,
+  NUVO_WALL_COLORS, CORNER_SHELF, SHOWER_NICHE, GRAB_BARS,
+  type BaseFamily, type BaseFamilySku, type BaseVariant, type BaseDrain,
+  type DoorFamily, type DoorFinish, type DoorGlass, type DoorModel, type SpcCeilingHeight,
+} from "@/lib/catalog";
 import { getPanelCollections, getPanelImage, getPanelSpecs, getPanel } from "@/lib/naturepanel-catalog";
 import {
   computeHplShowerBom,
@@ -50,7 +57,8 @@ function priceLineText(t: Tr, l: PriceLine): string {
 
 // ------------------------------ Types -------------------------------------
 export type Path = "shower" | "tub";
-export type Drain = "left" | "right" | "center" | "end";
+/** Re-exported from the catalog so this module and the SKU data can never drift apart. */
+export type Drain = BaseDrain;
 // `hex` is the flat colour every palette has had. A catalogued wall panel adds the real
 // swatch photo plus its decor metadata; the hex stays as the fallback tint for when the
 // CDN image can't load, so nothing downstream has to branch on which kind of swatch it holds.
@@ -70,28 +78,27 @@ export type Swatch = {
   textureUrl?: string;
 };
 
+/**
+ * One selectable base size WITHIN a family.
+ *
+ * `id` is the dimension key and is NOT unique across the catalog — a 60×36 exists as both a
+ * NuVo composite and a K-Series acrylic at different prices — so every lookup here goes
+ * through findBaseItem(), which takes the family too. See lib/catalog.ts's BaseFamily note.
+ */
 export type BaseItem = {
-  id: string; label: string; w: number; d: number;
+  id: string; family: BaseFamily; label: string; w: number; d: number;
   h?: number;   // finished floor-to-rim height in inches — carried by the tubs (skirt/apron)
   drains: Drain[];
+  variants: BaseVariant[];
   colors: Swatch[]; doorWidth: 48 | 60 | 0; price: number; noteKey?: string; placeholder?: boolean;
 };
-export type Material = { id: string; name: string; tier: "Good" | "Better" | "Best"; kitPrice: number; colors: Swatch[] };
-/**
- * `rank` positions a series within the range: 1 is the entry model, higher is more premium.
- *
- * It exists because every price in this module is still a $1 placeholder, so "cheapest" can't
- * be read off `finishes` — sorting by price today would pick an arbitrary series. Rank encodes
- * the product positioning directly and stays correct once real pricing lands, at which point
- * price-based selection becomes an option rather than a necessity.
- */
-export type DoorSeries = { id: string; series: string; w: 48 | 60; rank: number; finishes: Record<string, number> };
+export type Material = { id: string; name: string; tier: "Good" | "Better" | "Best"; colors: Swatch[] };
 export type ShowerCatalog = {
   bases: BaseItem[];
   tubs: BaseItem[];
   materials: Material[];
-  doors: DoorSeries[];
-  tubDoors: DoorSeries[];
+  /** Every door model, both paths. Filtered by opening and path in doorsForItem(). */
+  doors: DoorModel[];
   accessories: {
     cornerShelf: { finishes: Swatch[]; price: number };
     niche: { finishes: Swatch[]; price: number };
@@ -111,16 +118,33 @@ export type AccessoryState = {
 export type ShowerSelections = {
   path?: Path;
   baseId?: string;
+  /**
+   * Which product line the base comes from. Optional so a quote saved before families
+   * existed still loads — resolveBaseFamily() infers it from the id in that case, which is
+   * unambiguous for every size except those sold in more than one family.
+   */
+  baseFamily?: BaseFamily;
   drain?: Drain;
   baseColorId?: string;
   baseColor?: string; // pan/base color id — see SHOWER_BASE_COLORS; defaults to "white"
   materialId?: string;
+  /**
+   * Finished ceiling height, which is what picks between the NuVo SPC wall kits (66 / 80 /
+   * 96"). Optional — an older quote, or an HPL shower, defaults to 96". HPL ignores it
+   * entirely: its takeoff is per-wall against a full-height panel.
+   */
+  ceilingIn?: SpcCeilingHeight;
   wallColors: (string | undefined)[]; // [back, left, right]
   // How the wall picker behaves. Optional so quotes saved before it existed still load:
   // wallMode() infers it from whether the three wallColors agree, which is exactly what an
   // older quote's array already encodes.
   wallMode?: WallMode;
-  door: { seriesId: string; finish: string } | null;
+  /**
+   * `glass` is optional because only Rainier offers a choice — the frameless ranges are clear
+   * only — and because a quote saved before the axis existed must reopen as clear, which is
+   * what it was sold as.
+   */
+  door: { seriesId: string; finish: string; glass?: DoorGlass } | null;
   accessories: AccessoryState;
   /**
    * HPL upsell offer ids the dealer accepted. Stored in the selections (not derived) because
@@ -132,7 +156,15 @@ export type ShowerSelections = {
 
 // A price line carries a dictionary key + interpolation params rather than a finished
 // string, so it renders in the viewer's current language, not the language it was built in.
-export type PriceLine = { key: string; params?: Record<string, string>; amount: number };
+//
+// `sku` is the ordered product code where the line resolves to one. It rides the existing
+// quote → proposal → order-snapshot path, so the snapshot now records what to actually buy
+// rather than only what it cost. Absent on lines that are not a single SKU (a warned SPC
+// fallback, an HPL BOM roll-up that already carries its own codes).
+// `estimated` marks a line whose MONEY is still a placeholder, as distinct from one whose fit
+// is uncertain (that is SpcKitLine.exact). Only the HPL lines set it today — the Therma-Glass
+// sheet prices the NuVo and Kohler ranges but carries no Nature Panel rows at all.
+export type PriceLine = { key: string; params?: Record<string, string>; amount: number; sku?: string; estimated?: boolean };
 export type ShowerMedia = { wallImage?: string; baseImage?: string; doorImage?: string; swatchHex?: string };
 export type ShowerConfig = {
   selections: ShowerSelections;
@@ -179,23 +211,23 @@ export function materialAvailable(materialId: string): boolean {
 // Chrome leads the row because it's the portal-wide default finish (see DEFAULT_FINISH_ID)
 // — the same one the plumbing trim and the shower door hardware land on, so an untouched
 // build reads as one coordinated set rather than three different metals.
-const FINISHES: Swatch[] = [
+/**
+ * Accessory finishes — three, matching the three SKUs each accessory actually has.
+ *
+ * The old four-finish list carried both "chrome" and "polished", which are the same product:
+ * the corner shelf ships as COR-SHELF-POLISHED and the niche as NUV-6703P, and Chrome is the
+ * portal-wide default name for it. A saved quote holding "polished" simply stops matching a
+ * chip — the price is finish-independent, so no money moves.
+ */
+const SHELF_FINISHES: Swatch[] = [
   { id: "chrome", name: "Chrome", hex: "#c9ccd1" },
   { id: "brushed-nickel", name: "Brushed Nickel", hex: "#b8b6b0" },
-  { id: "polished", name: "Polished", hex: "#d9dade" },
   { id: "matte-black", name: "Matte Black", hex: "#2a2c2f" },
 ];
 
-// PLACEHOLDER wall palette — the 6 real NuVo composite colors, still standing in for
-// the SPC tier until its own palette arrives.
-const NUVO_COLORS: Swatch[] = [
-  { id: "amber-beige", name: "Amber Beige", hex: "#cdb48f" },
-  { id: "carrara-bronze", name: "Carrara Bronze", hex: "#d6cdbe" },
-  { id: "driftwood", name: "Driftwood", hex: "#b3a690" },
-  { id: "platinum-grey", name: "Platinum Grey", hex: "#b8bab8" },
-  { id: "slate-grey", name: "Slate Grey", hex: "#7c8083" },
-  { id: "winter-white", name: "Winter White", hex: "#eeeee9" },
-];
+// The SPC wall palette — the six real NuVo decors, read from the catalog rather than
+// restated, so the swatch a dealer taps and the kit SKU that gets ordered cannot disagree.
+const SPC_COLORS: Swatch[] = NUVO_WALL_COLORS.map((c) => ({ id: c.id, name: c.name, hex: c.hex }));
 
 // HPL is the one tier with a real catalogue behind it: the 21-panel Nature Panel lineup with
 // swatch photography from Grant Westfield's CDNs (lib/naturepanel-catalog.ts). SPC stays on
@@ -248,6 +280,34 @@ const STYLE_KEY: Record<string, string> = {
 };
 const styleLabel = (t: Tr, style?: string) => (style && STYLE_KEY[style] ? t(STYLE_KEY[style]) : style ?? "");
 
+// Decor collection id → dictionary key. Explicit rather than interpolated because the
+// catalogue's family ids are hyphenated ("large-tile") and the dictionary is camelCase, and
+// because a new family should surface as a missing key rather than silently render English.
+const COLLECTION_KEY: Record<string, string> = {
+  "wood": "configurator.shower.panel.collection.wood",
+  "pure": "configurator.shower.panel.collection.pure",
+  "large-tile": "configurator.shower.panel.collection.largeTile",
+  "metro-tile": "configurator.shower.panel.collection.metroTile",
+};
+const COLLECTION_DESC_KEY: Record<string, string> = {
+  "wood": "configurator.shower.panel.collectionDesc.wood",
+  "pure": "configurator.shower.panel.collectionDesc.pure",
+  "large-tile": "configurator.shower.panel.collectionDesc.largeTile",
+  "metro-tile": "configurator.shower.panel.collectionDesc.metroTile",
+};
+
+// Base family → dictionary key. Same reasoning as above ("alcove-tub" is hyphenated).
+const BASE_FAMILY_KEY: Record<BaseFamily, string> = {
+  "composite": "configurator.shower.baseFamily.composite",
+  "acrylic": "configurator.shower.baseFamily.acrylic",
+  "alcove-tub": "configurator.shower.baseFamily.alcoveTub",
+};
+const BASE_FAMILY_DESC_KEY: Record<BaseFamily, string> = {
+  "composite": "configurator.shower.baseFamilyDesc.composite",
+  "acrylic": "configurator.shower.baseFamilyDesc.acrylic",
+  "alcove-tub": "configurator.shower.baseFamilyDesc.alcoveTub",
+};
+
 // ---------------------- Shower box geometry (preview) ----------------------
 // One-point perspective inside a 320×240 viewBox. The front opening is the back wall
 // scaled about the view centre (160,120); every wall, the floor and the door derive from
@@ -266,14 +326,23 @@ const RIGHT_WALL = `${BACK.x1},${BACK.y0} ${FRONT.x1},${FRONT.y0} ${FRONT.x1},${
 const FLOOR_PLANE = `${BACK.x0},${BACK.y1} ${BACK.x1},${BACK.y1} ${FRONT.x1},${FRONT.y1} ${FRONT.x0},${FRONT.y1}`;
 const TUB_SKIRT = `${FRONT.x0},${FRONT.y1} ${FRONT.x1},${FRONT.y1} ${FRONT.x1},${FRONT.y1 + 13} ${FRONT.x0},${FRONT.y1 + 13}`;
 
-// Door series names carry their own type — "Pacific Frameless Slider", "Trillium Slider +
-// Panel". Panel is checked first because those names contain "Slider" too.
+/**
+ * How the preview draws a door: hardware-heavy slider, minimal frameless, or fixed-panel.
+ *
+ * Keyed off the FAMILY rather than parsed out of a series name, which is what the old
+ * catalog did ("Pacific Frameless Slider" → /slider/). The three real ranges are two
+ * frameless and one sliding; nothing maps to "panel" today — the Slider + Panel series it
+ * described was invented placeholder data with no row on the price sheet — but the drawing
+ * case is kept for the next range that needs it.
+ */
 export type DoorKind = "slider" | "frameless" | "panel";
-function doorKind(series?: string): DoorKind {
-  if (!series) return "frameless";
-  if (/panel/i.test(series)) return "panel";
-  if (/slider/i.test(series)) return "slider";
-  return "frameless";
+const DOOR_KIND: Record<DoorFamily, DoorKind> = {
+  pacific: "frameless",
+  rainier: "slider",
+  tetherow: "frameless",
+};
+function doorKind(family?: DoorFamily): DoorKind {
+  return family ? DOOR_KIND[family] : "frameless";
 }
 // Door hardware finishes are their own set (chrome / brushed-nickel / matte-black) and
 // don't overlap the wall or accessory palettes.
@@ -283,78 +352,63 @@ const DOOR_FINISH_HEX: Record<string, string> = {
   "matte-black": "#2a2c2f",
 };
 
-const BASE_COLORS: Swatch[] = [
-  { id: "white", name: "White", hex: "#eeeeea" },
-  { id: "cotton-white", name: "Cotton White", hex: "#e7e4da" },
-  { id: "grey", name: "Grey", hex: "#9a9b98" },
-  { id: "black", name: "Black", hex: "#2b2d30" },
-];
+// The white every non-composite base ships in. K-Series acrylic and Cascade tubs have no
+// colour axis on the price sheet, so this is the whole palette for those families.
 const WHITE_ONLY: Swatch[] = [{ id: "white", name: "White", hex: "#eeeeea" }];
 
-// Shower-specific attributes per SKU id — drain options and the matching stock
-// door width. Physical size, price and label all come from lib/catalog; only
-// these shower-only details live here.
-// `noteKey` is a stable i18n key suffix (rendered via t("configurator.shower.note." + noteKey)),
-// NOT display text — so editing the label never silently breaks the translation lookup.
-type ShowerMeta = { drains: Drain[]; doorWidth: 48 | 60 | 0; noteKey?: string };
-const BASE_META: Record<string, ShowerMeta> = {
-  "48x36": { drains: ["center"], doorWidth: 48 },
-  "60x32": { drains: ["end"], doorWidth: 60, noteKey: "endDrain" },
-  "60x36": { drains: ["center"], doorWidth: 60 },
-  "72x36": { drains: ["center"], doorWidth: 0 },
-  "78x36": { drains: ["center"], doorWidth: 0 },
-  // placeholder sizes — sensible defaults until real shower SKUs exist
-  "32x32": { drains: ["center"], doorWidth: 0 },
-  "36x36": { drains: ["center"], doorWidth: 0 },
-  "48x30": { drains: ["center"], doorWidth: 48 },
-  "48x32": { drains: ["center"], doorWidth: 48 },
-  "60x30": { drains: ["center"], doorWidth: 60 },
-};
-const TUB_META: Record<string, ShowerMeta> = {
-  "60x30": { drains: ["left", "right"], doorWidth: 60 },
-  "60x32": { drains: ["left", "right"], doorWidth: 60 },
-  "60x36": { drains: ["left", "right"], doorWidth: 60 },
-  "72x36": { drains: ["left", "right"], doorWidth: 0 },
-};
-function toBaseItem(sku: BaseSku, meta: ShowerMeta | undefined, colors: Swatch[]): BaseItem {
-  const m = meta ?? { drains: ["center"] as Drain[], doorWidth: 0 as const };
-  return { id: sku.id, label: sku.label, w: sku.w, d: sku.d, h: sku.h, price: sku.dealerPrice, placeholder: sku.placeholder, drains: m.drains, colors, doorWidth: m.doorWidth, noteKey: m.noteKey };
+/**
+ * A catalog SKU → the shape the picker renders.
+ *
+ * Two fields are DERIVED rather than looked up in a side table, which is what retired the old
+ * BASE_META / TUB_META maps:
+ *   • `drains` is the set of drain positions the size's own variants offer, so it can never
+ *     claim a position that has no SKU behind it.
+ *   • `doorWidth` is the stock opening, which is simply the base width where a stock door
+ *     exists. The old table said exactly this for all ten sizes, spelled out by hand.
+ * `price` is the cheapest variant — the "from" figure the size button shows before a colour
+ * and drain are picked. The quoted line uses the resolved variant, not this.
+ */
+function toBaseItem(sku: BaseFamilySku, colors: Swatch[]): BaseItem {
+  const drains = [...new Set(sku.variants.map((v) => v.drain))];
+  const doorWidth: 48 | 60 | 0 = sku.w === 48 ? 48 : sku.w === 60 ? 60 : 0;
+  return {
+    id: sku.id, family: sku.family, label: sku.label, w: sku.w, d: sku.d, h: sku.h,
+    drains: drains.length ? drains : ["center"],
+    variants: sku.variants,
+    colors,
+    doorWidth,
+    price: sku.variants.length ? Math.min(...sku.variants.map((v) => v.dealerPrice)) : 0,
+    placeholder: sku.variants.length === 0,
+    noteKey: sku.noteKey,
+  };
 }
 
-// PLACEHOLDER PRICING — all values nominal ($1). Real pricing to be loaded from
-// supplier spreadsheets. Do not ship to dealers with these values.
+/**
+ * The colours a family actually sells. Composite pans come in four; the K-Series acrylics and
+ * the Cascade tubs are white only, and offering them a palette would invite a dealer to pick
+ * a colour that has no SKU.
+ */
+const familyColors = (family: BaseFamily): Swatch[] =>
+  family === "composite" ? COMPOSITE_BASE_COLORS : WHITE_ONLY;
+
 export const SAMPLE_SHOWER_CATALOG: ShowerCatalog = {
-  bases: SHOWER_BASES.map((s) => toBaseItem(s, BASE_META[s.id], BASE_COLORS)),
-  tubs: CATALOG_TUBS.map((s) => toBaseItem(s, TUB_META[s.id], WHITE_ONLY)),
+  bases: SHOWER_BASE_SKUS.map((s) => toBaseItem(s, familyColors(s.family))),
+  tubs: ALCOVE_TUB_SKUS.map((s) => toBaseItem(s, familyColors(s.family))),
   // Wall panels are SPC and HPL. Anything a dealer may pick lives here and nowhere else —
   // the picker renders this array, so adding a tier to it is what makes a tier selectable.
+  // Neither carries a kitPrice any more: SPC prices from a real NuVo kit SKU and HPL from
+  // its own per-SKU takeoff, so a single flat number would only be a third, wrong answer.
   materials: [
-    { id: "spc", name: "SPC", tier: "Good", kitPrice: 1, colors: NUVO_COLORS },
-    { id: "hpl", name: "HPL", tier: "Better", kitPrice: 1, colors: HPL_PANELS },
+    { id: "spc", name: "SPC", tier: "Good", colors: SPC_COLORS },
+    { id: "hpl", name: "HPL", tier: "Better", colors: HPL_PANELS },
   ],
-  // Ranks: Pacific (entry slider) 1 → Rainier Deluxe 2 → frameless (Salishan 48" / Tetherow
-  // 60") 3 → Trillium Slider + Panel 4. Salishan isn't a separate tier — it's the 48"
-  // frameless answering Tetherow's 60", so it shares rank 3.
-  doors: [
-    { id: "pac-48", series: "Pacific Frameless Slider", w: 48, rank: 1, finishes: { "chrome": 1, "brushed-nickel": 1, "matte-black": 1 } },
-    { id: "ran-48", series: "Rainier Deluxe Slider", w: 48, rank: 2, finishes: { "chrome": 1, "brushed-nickel": 1, "matte-black": 1 } },
-    { id: "sal-48", series: "Salishan Frameless", w: 48, rank: 3, finishes: { "chrome": 1, "brushed-nickel": 1, "matte-black": 1 } },
-    { id: "pac-60", series: "Pacific Frameless Slider", w: 60, rank: 1, finishes: { "chrome": 1, "brushed-nickel": 1, "matte-black": 1 } },
-    { id: "ran-60", series: "Rainier Deluxe Slider", w: 60, rank: 2, finishes: { "chrome": 1, "brushed-nickel": 1, "matte-black": 1 } },
-    { id: "tet-60", series: "Tetherow Frameless", w: 60, rank: 3, finishes: { "chrome": 1, "brushed-nickel": 1, "matte-black": 1 } },
-    { id: "tri-60", series: "Trillium Slider + Panel", w: 60, rank: 4, finishes: { "chrome": 1, "brushed-nickel": 1, "matte-black": 1 } },
-  ],
-  tubDoors: [
-    { id: "pac-tub-60", series: "Pacific Frameless Tub Slider", w: 60, rank: 1, finishes: { "chrome": 1, "brushed-nickel": 1, "matte-black": 1 } },
-    { id: "ran-tub-60", series: "Rainier Deluxe Tub Slider", w: 60, rank: 2, finishes: { "chrome": 1, "brushed-nickel": 1, "matte-black": 1 } },
-    { id: "tet-tub-60", series: "Tetherow Frameless Tub", w: 60, rank: 3, finishes: { "chrome": 1, "brushed-nickel": 1, "matte-black": 1 } },
-  ],
+  doors: SHOWER_DOORS,
   accessories: {
-    cornerShelf: { finishes: FINISHES, price: 1 },
-    niche: { finishes: FINISHES, price: 1 },
+    cornerShelf: { finishes: SHELF_FINISHES, price: CORNER_SHELF.variants[0].dealerPrice },
+    niche: { finishes: SHELF_FINISHES, price: SHOWER_NICHE.variants[0].dealerPrice },
     grabBar: {
       finishes: [{ id: "brushed", name: "Brushed", hex: "#b8b6b0" }, { id: "polished", name: "Polished", hex: "#d9dade" }],
-      sizes: [{ id: "24", label: '24"', price: 1 }, { id: "36", label: '36"', price: 1 }, { id: "42", label: '42"', price: 1 }],
+      sizes: GRAB_BARS.map((g) => ({ id: g.id, label: g.label, price: g.variants[0].dealerPrice })),
     },
   },
 };
@@ -370,7 +424,7 @@ export const SAMPLE_SHOWER_CATALOG: ShowerCatalog = {
  * quietly re-price and re-render old quotes as something the dealer never picked.
  */
 const LEGACY_WALL_MATERIALS: Material[] = [
-  { id: "ss", name: "Solid Surface", tier: "Best", kitPrice: 1, colors: SS_COLORS },
+  { id: "ss", name: "Solid Surface", tier: "Best", colors: SS_COLORS },
 ];
 
 /**
@@ -391,32 +445,107 @@ const money = (n: number) => n.toLocaleString("en-US", { style: "currency", curr
 export function itemsForPath(catalog: ShowerCatalog, path?: Path): BaseItem[] {
   return path === "tub" ? catalog.tubs : path === "shower" ? catalog.bases : [];
 }
-/**
- * The door to select when the dealer ticks "add a matching door": the lowest-ranked series
- * that fits the current opening, in the portal default finish, falling back to whatever the
- * series does carry if it somehow doesn't list Chrome.
- *
- * Returns null when nothing fits, which reads as "no door" — the same state as unticked.
- */
-export function defaultDoor(avail: DoorSeries[]): { seriesId: string; finish: string } | null {
-  const series = avail[0];   // doorsForItem sorts by rank, so entry model first
-  if (!series) return null;
-  const finishes = Object.keys(series.finishes);
-  const finish = resolveDefault(undefined, finishes, (f) => f, (f) => f === DEFAULT_FINISH_ID);
-  return finish ? { seriesId: series.id, finish } : null;
+
+/** The families that actually have SKUs for this path, in catalog order. */
+export function familiesForPath(catalog: ShowerCatalog, path?: Path): BaseFamily[] {
+  return [...new Set(itemsForPath(catalog, path).map((b) => b.family))];
 }
 
 /**
- * The door series that fit this base's stock opening, ordered entry-model first.
+ * The family a selection belongs to.
  *
- * Sorting by rank here rather than at the call sites means the list the picker renders and
- * the list the default is drawn from are the same one, so "the default" is always simply the
- * first entry — the top of the list a dealer is already looking at.
+ * A quote saved before families existed carries only a dimension id, and most dimensions are
+ * unambiguous — only 48×36, 60×32 and 60×36 exist in more than one family. For those the
+ * fallback order below decides, and it prefers ACRYLIC because that is both the cheaper and
+ * the broader line (10 of the 14 sizes), so an un-migrated quote lands on the reading a
+ * dealer is most likely to have meant. Preserved when explicit, always.
  */
-export function doorsForItem(catalog: ShowerCatalog, path: Path | undefined, item?: BaseItem): DoorSeries[] {
+const FAMILY_FALLBACK: BaseFamily[] = ["acrylic", "composite", "alcove-tub"];
+export function resolveBaseFamily(catalog: ShowerCatalog, path: Path | undefined, baseId?: string, saved?: BaseFamily): BaseFamily | undefined {
+  if (!baseId) return saved;
+  const withId = itemsForPath(catalog, path).filter((b) => b.id === baseId);
+  if (!withId.length) return saved;
+  if (saved && withId.some((b) => b.family === saved)) return saved;
+  for (const f of FAMILY_FALLBACK) if (withId.some((b) => b.family === f)) return f;
+  return withId[0].family;
+}
+
+/**
+ * The selected base — the ONE lookup that knows id alone is not an identity.
+ *
+ * Every `items.find(b => b.id === baseId)` in this module used to be correct because ids were
+ * unique. They are not any more: reaching for the first id match would silently price a
+ * $558 composite pan as a $403.20 acrylic one.
+ */
+export function findBaseItem(catalog: ShowerCatalog, s: ShowerSelections): BaseItem | undefined {
+  if (!s.baseId) return undefined;
+  const family = resolveBaseFamily(catalog, s.path, s.baseId, s.baseFamily);
+  const items = itemsForPath(catalog, s.path);
+  return items.find((b) => b.id === s.baseId && b.family === family) ?? items.find((b) => b.id === s.baseId);
+}
+
+/**
+ * The exact SKU a selection resolves to: size + family + colour + drain.
+ *
+ * Returns null while the dealer is mid-flow (no drain picked yet), which is what keeps an
+ * incomplete configuration off the price panel instead of quoting an arbitrary variant.
+ */
+export function resolveBaseVariant(item: BaseItem | undefined, s: ShowerSelections): BaseVariant | null {
+  if (!item?.variants.length) return null;
+  const hasColorAxis = item.variants.some((v) => v.colorId);
+  const colorId = s.baseColor ?? "white";
+  const byDrain = s.drain ? item.variants.filter((v) => v.drain === s.drain) : item.variants;
+  const pool = byDrain.length ? byDrain : item.variants;
+  if (!hasColorAxis) return pool[0];
+  return pool.find((v) => v.colorId === colorId) ?? pool[0];
+}
+/**
+ * The door models that fit this base's stock opening, in the catalog's family order.
+ *
+ * `forPath` is what separates a 70" shower screen from a 57" tub screen — the old catalog
+ * kept two parallel arrays for this, which meant a series had to be listed (and priced) twice.
+ */
+export function doorsForItem(catalog: ShowerCatalog, path: Path | undefined, item?: BaseItem): DoorModel[] {
   if (!item || item.doorWidth === 0) return [];
-  const pool = path === "tub" ? catalog.tubDoors : catalog.doors;
-  return pool.filter((d) => d.w === item.doorWidth).sort((a, b) => a.rank - b.rank);
+  const forPath = path === "tub" ? "tub" : "shower";
+  return catalog.doors.filter((d) => d.forPath === forPath && d.fits === item.doorWidth);
+}
+
+/** Only the families with a model that fits — Tetherow has no 48", so a 48" opening drops it. */
+export function doorFamiliesForItem(catalog: ShowerCatalog, path: Path | undefined, item?: BaseItem): DoorFamily[] {
+  const avail = doorsForItem(catalog, path, item);
+  return DOOR_FAMILIES.filter((f) => avail.some((d) => d.family === f));
+}
+
+/**
+ * The door to select when the dealer ticks "add a matching door": Rainier — the value line —
+ * in the portal-default chrome with clear glass, at whatever size fits the opening.
+ *
+ * This used to be `avail[0]` sorted by a hand-assigned `rank`, which existed only because
+ * every door cost $1 and "cheapest" was therefore unreadable. With real pricing the default
+ * is a product decision rather than a sorting artefact, so it is named outright: see
+ * DEFAULT_DOOR_FAMILY in lib/catalog.ts. Returns null when nothing fits, which reads as
+ * "no door" — the same state as unticked.
+ */
+export function defaultDoor(avail: DoorModel[]): { seriesId: string; finish: string; glass: DoorGlass } | null {
+  const model = avail.find((d) => d.family === DEFAULT_DOOR_FAMILY) ?? avail[0];
+  if (!model) return null;
+  const finishes = [...new Set(model.variants.map((v) => v.finish))];
+  const finish = resolveDefault(undefined, finishes, (f) => f, (f) => f === DEFAULT_FINISH_ID);
+  return finish ? { seriesId: model.id, finish, glass: "clear" } : null;
+}
+
+/** The exact door SKU a selection resolves to, or null when the combination isn't offered. */
+export function resolveDoorVariant(catalog: ShowerCatalog, s: ShowerSelections) {
+  if (!s.door) return null;
+  const model = catalog.doors.find((d) => d.id === s.door!.seriesId);
+  if (!model) return null;
+  const glass: DoorGlass = s.door.glass ?? "clear";
+  const variant =
+    model.variants.find((v) => v.finish === s.door!.finish && v.glass === glass) ??
+    model.variants.find((v) => v.finish === s.door!.finish) ??
+    null;
+  return variant ? { model, variant } : null;
 }
 
 /** The HPL wall material id. Anything else falls through to the legacy flat kit pricing. */
@@ -452,7 +581,7 @@ export function hplPanelSkuCode(panelId?: string): string | null {
  */
 export function buildHplShowerConfig(catalog: ShowerCatalog, s: ShowerSelections): HplShowerConfig | null {
   if (!isHplShower(s)) return null;
-  const item = itemsForPath(catalog, s.path).find((b) => b.id === s.baseId);
+  const item = findBaseItem(catalog, s);
   if (!item) return null;
   const mat = findWallMaterial(catalog, s.materialId);
   const decorName = (i: number) => mat?.colors.find((c) => c.id === s.wallColors[i])?.name;
@@ -467,22 +596,47 @@ export function buildHplShowerConfig(catalog: ShowerCatalog, s: ShowerSelections
   return { type, walls };
 }
 
-export function computeShowerPrice(
-  catalog: ShowerCatalog,
-  s: ShowerSelections,
-): { total: number; lines: PriceLine[]; hplBom: HplShowerBom | null } {
+/** What the SPC wall selection resolved to, for the caveat the price panel renders. */
+export type SpcKitLine = { productCode: string | null; exact: boolean; kitHeightIn: number; kitWidthIn: number };
+
+export type ShowerPrice = {
+  total: number;
+  lines: PriceLine[];
+  hplBom: HplShowerBom | null;
+  /** Null unless the walls are SPC. `exact: false` means the kit does not match the enclosure. */
+  spcKit: SpcKitLine | null;
+  /**
+   * True when ANY line is still placeholder-priced, which is what gates the amber
+   * "not for quoting" banner. Only HPL trips it today — see HPL_PLACEHOLDER_UNIT_PRICE.
+   */
+  hasPlaceholderPricing: boolean;
+};
+
+export function computeShowerPrice(catalog: ShowerCatalog, s: ShowerSelections): ShowerPrice {
   const lines: PriceLine[] = [];
-  const item = itemsForPath(catalog, s.path).find((b) => b.id === s.baseId);
-  // Placeholder SKUs (dealerPrice 0, pricing TBD) never contribute a price line.
-  if (item && !item.placeholder) lines.push({ key: s.path === "tub" ? "configurator.priceLine.tub" : "configurator.priceLine.showerBase", params: { label: item.label }, amount: item.price });
+  const item = findBaseItem(catalog, s);
+
+  // ---- the pan or tub ----------------------------------------------------
+  // Priced from the RESOLVED variant, not the size: a 60×36 is $608.40 as a composite and
+  // $464.40 as an acrylic, and colour and drain choose between real SKUs within that.
+  // A size with no variants (32×32, 48×30, the deck-mount tubs) never contributes a line.
+  const baseVariant = resolveBaseVariant(item, s);
+  if (item && baseVariant) {
+    lines.push({
+      key: s.path === "tub" ? "configurator.priceLine.tub" : "configurator.priceLine.showerBase",
+      params: { label: item.label },
+      amount: baseVariant.dealerPrice,
+      sku: baseVariant.productCode,
+    });
+  }
   const mat = findWallMaterial(catalog, s.materialId);
 
   // ---- wall panels -------------------------------------------------------
-  // HPL gets a real per-SKU takeoff. Everything else — SPC today, Solid Surface on a
-  // reopened legacy quote — keeps the flat kit line it has always had. That fallback is a
-  // known deficiency, deliberately left in place until an SPC takeoff is specced; do not
-  // extend the HPL rules to cover it, the panels are a different physical product.
+  // HPL gets a real per-SKU takeoff; SPC gets a real NuVo kit SKU. Solid Surface on a
+  // reopened legacy quote gets neither and simply drops off, which is correct — it is not a
+  // product Kitify sells and there is no sheet to price it from.
   let hplBom: HplShowerBom | null = null;
+  let spcKit: SpcKitLine | null = null;
   const hplConfig = buildHplShowerConfig(catalog, s);
   if (hplConfig) {
     hplBom = computeHplShowerBom(hplConfig, { acceptedUpsellIds: s.hplUpsells ?? [] });
@@ -492,28 +646,80 @@ export function computeShowerPrice(
         key: l.labelKey,
         params: { ...(l.labelParams ?? {}), n: String(l.qty) },
         amount: Math.round(gross * (1 - (l.discountPct ?? 0) / 100)),
+        sku: l.skuCode ?? undefined,
+        estimated: true,   // the QUANTITIES are real; the money is still a placeholder
       });
     }
-  } else if (mat && item) {
-    const factor = item.w / 48; // wall area scales with width (placeholder)
-    lines.push({ key: "configurator.priceLine.wallPanels", params: { material: mat.name }, amount: Math.round(mat.kitPrice * factor) });
+  } else if (mat?.id === "spc" && item) {
+    // Real kit lookup, replacing the old `kitPrice × (base.w / 48)` area guess. NuVo sells
+    // four fixed enclosures, so a base matching none of them warns and quotes the closest —
+    // never blocks. See matchSpcWallKit().
+    const match = matchSpcWallKit(item.w, item.d, s.ceilingIn ?? DEFAULT_SPC_CEILING);
+    if (match) {
+      const colorId = s.wallColors[0];
+      const code = colorId ? spcKitCode(match.kit, colorId) : null;
+      spcKit = { productCode: code, exact: match.exact, kitHeightIn: match.kit.heightIn, kitWidthIn: match.kit.widthIn };
+      lines.push({
+        key: "configurator.priceLine.wallKit",
+        params: { material: mat.name, w: String(match.kit.widthIn), h: String(match.kit.heightIn) },
+        amount: match.kit.dealerPrice,
+        sku: code ?? undefined,
+      });
+    }
   }
 
-  if (s.door) {
-    const series = (s.path === "tub" ? catalog.tubDoors : catalog.doors).find((d) => d.id === s.door!.seriesId);
-    const amt = series?.finishes[s.door.finish];
-    if (series && amt != null) lines.push({ key: "configurator.priceLine.door", params: { series: series.series, finish: s.door.finish }, amount: amt });
+  // ---- door --------------------------------------------------------------
+  const door = resolveDoorVariant(catalog, s);
+  if (door) {
+    lines.push({
+      key: "configurator.priceLine.door",
+      params: { series: t_doorFamilyName(door.model.family), finish: door.variant.finish, h: String(door.model.heightIn) },
+      amount: door.variant.dealerPrice,
+      sku: door.variant.productCode,
+    });
   }
+
+  // ---- accessories -------------------------------------------------------
   const a = s.accessories;
-  if (a.cornerShelf.qty > 0) lines.push({ key: "configurator.priceLine.cornerShelf", params: { qty: String(a.cornerShelf.qty) }, amount: a.cornerShelf.qty * catalog.accessories.cornerShelf.price });
-  if (a.niche.qty > 0) lines.push({ key: "configurator.priceLine.niche", params: { qty: String(a.niche.qty) }, amount: a.niche.qty * catalog.accessories.niche.price });
+  if (a.cornerShelf.qty > 0) {
+    lines.push({
+      key: "configurator.priceLine.cornerShelf", params: { qty: String(a.cornerShelf.qty) },
+      amount: a.cornerShelf.qty * catalog.accessories.cornerShelf.price,
+      sku: accessoryCode(CORNER_SHELF, a.cornerShelf.finish),
+    });
+  }
+  if (a.niche.qty > 0) {
+    lines.push({
+      key: "configurator.priceLine.niche", params: { qty: String(a.niche.qty) },
+      amount: a.niche.qty * catalog.accessories.niche.price,
+      sku: accessoryCode(SHOWER_NICHE, a.niche.finish),
+    });
+  }
   if (a.grabBar.qty > 0) {
     const sz = catalog.accessories.grabBar.sizes.find((z) => z.id === a.grabBar.size);
-    lines.push({ key: "configurator.priceLine.grabBar", params: { size: sz?.label ?? "", qty: String(a.grabBar.qty) }, amount: a.grabBar.qty * (sz?.price ?? 0) });
+    const bar = GRAB_BARS.find((g) => g.id === a.grabBar.size);
+    lines.push({
+      key: "configurator.priceLine.grabBar",
+      params: { size: sz?.label ?? `${a.grabBar.size}"`, qty: String(a.grabBar.qty) },
+      // A retired size (the 42" bar) has no SKU and no price. It shows at zero rather than
+      // being silently re-priced onto the 48", which would change what the dealer sells.
+      amount: a.grabBar.qty * (sz?.price ?? 0),
+      sku: bar?.variants.find((v) => v.finishId === a.grabBar.finish)?.productCode,
+    });
   }
+
   const total = lines.reduce((x, l) => x + l.amount, 0);
-  return { total, lines, hplBom };
+  return { total, lines, hplBom, spcKit, hasPlaceholderPricing: lines.some((l) => l.estimated) };
 }
+
+/** An accessory's product code in the chosen finish, or undefined if it isn't offered in it. */
+function accessoryCode(sku: { variants: { finishId: string; productCode: string }[] }, finishId: string): string | undefined {
+  return sku.variants.find((v) => v.finishId === finishId)?.productCode;
+}
+
+/** Door family names are proper nouns and stay untranslated in both languages. */
+const DOOR_FAMILY_NAME: Record<DoorFamily, string> = { pacific: "Pacific", rainier: "Rainier", tetherow: "Tetherow" };
+const t_doorFamilyName = (f: DoorFamily) => DOOR_FAMILY_NAME[f];
 
 /**
  * The wall picker's mode. Explicit once the user touches the toggle; otherwise inferred
@@ -532,7 +738,7 @@ export function isComplete(s: ShowerSelections): boolean {
 }
 
 function buildLabel(catalog: ShowerCatalog, s: ShowerSelections, t: Tr): string {
-  const item = itemsForPath(catalog, s.path).find((b) => b.id === s.baseId);
+  const item = findBaseItem(catalog, s);
   const mat = findWallMaterial(catalog, s.materialId);
   if (!item) return t("configurator.label.newShower");
   const kind = t(s.path === "tub" ? "configurator.label.tub" : "configurator.label.shower");
@@ -556,9 +762,9 @@ function buildLabel(catalog: ShowerCatalog, s: ShowerSelections, t: Tr): string 
 // colour for the consumer to render a colour chip. No image paths are invented.
 function buildShowerMedia(catalog: ShowerCatalog, s: ShowerSelections): ShowerMedia {
   const material = findWallMaterial(catalog, s.materialId);
-  const palette = material?.colors ?? NUVO_COLORS;
+  const palette = material?.colors ?? SPC_COLORS;
   const wall = palette.find((c) => c.id === s.wallColors[0]);
-  const item = itemsForPath(catalog, s.path).find((b) => b.id === s.baseId);
+  const item = findBaseItem(catalog, s);
   const baseHex = item?.colors.find((c) => c.id === s.baseColorId)?.hex;
   // wallImage is now a real CDN swatch when a catalogued panel is picked — the field was
   // reserved for exactly this and stays undefined for the flat-colour tiers.
@@ -589,11 +795,18 @@ function seedShowerSelections(catalog: ShowerCatalog, kind?: Path, baseId?: stri
   if (!kind) return base;
   base.path = kind;
   if (baseId) {
-    const it = itemsForPath(catalog, kind).find((b) => b.id === baseId);
+    // The hub passes a bare dimension id — the room editor has no concept of families — so
+    // the family is inferred here (see resolveBaseFamily) rather than guessed at the picker.
+    const family = resolveBaseFamily(catalog, kind, baseId);
+    const it = itemsForPath(catalog, kind).find((b) => b.id === baseId && b.family === family);
     if (it) {
       base.baseId = it.id;
+      base.baseFamily = it.family;
       base.drain = it.drains.length === 1 ? it.drains[0] : undefined;
-      base.baseColorId = it.colors[0]?.id;
+      // Keep a seeded colour only where this family sells it; otherwise take its own default.
+      const seeded = it.colors.some((c) => c.id === base.baseColor) ? base.baseColor : it.colors[0]?.id;
+      base.baseColor = seeded;
+      base.baseColorId = seeded;
     }
   }
   return base;
@@ -658,15 +871,21 @@ export function ShowerConfigurator({
     setS((prev) => {
       const kind = initialKind ?? prev.path;
       if (!kind) return prev;
-      const it = initialBaseId ? itemsForPath(catalog, kind).find((b) => b.id === initialBaseId) : undefined;
+      // The hub knows only the dimension, so the family the dealer already had is preferred
+      // and only re-inferred when this size isn't sold in it.
+      const family = initialBaseId ? resolveBaseFamily(catalog, kind, initialBaseId, prev.baseFamily) : undefined;
+      const it = initialBaseId ? itemsForPath(catalog, kind).find((b) => b.id === initialBaseId && b.family === family) : undefined;
       const nextBaseId = it ? it.id : (prev.path === kind ? prev.baseId : undefined);
-      if (prev.path === kind && prev.baseId === nextBaseId) return prev; // already in sync
+      if (prev.path === kind && prev.baseId === nextBaseId && (!it || prev.baseFamily === it.family)) return prev; // already in sync
+      const color = it ? (it.colors.some((c) => c.id === prev.baseColor) ? prev.baseColor : it.colors[0]?.id) : prev.baseColor;
       return {
         ...prev,
         path: kind,
         baseId: nextBaseId,
+        baseFamily: it ? it.family : prev.baseFamily,
         drain: it ? (it.drains.length === 1 ? it.drains[0] : (prev.drain && it.drains.includes(prev.drain) ? prev.drain : undefined)) : prev.drain,
-        baseColorId: it ? it.colors[0]?.id : prev.baseColorId,
+        baseColor: color,
+        baseColorId: color,
         door: null,
       };
     });
@@ -679,16 +898,30 @@ export function ShowerConfigurator({
   }, [initialBaseColor]);
 
   const items = itemsForPath(catalog, s.path);
-  const item = items.find((b) => b.id === s.baseId);
+  const item = findBaseItem(catalog, s);
+  const baseVariant = resolveBaseVariant(item, s);
+  // Which family tab is open. Follows the selection, so reopening the step shows the base
+  // the dealer actually picked rather than snapping back to the first tab.
+  const families = familiesForPath(catalog, s.path);
+  const activeFamily: BaseFamily = item?.family ?? s.baseFamily ?? families[0] ?? "acrylic";
+  const familyItems = items.filter((b) => b.family === activeFamily);
   // Resolves retired tiers too, so this module answers "what is this material" the same way
   // everywhere — see LEGACY_WALL_MATERIALS. Only a saved config can hold a retired id; the
   // picker below cannot produce one.
   const material = findWallMaterial(catalog, s.materialId);
-  const palette = material?.colors ?? NUVO_COLORS;
+  const palette = material?.colors ?? SPC_COLORS;
   const availDoors = doorsForItem(catalog, s.path, item);
+  const doorFamilies = doorFamiliesForItem(catalog, s.path, item);
+  // The hero paints its pan from the four-colour SHOWER_BASE_COLORS list, which is not
+  // family-aware; the picker offers the family's own colours. They agree on white, which is
+  // what every non-composite base ships in.
   const baseColor = SHOWER_BASE_COLORS.find((c) => c.id === (s.baseColor ?? "white"))?.hex ?? SHOWER_BASE_COLORS[0].hex;
   const wallHex = (i: number) => palette.find((c) => c.id === s.wallColors[i])?.hex ?? "#dad6cd";
   const isHpl = s.materialId === "hpl";
+  const isSpc = s.materialId === "spc";
+  // The door SKU the current selection resolves to, and which family tab that puts us on.
+  const doorSku = resolveDoorVariant(catalog, s);
+  const activeDoorFamily: DoorFamily = doorSku?.model.family ?? doorFamilies[0] ?? DEFAULT_DOOR_FAMILY;
   const wMode = wallMode(s);
   // Which wall the per-wall picker is editing. Local UI state — never part of the quote.
   const [activeWall, setActiveWall] = useState(0);
@@ -704,9 +937,9 @@ export function ShowerConfigurator({
   // hardware colour. Undefined whenever no door is on the quote, which is what hides it.
   const doorViz = useMemo(() => {
     if (!s.door) return undefined;
-    const series = (s.path === "tub" ? catalog.tubDoors : catalog.doors).find((d) => d.id === s.door!.seriesId);
-    return { kind: doorKind(series?.series), finishHex: DOOR_FINISH_HEX[s.door.finish] ?? "#9aa0a6" };
-  }, [s.door, s.path, catalog]);
+    const model = catalog.doors.find((d) => d.id === s.door!.seriesId);
+    return { kind: doorKind(model?.family), finishHex: DOOR_FINISH_HEX[s.door.finish] ?? "#9aa0a6" };
+  }, [s.door, catalog]);
   // Wall imagery for the preview: the real material tiles the walls when a decor is picked.
   // Only a flat material image may do so (see Swatch.textureUrl) — a room photo or an angled
   // slab render repeated across a shower reads as a rendering bug, so decors without one
@@ -720,10 +953,42 @@ export function ShowerConfigurator({
   const selectedDecor = isHpl ? palette.find((c) => c.id === s.wallColors[0]) : undefined;
 
   function choosePath(p: Path) { setS({ ...initial, path: p }); }
-  function chooseBase(id: string) {
-    const it = items.find((b) => b.id === id);
-    const drain = it && it.drains.length === 1 ? it.drains[0] : undefined;
-    set({ baseId: id, drain, baseColorId: it?.colors[0]?.id, door: null });
+  function chooseBase(b: BaseItem) {
+    // A single-drain size answers its own question, so it is filled in rather than asked.
+    const drain = b.drains.length === 1 ? b.drains[0] : (s.drain && b.drains.includes(s.drain) ? s.drain : undefined);
+    // Carry the colour across only where the new family sells it — a Cotton White composite
+    // switched to an acrylic has to become white, because that is the only SKU there is.
+    const colorId = b.colors.some((c) => c.id === s.baseColor) ? s.baseColor : b.colors[0]?.id;
+    set({ baseId: b.id, baseFamily: b.family, drain, baseColor: colorId, baseColorId: colorId, door: null });
+  }
+  /**
+   * Switching family keeps the same footprint where the new family sells it, so a dealer
+   * comparing a composite 60×36 against an acrylic one stays on the size they were pricing
+   * instead of losing their place. Falls back to clearing the size when it doesn't exist there.
+   */
+  function chooseFamily(f: BaseFamily) {
+    if (f === activeFamily) return;
+    const sameSize = items.find((b) => b.family === f && b.id === s.baseId);
+    if (sameSize) chooseBase(sameSize);
+    else set({ baseFamily: f, baseId: undefined, drain: undefined, door: null });
+  }
+
+  /**
+   * Switching door family keeps the finish where the new range offers it and drops back to
+   * clear glass where it does not — only Rainier sells opaque, so carrying it onto a Pacific
+   * would leave the quote on a SKU that cannot be ordered.
+   */
+  function chooseDoorFamily(f: DoorFamily) {
+    const model = availDoors.find((d) => d.family === f);
+    if (!model) return;
+    chooseDoorModel(model);
+  }
+  function chooseDoorModel(model: DoorModel) {
+    const finishes = [...new Set(model.variants.map((v) => v.finish))];
+    const finish = resolveDefault(s.door?.finish as DoorFinish | undefined, finishes, (x) => x, (x) => x === DEFAULT_FINISH_ID) ?? finishes[0];
+    const glasses = [...new Set(model.variants.map((v) => v.glass))];
+    const glass = resolveDefault(s.door?.glass, glasses, (x) => x, (x) => x === "clear") ?? "clear";
+    set({ door: { seriesId: model.id, finish, glass } });
   }
   // Palettes no longer share ids across tiers (HPL is the Nature Panel catalogue, the others
   // are the NuVo stand-in), so carrying a wall selection across a material change would leave
@@ -791,13 +1056,36 @@ export function ShowerConfigurator({
               <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">{mode === "dealer" ? t("configurator.dealerPrice") : t("configurator.estimate")}</span>
               <span className="font-display text-2xl font-bold">{money(price.total)}</span>
             </div>
-            <div className="mb-2 rounded-md bg-amber/10 px-2 py-1 text-[10px] font-medium text-amber">{t("configurator.placeholderPricing")}</div>
+            {/* The banner is now CONDITIONAL rather than always-on. Bases, doors, SPC kits
+                and accessories all price from the Therma-Glass sheet and are quotable; the
+                HPL lines do not, because that sheet carries no Nature Panel rows, so an HPL
+                shower still says so. See PriceLine.estimated. */}
+            {price.hasPlaceholderPricing && (
+              <div className="mb-2 rounded-md bg-amber/10 px-2 py-1 text-[10px] font-medium text-amber">{t("configurator.shower.hplPricingPending")}</div>
+            )}
             <div className="space-y-1">
               {price.lines.map((l, i) => (
-                <div key={i} className="flex justify-between text-xs text-muted"><span>{priceLineText(t, l)}</span><span>{money(l.amount)}</span></div>
+                <div key={i} className="flex justify-between gap-2 text-xs text-muted">
+                  <span className="min-w-0">
+                    {priceLineText(t, l)}
+                    {l.sku && <span className="ml-1 font-mono text-[9px] uppercase tracking-wide opacity-70">{l.sku}</span>}
+                  </span>
+                  <span className="shrink-0">{money(l.amount)}</span>
+                </div>
               ))}
               {price.lines.length === 0 && <div className="text-xs text-muted">{t("configurator.shower.chooseBaseFirst")}</div>}
             </div>
+
+            {/* An SPC kit that doesn't match the configured enclosure. Warn, never block —
+                NuVo sells four fixed kits and the closest one is still a usable quote; the
+                dealer just needs to know the fit and freight will be estimated. */}
+            {price.spcKit && !price.spcKit.exact && (
+              <p className="mt-2 rounded-md border border-amber/30 bg-amber/10 px-2 py-1.5 text-[11px] leading-relaxed text-amber">
+                {t("configurator.shower.spcKitMismatch", {
+                  w: String(price.spcKit.kitWidthIn), h: String(price.spcKit.kitHeightIn),
+                })}
+              </p>
+            )}
 
             {/* An end-cap count the lookup doesn't cover. Warn, never block — the BOM is still
                 usable, the dealer just needs to know that one figure is an estimate. */}
@@ -839,17 +1127,34 @@ export function ShowerConfigurator({
 
         {s.path && (
           <Step n={2} title={t("configurator.shower.stepSize")}>
+            {/* Family first, then size — the order the price sheet is organised in, and the
+                order a dealer decides in. A 60×36 exists in two families at two prices, so
+                asking for the size first would be asking an unanswerable question. */}
+            {families.length > 1 && (
+              <div className="mb-3 flex flex-wrap gap-1.5">
+                {families.map((f) => (
+                  <button key={f} type="button" onClick={() => chooseFamily(f)}
+                    className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${f === activeFamily ? "border-accent bg-accent-soft/50 text-ink" : "border-line text-muted hover:bg-ink/5"}`}>
+                    {t(BASE_FAMILY_KEY[f])}
+                  </button>
+                ))}
+              </div>
+            )}
+            <p className="mb-3 text-xs text-muted">{t(BASE_FAMILY_DESC_KEY[activeFamily])}</p>
+
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {items.map((b) => (
-                <button key={b.id} onClick={() => chooseBase(b.id)}
-                  className={`rounded-lg border px-3 py-2.5 text-sm font-semibold transition ${s.baseId === b.id ? "border-accent bg-accent-soft/50" : "border-line hover:bg-ink/5"}`}>
+              {familyItems.map((b) => (
+                <button key={`${b.family}:${b.id}`} onClick={() => chooseBase(b)}
+                  className={`rounded-lg border px-3 py-2.5 text-left text-sm font-semibold transition ${s.baseId === b.id && b.family === activeFamily ? "border-accent bg-accent-soft/50" : "border-line hover:bg-ink/5"}`}>
                   {b.label}
                   {b.placeholder
                     ? <span className="block font-mono text-[9px] font-normal text-amber">{t("configurator.shower.pricingTBD")}</span>
-                    : b.noteKey ? <span className="block font-mono text-[9px] font-normal text-muted">{t("configurator.shower.note." + b.noteKey)}</span> : null}
+                    : <span className="block font-mono text-[9px] font-normal text-muted">{money(b.price)}</span>}
+                  {b.noteKey && <span className="block font-mono text-[9px] font-normal text-muted">{t("configurator.shower.note." + b.noteKey)}</span>}
                 </button>
               ))}
             </div>
+
             {/* Skirt height — a tub spec the dealer needs for the rough-in but that the size
                 label can't carry. Rendered from the catalog value, so it can never drift from
                 the SKU data the way a hardcoded caption would. */}
@@ -858,20 +1163,34 @@ export function ShowerConfigurator({
                 {t("configurator.shower.skirtHeight", { h: String(item.h) })}
               </p>
             )}
-            {/* Base color — solid swatches, applies to the shower base and the skirted tub. */}
-            <div className="mt-4">
-              <div className="mb-1.5 flex items-center gap-2">
-                <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">{t("configurator.shower.baseColor")}</span>
-                <span className="text-xs">{SHOWER_BASE_COLORS.find((c) => c.id === (s.baseColor ?? "white"))?.name}</span>
+
+            {/* Base colour — only where the family HAS a colour axis. The K-Series acrylics
+                and the Cascade tubs ship white only, so a palette there would offer SKUs that
+                do not exist. */}
+            {item && item.colors.length > 1 && (
+              <div className="mt-4">
+                <div className="mb-1.5 flex items-center gap-2">
+                  <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">{t("configurator.shower.baseColor")}</span>
+                  <span className="text-xs">{item.colors.find((c) => c.id === (s.baseColor ?? "white"))?.name ?? "—"}</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {item.colors.map((c) => (
+                    <button key={c.id} onClick={() => set({ baseColor: c.id })} title={c.name}
+                      className={`h-8 w-8 rounded-full border-2 transition ${(s.baseColor ?? "white") === c.id ? "border-accent ring-2 ring-accent/30" : "border-line hover:border-ink/30"}`}
+                      style={{ background: c.hex }} />
+                  ))}
+                </div>
               </div>
-              <div className="flex flex-wrap gap-2">
-                {SHOWER_BASE_COLORS.map((c) => (
-                  <button key={c.id} onClick={() => set({ baseColor: c.id })} title={c.name}
-                    className={`h-8 w-8 rounded-full border-2 transition ${(s.baseColor ?? "white") === c.id ? "border-accent ring-2 ring-accent/30" : "border-line hover:border-ink/30"}`}
-                    style={{ background: c.hex }} />
-                ))}
-              </div>
-            </div>
+            )}
+            {item && item.colors.length === 1 && (
+              <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.1em] text-muted">
+                {t("configurator.shower.whiteOnly")}
+              </p>
+            )}
+            {/* The ordered code, once size + colour + drain resolve to one. */}
+            {baseVariant && (
+              <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.12em] text-muted">{baseVariant.productCode}</p>
+            )}
           </Step>
         )}
 
@@ -981,6 +1300,30 @@ export function ShowerConfigurator({
                 ))}
               </div>
             )}
+
+            {/* Ceiling height — SPC only. It is what chooses between the 66", 80" and 96"
+                NuVo kits, and there is no way to price one without it. HPL does not ask:
+                its takeoff is per-wall against a full-height 94½" panel regardless. */}
+            {isSpc && (
+              <div className="mt-4">
+                <div className="mb-1.5 font-mono text-[10px] uppercase tracking-[0.1em] text-muted">
+                  {t("configurator.shower.ceilingHeight")}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {SPC_CEILING_HEIGHTS.map((h) => (
+                    <button key={h} type="button" onClick={() => set({ ceilingIn: h })}
+                      className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition ${(s.ceilingIn ?? DEFAULT_SPC_CEILING) === h ? "border-accent bg-accent-soft/50" : "border-line hover:bg-ink/5"}`}>
+                      {h}&quot;
+                    </button>
+                  ))}
+                </div>
+                {price.spcKit && (
+                  <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.12em] text-muted">
+                    {price.spcKit.productCode ?? t("configurator.shower.pickDecorForSku")}
+                  </p>
+                )}
+              </div>
+            )}
           </Step>
         )}
 
@@ -990,31 +1333,68 @@ export function ShowerConfigurator({
               <p className="text-sm text-muted">{t("configurator.shower.noStockDoor")}</p>
             ) : (
               <>
-                <label className="mb-2 flex items-center gap-2 text-sm">
-                  {/* Ticking the box lands on the entry-rank series that fits this opening,
-                      in the default Chrome — both deselectable from the controls below. */}
+                <label className="mb-3 flex items-center gap-2 text-sm">
+                  {/* Ticking the box lands on Rainier — the value line — in the default
+                      Chrome with clear glass. All three are changeable below. */}
                   <input type="checkbox" checked={!!s.door}
                     onChange={(e) => set({ door: e.target.checked ? defaultDoor(availDoors) : null })} />
                   {t("configurator.shower.addMatchingDoor")}
                 </label>
                 {s.door && (
-                  <div className="space-y-2">
-                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                      {availDoors.map((d) => (
-                        <button key={d.id} onClick={() => set({ door: { seriesId: d.id, finish: s.door!.finish } })}
-                          className={`rounded-lg border px-3 py-2 text-left text-sm transition ${s.door?.seriesId === d.id ? "border-accent bg-accent-soft/40" : "border-line hover:bg-ink/5"}`}>
-                          {d.series}
+                  <div className="space-y-3">
+                    {/* Family tabs. Only the families with a model that fits are shown —
+                        Tetherow has no 48" door, so a 48" opening offers two, not three. */}
+                    <div className="flex flex-wrap gap-1.5">
+                      {doorFamilies.map((f) => (
+                        <button key={f} type="button" onClick={() => chooseDoorFamily(f)}
+                          className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${f === activeDoorFamily ? "border-accent bg-accent-soft/50 text-ink" : "border-line text-muted hover:bg-ink/5"}`}>
+                          {DOOR_FAMILY_NAME[f]}
                         </button>
                       ))}
                     </div>
+                    <p className="text-xs text-muted">{t(`configurator.shower.doorFamilyDesc.${activeDoorFamily}`)}</p>
+
+                    {/* Model — one per height within the family at this opening. */}
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      {availDoors.filter((d) => d.family === activeDoorFamily).map((d) => {
+                        const price = d.variants.find((v) => v.finish === s.door!.finish)?.dealerPrice ?? d.variants[0].dealerPrice;
+                        return (
+                          <button key={d.id} onClick={() => chooseDoorModel(d)}
+                            className={`rounded-lg border px-3 py-2 text-left text-sm transition ${s.door?.seriesId === d.id ? "border-accent bg-accent-soft/40" : "border-line hover:bg-ink/5"}`}>
+                            <span className="block font-medium">{t("configurator.shower.doorSize", { w: d.widthLabel, h: String(d.heightIn) })}</span>
+                            <span className="block font-mono text-[10px] text-muted">{money(price)}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Finish. */}
                     <div className="flex flex-wrap gap-2">
-                      {Object.keys(availDoors.find((d) => d.id === s.door!.seriesId)?.finishes ?? {}).map((f) => (
-                        <button key={f} onClick={() => set({ door: { seriesId: s.door!.seriesId, finish: f } })}
+                      {([...new Set((availDoors.find((d) => d.id === s.door!.seriesId)?.variants ?? []).map((v) => v.finish))] as DoorFinish[]).map((f) => (
+                        <button key={f} onClick={() => set({ door: { ...s.door!, finish: f } })}
                           className={`rounded-lg border px-3 py-1.5 text-sm transition ${s.door?.finish === f ? "border-accent bg-accent-soft/50" : "border-line hover:bg-ink/5"}`}>
                           {t("configurator.doorFinish." + f)}
                         </button>
                       ))}
                     </div>
+
+                    {/* Glass — Rainier only. The frameless ranges are clear-only, so showing
+                        an inert toggle on them would offer a choice that does not exist. */}
+                    {activeDoorFamily === "rainier" && (
+                      <div>
+                        <div className="mb-1.5 font-mono text-[10px] uppercase tracking-[0.1em] text-muted">{t("configurator.shower.doorGlass")}</div>
+                        <div className="flex flex-wrap gap-2">
+                          {(["clear", "opaque"] as DoorGlass[]).map((g) => (
+                            <button key={g} onClick={() => set({ door: { ...s.door!, glass: g } })}
+                              className={`rounded-lg border px-3 py-1.5 text-sm transition ${(s.door?.glass ?? "clear") === g ? "border-accent bg-accent-soft/50" : "border-line hover:bg-ink/5"}`}>
+                              {t("configurator.doorGlass." + g)}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {doorSku && <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted">{doorSku.variant.productCode}</p>}
                   </div>
                 )}
               </>
@@ -1127,11 +1507,11 @@ function PanelPicker({ selectedId, onSelect }: { selectedId?: string; onSelect: 
         {collections.map((c) => (
           <button key={c.id} type="button" onClick={() => setOpenId(c.id)}
             className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${c.id === active?.id ? "border-accent bg-accent-soft/50 text-ink" : "border-line text-muted hover:bg-ink/5"}`}>
-            {t(`configurator.shower.panel.collection.${c.id}`)}
+            {t(COLLECTION_KEY[c.id] ?? c.name)}
           </button>
         ))}
       </div>
-      {active && <p className="mb-3 text-xs text-muted">{t(`configurator.shower.panel.collectionDesc.${active.id}`)}</p>}
+      {active && <p className="mb-3 text-xs text-muted">{t(COLLECTION_DESC_KEY[active.id] ?? active.description)}</p>}
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
         {active?.panels.map((p) => {
@@ -1333,7 +1713,7 @@ export function ShowerPreviewFromConfig({ config, className }: { config: ShowerC
   const catalog = SAMPLE_SHOWER_CATALOG;
   const s = config.selections;
   const material = findWallMaterial(catalog, s.materialId);
-  const palette = material?.colors ?? NUVO_COLORS;
+  const palette = material?.colors ?? SPC_COLORS;
   const wallHex = (i: number) => palette.find((c) => c.id === s.wallColors[i])?.hex ?? "#dad6cd";
   // Only a flat material image may tile the walls (see Swatch.textureUrl) — a room photo or
   // an angled slab render repeated across a shower reads as a rendering bug, so decors
@@ -1345,8 +1725,8 @@ export function ShowerPreviewFromConfig({ config, className }: { config: ShowerC
   const baseColor = SHOWER_BASE_COLORS.find((c) => c.id === (s.baseColor ?? "white"))?.hex ?? SHOWER_BASE_COLORS[0].hex;
   // Same door resolution the configurator does, so a read-only preview shows the identical
   // schematic rather than a generic pane.
-  const doorSeries = s.door ? (s.path === "tub" ? catalog.tubDoors : catalog.doors).find((d) => d.id === s.door!.seriesId) : undefined;
-  const doorViz = s.door ? { kind: doorKind(doorSeries?.series), finishHex: DOOR_FINISH_HEX[s.door.finish] ?? "#9aa0a6" } : undefined;
+  const doorModel = s.door ? catalog.doors.find((d) => d.id === s.door!.seriesId) : undefined;
+  const doorViz = s.door ? { kind: doorKind(doorModel?.family), finishHex: DOOR_FINISH_HEX[s.door.finish] ?? "#9aa0a6" } : undefined;
   return (
     <div className={className} style={{ pointerEvents: "none" }}>
       <ShowerPreview path={s.path} back={wallHex(0)} left={wallHex(1)} right={wallHex(2)} baseColor={baseColor}
