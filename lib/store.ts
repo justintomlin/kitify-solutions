@@ -17,6 +17,7 @@
 
 import { supabase } from "@/lib/supabase";
 import type { PostgrestError } from "@supabase/supabase-js";
+import { quoteBathrooms, quoteFlatSlots, toBathrooms, type Bathroom } from "./bathrooms.ts";
 
 export type JobRegistrationStatus = "not_started" | "started" | "complete";
 
@@ -42,16 +43,33 @@ export type Quote = {
   shower: unknown | null;
   vanity: unknown | null;
   plumbing: unknown | null;
+  /**
+   * Null on every row written before Phase C1, and on every one-bathroom quote written
+   * after it — those dual-write both shapes so a UI rollback stays readable. Only a
+   * genuinely multi-bathroom quote carries this alone.
+   *
+   * Do not read this directly. Go through `quoteBathrooms()`, which resolves both shapes.
+   */
+  bathrooms: Bathroom[] | null;
   total: number;
   status: "draft" | "sent" | "accepted" | "ordered" | "archived";
   createdAt: string;
   updatedAt: string;
 };
 
+// The Bathroom seam lives in lib/bathrooms.ts — pure and import-free, so it is unit-testable
+// without a Supabase client (lib/supabase throws at module load without env vars). Re-exported
+// here so callers can keep importing everything quote-shaped from one place.
+export { quoteBathrooms, isMultiBathroom, bathroomSlots, DEFAULT_BATHROOM_ID, type Bathroom } from "./bathrooms.ts";
+
 // The save inputs: everything except the server-managed id / timestamps, with an
 // optional id (present ⇒ update, absent ⇒ insert). Unchanged from the previous API.
 type ProjectInput = Omit<Project, "id" | "createdAt" | "updatedAt"> & { id?: string };
-type QuoteInput = Omit<Quote, "id" | "createdAt" | "updatedAt"> & { id?: string };
+// `bathrooms` is optional on the way in: a caller that only knows the four flat slots (which
+// is every caller today) keeps working untouched, and quoteToRow derives the array from them.
+type QuoteInput =
+  Omit<Quote, "id" | "createdAt" | "updatedAt" | "bathrooms">
+  & { id?: string; bathrooms?: Bathroom[] | null };
 
 /** One contractor-entered charge on a proposal - labour, permits, disposal, extras. */
 export type ProposalLineItem = { id: string; description: string; amount: number };
@@ -147,6 +165,9 @@ type QuoteRow = {
   shower: unknown | null;
   vanity: unknown | null;
   plumbing: unknown | null;
+  // Absent entirely on a pre-0018 database: quote reads use select("*"), so the column
+  // simply does not come back rather than erroring. rowToQuote treats that as null.
+  bathrooms?: unknown;
   total: number | string;
   status: Quote["status"];
   created_at: string;
@@ -202,6 +223,7 @@ function rowToQuote(r: QuoteRow): Quote {
     shower: r.shower ?? null,
     vanity: r.vanity ?? null,
     plumbing: r.plumbing ?? null,
+    bathrooms: toBathrooms(r.bathrooms),
     total: Number(r.total), // numeric may arrive as a string — normalise to number
     status: r.status,
     createdAt: r.created_at,
@@ -209,16 +231,26 @@ function rowToQuote(r: QuoteRow): Quote {
   };
 }
 
-// The four config objects are jsonb — passed through as-is (null when absent).
+/**
+ * The four config objects are jsonb — passed through as-is (null when absent).
+ *
+ * DUAL-WRITE: a one-bathroom quote writes BOTH shapes. The flat columns stay the source of
+ * truth for anything that hasn't been taught about bathrooms — including a rolled-back
+ * deployment — while `bathrooms` carries the same content forward. Only a genuinely
+ * multi-bathroom quote writes `bathrooms` alone, because there is no honest way to flatten
+ * two bathrooms into four singular columns and a partial write there would be worse than none.
+ */
 function quoteToRow(q: QuoteInput) {
   return {
     project_id: q.projectId,
     owner_id: q.ownerId,
     name: q.name,
-    room: q.room ?? null,
-    shower: q.shower ?? null,
-    vanity: q.vanity ?? null,
-    plumbing: q.plumbing ?? null,
+    ...quoteFlatSlots(q),        // the legacy half of the dual-write
+    // …and the new half. quoteBathrooms() is total, so a caller that passed only the four
+    // flat slots — which is every caller today — still writes a real one-element array.
+    // Saving is therefore the per-row migration path: a legacy quote gains its `bathrooms`
+    // the next time it is touched, and nothing has to sweep the table.
+    bathrooms: quoteBathrooms(q),
     total: q.total,
     status: q.status,
   };
@@ -424,22 +456,45 @@ export async function getQuote(id: string): Promise<Quote | null> {
   return data ? rowToQuote(data) : null;
 }
 
-export async function saveQuote(q: QuoteInput): Promise<Quote> {
-  if (q.id) {
-    const { data, error } = await supabase
-      .from("quotes")
-      .update(quoteToRow(q))
-      .eq("id", q.id)
-      .select()
-      .single();
-    if (error) fail("saveQuote (update)", error);
-    if (!data) fail("saveQuote (update)", null);
-    return rowToQuote(data);
+/**
+ * Run a quote write, falling back to the pre-0018 column set when `bathrooms` is absent.
+ *
+ * Same guard as writeProposal, for the same reason: deploying this code ahead of migration
+ * 0018 would otherwise take out quote saving entirely — a working feature broken by an
+ * unrelated one. The fallback is safe because a single-bathroom quote dual-writes, so the
+ * flat columns already carry everything; dropping `bathrooms` loses nothing.
+ *
+ * A MULTI-bathroom quote cannot fall back, because the flat columns cannot hold it. That is
+ * refused loudly rather than saved lossily — silently dropping bathroom 2 would look like a
+ * successful save and lose a dealer's work.
+ */
+async function writeQuote(
+  context: string,
+  row: Record<string, unknown>,
+  run: (row: Record<string, unknown>) => PromiseLike<{ data: unknown; error: PostgrestError | null }>,
+): Promise<Quote> {
+  let { data, error } = await run(row);
+  if (error && isMissingColumn(error)) {
+    const baths = row.bathrooms;
+    if (Array.isArray(baths) && baths.length > 1) {
+      fail(`${context} — quotes.bathrooms is missing; run supabase/migrations/0018_quotes_bathrooms.sql before saving a multi-bathroom quote`, error);
+    }
+    const reduced = { ...row };
+    delete reduced.bathrooms;
+    console.warn(`[store] ${context}: quotes.bathrooms missing - run supabase/migrations/0018_quotes_bathrooms.sql. Saving the legacy columns only.`);
+    ({ data, error } = await run(reduced));
   }
-  const { data, error } = await supabase.from("quotes").insert(quoteToRow(q)).select().single();
-  if (error) fail("saveQuote (insert)", error);
-  if (!data) fail("saveQuote (insert)", null);
-  return rowToQuote(data);
+  if (error) fail(context, error);
+  if (!data) fail(context, null);
+  return rowToQuote(data as QuoteRow);
+}
+
+export async function saveQuote(q: QuoteInput): Promise<Quote> {
+  const row = quoteToRow(q);
+  const id = q.id;
+  return id
+    ? writeQuote("saveQuote (update)", row, (r) => supabase.from("quotes").update(r).eq("id", id).select().single())
+    : writeQuote("saveQuote (insert)", row, (r) => supabase.from("quotes").insert(r).select().single());
 }
 
 export async function deleteQuote(id: string): Promise<void> {
@@ -817,7 +872,13 @@ export async function createOrderFromProposal(proposalId: string): Promise<Order
     },
     quote: {
       id: quote.id, name: quote.name,
+      // BOTH shapes, always. The flat slots are what every snapshot before Phase C1 carries
+      // and what inventory_order_lines() falls back to, so they stay even on a multi-bathroom
+      // order — where they hold bathroom 1 and the full truth is in `bathrooms`. A snapshot
+      // is an immutable record of what was sold, so it is written wide rather than narrow:
+      // a reader that has never heard of bathrooms still finds something correct.
       room: quote.room, shower: quote.shower, vanity: quote.vanity, plumbing: quote.plumbing,
+      bathrooms: quoteBathrooms(quote),
       dealerTotal: quote.total,
     },
     retailTotal,

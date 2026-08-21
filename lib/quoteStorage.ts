@@ -3,15 +3,27 @@
 // in private mode, or when the quota is exceeded — none of that should ever throw into
 // the UI. Only the emitted config objects are stored (never React state/refs).
 
-export const QUOTE_SCHEMA_VERSION = 1;
+/**
+ * Bumped to 2 in Phase C1, when `bathrooms` joined the shape.
+ *
+ * loadCurrentQuote rejects any version it does not recognise, so a version-1 autosave is
+ * discarded rather than half-loaded. That costs a dealer who is mid-configuration at deploy
+ * time their in-flight work — acceptable for crash-recovery data that is re-created on the
+ * next edit, and much safer than guessing at a shape. If monitoring shows that landing badly,
+ * a version-1 upgrader is a small addition (the v1 fields are a strict subset of v2).
+ */
+export const QUOTE_SCHEMA_VERSION = 2;
 
 export type StoredQuote = {
   version: number;
   savedAt: string; // ISO timestamp
+  // The four legacy slots stay, and stay populated for a single-bathroom quote, mirroring the
+  // dual-write in lib/store.ts. `bathrooms` is the shape the hub will use from C2 onward.
   room: unknown | null;
   shower: unknown | null;
   vanity: unknown | null;
   plumbing: unknown | null;
+  bathrooms?: unknown[] | null;
 };
 
 // `userKey` is the caller's stable auth uuid (see app/portal/configurator/page.tsx), so the
