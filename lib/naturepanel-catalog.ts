@@ -4,14 +4,20 @@
 // scrape is a data commit, not a code change, and every lookup returns null/[] rather than
 // throwing so callers keep their existing fallback.
 //
-// Two CDNs are in play — Grant Westfield publishes the Wood Decors on naturepanel.co.uk and
-// the Tile/Pure Decors on multipanel.co.uk — so each panel names its own source and the URL
-// is built from that source's template. Nothing is stored locally.
+// IMAGERY IS LOCAL. Every decor serves two files under /decor-swatches, generated from Grant
+// Westfield's print masters by scripts/build-decor-swatches.mjs: a full-panel texture at the
+// true 1:4.138 panel ratio, and a square picker thumbnail. The CDN template fields are kept as
+// provenance and are still resolvable via getPanelCdnImage(), but nothing renders from them —
+// the CDN assets were mostly room photography (whole bathrooms, pot plants and all), which is
+// why only three of them could ever be tiled onto a wall. All 21 masters are flat material
+// scans, so all 21 are now tileable.
 //
-// NO PRICING: the catalog carries no prices. Wall-kit pricing stays on the shower module's
-// placeholder tier price until a real price book lands.
+// NO PRICING: the catalog carries no prices. HPL money comes from lib/hpl-shower-takeoff.ts.
 
-import catalog from "./data/naturepanel-catalog.json";
+// The import attribute is required by Node's ESM loader, which is what runs lib/__tests__ —
+// without it the catalog (and everything importing it, including lib/catalog.ts) is untestable
+// outside a browser build. Next compiles it through SWC, which accepts the same syntax.
+import catalog from "./data/naturepanel-catalog.json" with { type: "json" };
 
 export type PanelSpecs = {
   width_in: number;
@@ -23,35 +29,60 @@ export type PanelSpecs = {
   certifications: string[];
 };
 
-/** A panel flattened for UI use: display fields plus a ready-to-render swatch URL. */
+/**
+ * Decor family. Matches the price sheet's own grouping, which is why the Tile collection is
+ * split in two — large-format and metro are separately merchandised products.
+ */
+export type PanelFamily = "wood" | "pure" | "large-tile" | "metro-tile";
+
+/**
+ * How a Wood decor is constructed. These are physically different products, not finishes:
+ * shiplap is the 5-slat board and slat-wall the 13-slat panel, and the two Cuneo Oaks are
+ * sold in both. Undefined outside the Wood family.
+ */
+export type PanelFormat = "shiplap" | "slat-wall";
+
+/** A panel flattened for UI use: display fields plus ready-to-render image URLs. */
 export type Panel = {
   id: string;
   name: string;
   style: string;
-  collection: string;      // collection id — "wood" | "tile" | "pure"
+  collection: string;      // collection id, which is also the family
+  family: PanelFamily;
+  format?: PanelFormat;
   shadowLine?: string;
   skuRef?: string;
-  imageUrl: string;        // at DEFAULT_SIZE; call getPanelImage() for another size
+  imageUrl: string;        // square thumbnail, for pickers and chips
   /**
-   * Whether imageUrl is a true material swatch (a flat crop of the decor) rather than a
-   * room/lifestyle photograph.
-   *
-   * Only the seven Wood Decors currently point at swatch crops. Every Tile and Pure decor
-   * references multipanel.co.uk gallery photography — whole bathrooms, complete with
-   * vanities and pot plants. Those are fine as product thumbnails but must never be tiled
-   * as a wall texture, which is why callers gate on this instead of on the image existing.
-   * Flip to true in the JSON once real swatch assets replace them.
+   * The full-panel image, at the true 22¾ × 94½ ratio — the only kind that may be repeated
+   * across a surface. Every decor now has one (see the module header), so this is never
+   * undefined in practice; the optional type is kept so a future decor added without an
+   * asset degrades to the flat tint rather than rendering a broken wall.
    */
+  textureUrl?: string;
+  /** Retained for callers that gate on "may this be tiled"; true for all 21 today. */
   isSwatch: boolean;
+  /**
+   * The master was CMYK with no embedded ICC profile, so the sRGB conversion is generic and
+   * the on-screen colour is approximate. Seven decors. Worth surfacing before a dealer picks
+   * a colour from a screen — see `flatChip` for the two worst cases.
+   */
+  colorUnverified: boolean;
+  /** The master has no material texture at all — a flat colour chip. Two decors. */
+  flatChip: boolean;
 };
 
 export type PanelCollection = { id: string; name: string; description: string; panels: Panel[] };
 
 type RawPanel = {
   id: string; name: string; style: string;
+  format?: string;
   shadow_line?: string; sku_ref?: string;
+  image?: string; tile_image?: string;
   image_source: string; image_hash: string; image_slug: string;
   swatch_asset?: boolean;
+  color_unverified?: boolean;
+  flat_chip?: boolean;
 };
 type RawCollection = { id: string; name: string; description: string; panels: RawPanel[] };
 type RawCatalog = {
@@ -83,19 +114,27 @@ function buildUrl(raw: RawPanel, width: number, height: number): string | null {
 }
 
 function toPanel(raw: RawPanel, collectionId: string): Panel | null {
-  const imageUrl = buildUrl(raw, DEFAULT_SIZE, DEFAULT_SIZE);
+  // A decor with no local thumbnail can't be rendered, so it is dropped rather than shown as
+  // a broken tile. Falls back to the CDN only if the local path is missing from the data.
+  const imageUrl = raw.tile_image ?? raw.image ?? buildUrl(raw, DEFAULT_SIZE, DEFAULT_SIZE);
   if (!imageUrl) return null;
   return {
     id: raw.id,
     name: raw.name,
     style: raw.style,
     collection: collectionId,
+    family: collectionId as PanelFamily,
+    format: raw.format as PanelFormat | undefined,
     shadowLine: raw.shadow_line,
     skuRef: raw.sku_ref,
     imageUrl,
-    // Absent means "not verified as a swatch" — the safe answer, since the cost of being
-    // wrong is a bathroom photo rendered as a wall texture.
+    // Only a flat, edge-to-edge capture may tile a wall. Gated on swatch_asset rather than on
+    // the file existing, because the cost of being wrong is a photographed bathroom repeated
+    // across the previewed one.
+    textureUrl: raw.swatch_asset === true ? raw.image : undefined,
     isSwatch: raw.swatch_asset === true,
+    colorUnverified: raw.color_unverified === true,
+    flatChip: raw.flat_chip === true,
   };
 }
 
@@ -120,13 +159,30 @@ for (const c of DATA.collections) {
   COLLECTIONS.push({ id: c.id, name: c.name, description: c.description, panels });
 }
 
-/** Swatch URL for a panel at an arbitrary size, or null when the id isn't in the catalog. */
-export function getPanelImage(panelId: string, width = DEFAULT_SIZE, height = DEFAULT_SIZE): string | null {
+/**
+ * Thumbnail URL for a panel, or null when the id isn't in the catalog.
+ *
+ * The width/height arguments are accepted and IGNORED: the local thumbnails are one fixed
+ * 320×320 crop, whereas the CDN this replaced resized on demand. Callers already render
+ * inside a sized, object-cover box, so the parameters were never doing anything a caller
+ * could observe — they are kept so the CDN path (getPanelCdnImage) stays a drop-in swap.
+ */
+export function getPanelImage(panelId: string, _width = DEFAULT_SIZE, _height = DEFAULT_SIZE): string | null {
+  return panelById.get(panelId)?.imageUrl ?? null;
+}
+
+/** The full-panel tileable texture, or null when the decor has no flat capture. */
+export function getPanelTexture(panelId: string): string | null {
+  return panelById.get(panelId)?.textureUrl ?? null;
+}
+
+/** The original CDN URL at an arbitrary size — provenance and fallback only; nothing renders it. */
+export function getPanelCdnImage(panelId: string, width = DEFAULT_SIZE, height = DEFAULT_SIZE): string | null {
   const raw = rawById.get(panelId);
   return raw ? buildUrl(raw, width, height) : null;
 }
 
-/** Every panel in a collection ("wood" | "tile" | "pure"), in catalog order. Empty if unknown. */
+/** Every panel in a collection (a PanelFamily id), in catalog order. Empty if unknown. */
 export function getPanelsByCollection(collectionId: string): Panel[] {
   return COLLECTIONS.find((c) => c.id === collectionId)?.panels ?? [];
 }
