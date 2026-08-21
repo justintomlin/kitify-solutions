@@ -60,6 +60,19 @@ export type Panel = {
    * asset degrades to the flat tint rather than rendering a broken wall.
    */
   textureUrl?: string;
+  /**
+   * What Kitify sells one panel to a partner for — the Dealer 3 tier (0.55 multiplier) on
+   * Nature Panel's Dealer Pricing Structure. This is THE price a partner is quoted.
+   */
+  dealerPrice: number;
+  /**
+   * MAP — the manufacturer's advertised price, per panel.
+   *
+   * A GUIDELINE shown to partners as a reference for what to charge their own customer, and
+   * the basis for Kitify's own retail pricing. It is explicitly NOT enforced: a partner may
+   * price above it, at it or below it, and nothing in this codebase warns or blocks on that.
+   */
+  retailPrice: number;
   /** Retained for callers that gate on "may this be tiled"; true for all 21 today. */
   isSwatch: boolean;
   /**
@@ -79,6 +92,7 @@ type RawPanel = {
   format?: string;
   shadow_line?: string; sku_ref?: string;
   image?: string; tile_image?: string;
+  cost?: number; dealer_price?: number; retail_price?: number;
   image_source: string; image_hash: string; image_slug: string;
   swatch_asset?: boolean;
   color_unverified?: boolean;
@@ -132,6 +146,11 @@ function toPanel(raw: RawPanel, collectionId: string): Panel | null {
     // the file existing, because the cost of being wrong is a photographed bathroom repeated
     // across the previewed one.
     textureUrl: raw.swatch_asset === true ? raw.image : undefined,
+    // Note what is NOT copied across: `cost`. See getPanelCostInternal below — a Panel is the
+    // shape partner-facing components render, so Kitify's landed cost must not be reachable
+    // from it, however carefully the caller behaves.
+    dealerPrice: raw.dealer_price ?? 0,
+    retailPrice: raw.retail_price ?? 0,
     isSwatch: raw.swatch_asset === true,
     colorUnverified: raw.color_unverified === true,
     flatChip: raw.flat_chip === true,
@@ -195,6 +214,20 @@ export function getAllHplPanels(): Panel[] {
 /** One panel by id, or null. */
 export function getPanel(panelId: string | null | undefined): Panel | null {
   return panelId ? panelById.get(panelId) ?? null : null;
+}
+
+/**
+ * ADMIN ONLY — what Kitify pays for one panel, landed (the Wholesaler tier, 0.41).
+ *
+ * Deliberately NOT a field on Panel and deliberately awkward to reach: cost is Kitify's
+ * buying position, and a partner or their customer seeing it would expose Kitify's margin on
+ * every quote. Nothing under components/ may call this, and lib/__tests__/catalog.test.ts
+ * enforces that by grepping the component tree.
+ *
+ * There is no admin surface for it yet — this phase seeds the data so one can be built.
+ */
+export function getPanelCostInternal(panelId: string): number | null {
+  return rawById.get(panelId)?.cost ?? null;
 }
 
 /** Panel construction specs — dimensions, joint, warranty, certifications. */

@@ -12,6 +12,8 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readdirSync, readFileSync } from "node:fs";
+import path from "node:path";
 
 import {
   SHOWER_BASE_SKUS, ALCOVE_TUB_SKUS, SHOWER_BASES, TUBS,
@@ -21,7 +23,7 @@ import {
   CORNER_SHELF, SHOWER_NICHE, GRAB_BARS, LEGACY_GRAB_BAR_SIZES, SHOWER_CHAIR,
   matchSpcWallKit, spcKitCode,
 } from "../catalog.ts";
-import { getAllHplPanels, getPanelCollections, getPanel } from "../naturepanel-catalog.ts";
+import { getAllHplPanels, getPanelCollections, getPanel, getPanelCostInternal } from "../naturepanel-catalog.ts";
 
 // --------------------------------------------------------------- bases
 
@@ -304,6 +306,81 @@ test("the Grained prefix is gone from display names but ids are untouched", () =
   assert.equal(getPanel("grained-angora-grey")!.name, "Angora Grey");
   assert.equal(getPanel("grained-stone-green")!.name, "Stone Green");
   for (const p of getAllHplPanels()) assert.ok(!/^Grained/.test(p.name), `${p.id} still reads Grained`);
+});
+
+// ------------------------------------------------- Nature Panel pricing
+
+test("every decor is priced at all three tiers, by pattern family", () => {
+  const BAND = {
+    "wood":       { dealerPrice: 161.89, retailPrice: 220.76 },
+    "large-tile": { dealerPrice: 152.79, retailPrice: 208.35 },
+    "metro-tile": { dealerPrice: 152.79, retailPrice: 208.35 },
+    "pure":       { dealerPrice: 138.00, retailPrice: 188.18 },
+  } as const;
+  for (const p of getAllHplPanels()) {
+    const band = BAND[p.family];
+    assert.ok(band, `${p.id} has an unpriced family ${p.family}`);
+    assert.equal(p.dealerPrice, band.dealerPrice, `${p.id} dealer price`);
+    assert.equal(p.retailPrice, band.retailPrice, `${p.id} retail price`);
+    // $1 was the placeholder sentinel these replaced.
+    assert.ok(p.dealerPrice > 100, `${p.id} still placeholder-priced`);
+  }
+});
+
+test("the tiers stay in order — cost below dealer below MAP", () => {
+  for (const p of getAllHplPanels()) {
+    const cost = getPanelCostInternal(p.id)!;
+    assert.ok(cost > 0, `${p.id} has no cost`);
+    assert.ok(cost < p.dealerPrice, `${p.id}: cost ${cost} >= dealer ${p.dealerPrice}`);
+    assert.ok(p.dealerPrice < p.retailPrice, `${p.id}: dealer >= MAP`);
+  }
+});
+
+test("the two Cuneo Oak formats price the same — format is construction, not tier", () => {
+  for (const stem of ["bleached-cuneo-oak", "brown-cuneo-oak"]) {
+    const shiplap = getPanel(`${stem}-shiplap`)!;
+    const slat = getPanel(`${stem}-slat`)!;
+    assert.equal(shiplap.dealerPrice, slat.dealerPrice);
+    assert.equal(shiplap.retailPrice, slat.retailPrice);
+  }
+});
+
+test("Pure is cheaper than Tile, which is why sku_ref cannot be the pricing key", () => {
+  // The seven Pure decors each share a sku_ref with a Tile decor (MP638 is "Sage Green",
+  // sold as both a Pure panel and a Metro one). Those now carry DIFFERENT prices, so any
+  // lookup keyed on the derived HPL-<sku_ref> code is ambiguous by construction.
+  const pure = getPanel("sage-green-pure")!;
+  const metro = getPanel("sage-green-subway")!;
+  assert.equal(pure.skuRef, metro.skuRef, "precondition: the two share a decor ref");
+  assert.notEqual(pure.dealerPrice, metro.dealerPrice, "…and must not share a price");
+});
+
+test("cost is not reachable from a Panel", () => {
+  // Structural guarantee, not a convention: partner-facing components render Panels.
+  for (const p of getAllHplPanels()) {
+    assert.ok(!("cost" in p), `${p.id} leaks cost onto the Panel shape`);
+  }
+});
+
+test("no partner-facing component reaches Kitify's panel cost", () => {
+  // getPanelCostInternal is the ONLY way to read it — the structural test above proves it is
+  // not on Panel — so this one accessor is the whole surface to police. Deliberately narrow:
+  // a bare /cost/ also matches flooringTakeoff().cost and wallBaseTakeoff().cost, which are
+  // line extensions a dealer is supposed to see, and failing on those would train us to
+  // ignore this test.
+  const root = path.join(import.meta.dirname, "..", "..", "components");
+  const offenders: string[] = [];
+  const walk = (dir: string) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, e.name);
+      if (e.isDirectory()) walk(full);
+      else if (/\.tsx?$/.test(e.name) && /getPanelCostInternal/.test(readFileSync(full, "utf8"))) {
+        offenders.push(path.relative(root, full));
+      }
+    }
+  };
+  walk(root);
+  assert.deepEqual(offenders, [], `panel cost reached from components/: ${offenders.join(", ")}`);
 });
 
 test("colour-unverified decors are flagged, including the two flat chips", () => {
