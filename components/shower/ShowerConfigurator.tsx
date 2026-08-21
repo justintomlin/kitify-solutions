@@ -164,7 +164,16 @@ export type ShowerSelections = {
 // `estimated` marks a line whose MONEY is still a placeholder, as distinct from one whose fit
 // is uncertain (that is SpcKitLine.exact). Only the HPL lines set it today — the Therma-Glass
 // sheet prices the NuVo and Kohler ranges but carries no Nature Panel rows at all.
-export type PriceLine = { key: string; params?: Record<string, string>; amount: number; sku?: string; estimated?: boolean };
+//
+// `retailPrice` is the MAP reference for the whole line — what the manufacturer suggests the
+// partner's customer pays, against `amount`, which is what the partner pays Kitify. Optional
+// because most SKUs have no MAP on file; only the HPL panels carry one today. It rides the
+// existing snapshot path, so a saved proposal records both the price sold at and the
+// recommendation on the day it was written. It is a GUIDELINE — nothing enforces it.
+export type PriceLine = {
+  key: string; params?: Record<string, string>; amount: number;
+  sku?: string; estimated?: boolean; retailPrice?: number;
+};
 export type ShowerMedia = { wallImage?: string; baseImage?: string; doorImage?: string; swatchHex?: string };
 export type ShowerConfig = {
   selections: ShowerSelections;
@@ -440,7 +449,12 @@ function findWallMaterial(catalog: ShowerCatalog, id?: string): Material | undef
 }
 
 // ------------------------------ Engine ------------------------------------
-const money = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+/**
+ * Cents, not whole dollars — this module is the one that quotes real per-SKU money, and a
+ * panel at $161.89 rendered as "$162" is a quote a dealer cannot reconcile against the price
+ * sheet. The rest of the portal keeps whole dollars for roll-ups and dashboards.
+ */
+const money = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export function itemsForPath(catalog: ShowerCatalog, path?: Path): BaseItem[] {
   return path === "tub" ? catalog.tubs : path === "shower" ? catalog.bases : [];
@@ -552,10 +566,18 @@ export function resolveDoorVariant(catalog: ShowerCatalog, s: ShowerSelections) 
 const HPL_MATERIAL_ID = "hpl";
 export const isHplShower = (s: ShowerSelections) => s.materialId === HPL_MATERIAL_ID;
 
-// PLACEHOLDER PRICING — a nominal $1 per unit, matching every other price in this module.
-// Real per-SKU pricing loads from supplier spreadsheets; the BOM *quantities* are real now,
-// the money is not.
+/**
+ * PLACEHOLDER PRICING — a nominal $1 per unit, for HPL TRIM AND CONSUMABLES ONLY.
+ *
+ * The panels themselves are now real: Nature Panel's Dealer Pricing Structure prices them at
+ * the Dealer 3 tier, which the catalogue carries per decor. What it does not price is the
+ * interior corner, base profile and end cap, or the sealant, cleaner, wipes and wax — so
+ * those keep the sentinel and keep the banner honest about what is still outstanding.
+ */
 const HPL_PLACEHOLDER_UNIT_PRICE = 1;
+
+/** Money is cents-accurate now; float noise on a 7 × $161.89 line is not acceptable. */
+const round2 = (n: number) => Math.round(n * 100) / 100;
 
 /**
  * The inventory SKU code for an HPL decor.
@@ -564,11 +586,46 @@ const HPL_PLACEHOLDER_UNIT_PRICE = 1;
  * the 21 decors. The seven Wood decors carry no supplier code, so they fall back to their
  * catalogue id. Either way the code is stable and namespaced, which is what the inventory
  * seam matches on.
+ *
+ * KNOWN COLLISION: sku_ref identifies the DECOR, not the panel. MP638 is "Sage Green", which
+ * Nature Panel sells both as a Pure panel and as a Metro one, so all seven Pure decors share
+ * a code with a Tile decor and 21 decors mint only 14 codes. That was harmless while every
+ * panel cost $1 and is not now — Pure is $138.00 against Tile's $152.79 — which is why
+ * hplPanelPricing() below resolves through the shower's own decor selections rather than
+ * through this code. Re-minting the codes is a separate pass: they are what the Phase 3
+ * inventory seam records and what HPL_REQUIRED_SKU_CODES lists.
  */
 export function hplPanelSkuCode(panelId?: string): string | null {
   if (!panelId) return null;
   const p = getPanel(panelId);
   return `HPL-${p?.skuRef ?? panelId}`.toUpperCase();
+}
+
+/**
+ * Per-panel money for one BOM panel line, resolved from the decors THIS shower selected.
+ *
+ * The BOM rolls panels up by SKU code, and a code can name two decors at two prices (see the
+ * collision note above). Going back to the wall selections makes the common cases exact: any
+ * shower whose decors share a price band — which is every single-decor shower and every
+ * mixed one that stays inside a family — prices exactly right.
+ *
+ * The one case that cannot be exact is a shower mixing, say, Sage Green Pure with Sage Green
+ * Metro: the BOM has already merged them into one line, so there is one quantity and two
+ * possible prices. It takes the HIGHER and flags the line, because quoting the cheaper of two
+ * possible products and discovering the difference at fulfilment is the worse failure.
+ */
+type HplPanelPricing = { dealer: number; retail: number; ambiguous: boolean };
+function hplPanelPricing(skuCode: string | null, s: ShowerSelections): HplPanelPricing | null {
+  if (!skuCode) return null;
+  const decors = [...new Set(s.wallColors.filter((c): c is string => !!c))]
+    .map((id) => getPanel(id))
+    .filter((p): p is NonNullable<typeof p> => !!p && hplPanelSkuCode(p.id) === skuCode);
+  if (!decors.length) return null;
+  return {
+    dealer: Math.max(...decors.map((p) => p.dealerPrice)),
+    retail: Math.max(...decors.map((p) => p.retailPrice)),
+    ambiguous: new Set(decors.map((p) => p.dealerPrice)).size > 1,
+  };
 }
 
 /**
@@ -606,10 +663,17 @@ export type ShowerPrice = {
   /** Null unless the walls are SPC. `exact: false` means the kit does not match the enclosure. */
   spcKit: SpcKitLine | null;
   /**
-   * True when ANY line is still placeholder-priced, which is what gates the amber
-   * "not for quoting" banner. Only HPL trips it today — see HPL_PLACEHOLDER_UNIT_PRICE.
+   * True when an HPL TRIM or CONSUMABLE line is still on the $1 sentinel. Narrowed from the
+   * old "any HPL line" now that the panels themselves price for real — the banner has to name
+   * what is actually outstanding, or a dealer learns to ignore it.
    */
   hasPlaceholderPricing: boolean;
+  /**
+   * True when a panel line covers two decors at two prices — a shower mixing a Pure decor
+   * with the Tile decor that shares its sku_ref. Priced at the higher of the two and called
+   * out, rather than silently picking one. See hplPanelPricing().
+   */
+  hasAmbiguousPanelPricing: boolean;
 };
 
 export function computeShowerPrice(catalog: ShowerCatalog, s: ShowerSelections): ShowerPrice {
@@ -637,17 +701,33 @@ export function computeShowerPrice(catalog: ShowerCatalog, s: ShowerSelections):
   // product Kitify sells and there is no sheet to price it from.
   let hplBom: HplShowerBom | null = null;
   let spcKit: SpcKitLine | null = null;
+  let hplTrimPlaceholder = false;
+  let hplPanelAmbiguous = false;
   const hplConfig = buildHplShowerConfig(catalog, s);
   if (hplConfig) {
     hplBom = computeHplShowerBom(hplConfig, { acceptedUpsellIds: s.hplUpsells ?? [] });
     for (const l of hplBom.lines) {
-      const gross = l.qty * HPL_PLACEHOLDER_UNIT_PRICE;
+      // Panels price for real; trim and consumables keep the sentinel until Nature Panel
+      // prices them. `estimated` therefore now means "this figure is not final" rather than
+      // "every HPL figure is fake", which is what lets the banner name the actual gap.
+      const isPanel = l.kind === "panel";
+      const priced = isPanel ? hplPanelPricing(l.skuCode, s) : null;
+      const discount = 1 - (l.discountPct ?? 0) / 100;
+      if (priced?.ambiguous) hplPanelAmbiguous = true;
+      // Only a NON-panel line means trim pricing is outstanding. A panel line can also come
+      // through unpriced — a wall with no decor chosen yet has no SKU to price — but that is
+      // an unfinished configuration, not a gap in the price book, and blaming the trim for it
+      // would send the dealer looking in the wrong place.
+      if (!isPanel) hplTrimPlaceholder = true;
       lines.push({
         key: l.labelKey,
         params: { ...(l.labelParams ?? {}), n: String(l.qty) },
-        amount: Math.round(gross * (1 - (l.discountPct ?? 0) / 100)),
+        amount: round2(l.qty * (priced ? priced.dealer : HPL_PLACEHOLDER_UNIT_PRICE) * discount),
+        // MAP is the manufacturer's retail per panel and does not move because Kitify gave
+        // the dealer an upsell discount, so the reference is deliberately undiscounted.
+        retailPrice: priced ? round2(l.qty * priced.retail) : undefined,
         sku: l.skuCode ?? undefined,
-        estimated: true,   // the QUANTITIES are real; the money is still a placeholder
+        estimated: priced ? (priced.ambiguous || undefined) : true,
       });
     }
   } else if (mat?.id === "spc" && item) {
@@ -708,8 +788,12 @@ export function computeShowerPrice(catalog: ShowerCatalog, s: ShowerSelections):
     });
   }
 
-  const total = lines.reduce((x, l) => x + l.amount, 0);
-  return { total, lines, hplBom, spcKit, hasPlaceholderPricing: lines.some((l) => l.estimated) };
+  const total = round2(lines.reduce((x, l) => x + l.amount, 0));
+  return {
+    total, lines, hplBom, spcKit,
+    hasPlaceholderPricing: hplTrimPlaceholder,
+    hasAmbiguousPanelPricing: hplPanelAmbiguous,
+  };
 }
 
 /** An accessory's product code in the chosen finish, or undefined if it isn't offered in it. */
@@ -1061,20 +1145,34 @@ export function ShowerConfigurator({
                 HPL lines do not, because that sheet carries no Nature Panel rows, so an HPL
                 shower still says so. See PriceLine.estimated. */}
             {price.hasPlaceholderPricing && (
-              <div className="mb-2 rounded-md bg-amber/10 px-2 py-1 text-[10px] font-medium text-amber">{t("configurator.shower.hplPricingPending")}</div>
+              <div className="mb-2 rounded-md bg-amber/10 px-2 py-1 text-[10px] font-medium text-amber">{t("configurator.shower.hplTrimPricingPending")}</div>
             )}
             <div className="space-y-1">
               {price.lines.map((l, i) => (
-                <div key={i} className="flex justify-between gap-2 text-xs text-muted">
-                  <span className="min-w-0">
-                    {priceLineText(t, l)}
-                    {l.sku && <span className="ml-1 font-mono text-[9px] uppercase tracking-wide opacity-70">{l.sku}</span>}
-                  </span>
-                  <span className="shrink-0">{money(l.amount)}</span>
+                <div key={i} className="text-xs text-muted">
+                  <div className="flex justify-between gap-2">
+                    <span className="min-w-0">
+                      {priceLineText(t, l)}
+                      {l.sku && <span className="ml-1 font-mono text-[9px] uppercase tracking-wide opacity-70">{l.sku}</span>}
+                    </span>
+                    <span className="shrink-0">{money(l.amount)}</span>
+                  </div>
+                  {/* MAP reference. Informational only — the partner sets their own customer
+                      price and nothing here warns if they go above or below it. */}
+                  {l.retailPrice != null && (
+                    <div className="pl-2 text-[10px] opacity-70">{t("configurator.shower.suggestedRetail", { amount: money(l.retailPrice) })}</div>
+                  )}
                 </div>
               ))}
               {price.lines.length === 0 && <div className="text-xs text-muted">{t("configurator.shower.chooseBaseFirst")}</div>}
             </div>
+
+            {/* Two decors sharing one sku_ref at two prices — quoted at the higher. */}
+            {price.hasAmbiguousPanelPricing && (
+              <p className="mt-2 rounded-md border border-amber/30 bg-amber/10 px-2 py-1.5 text-[11px] leading-relaxed text-amber">
+                {t("configurator.shower.hplPanelPriceAmbiguous")}
+              </p>
+            )}
 
             {/* An SPC kit that doesn't match the configured enclosure. Warn, never block —
                 NuVo sells four fixed kits and the closest one is still a usable quote; the

@@ -1221,7 +1221,11 @@ export const dictionary: Record<Lang, Record<string, any>> = {
         ceilingHeight: "Ceiling height",
         pickDecorForSku: "Pick a decor to resolve the kit SKU",
         spcKitMismatch: "No NuVo kit matches this enclosure exactly. Priced from the closest — {w}\" × {h}\" — so fit and freight will be estimated.",
-        hplPricingPending: "Nature Panel pricing pending — quantities are final, the money is not",
+        // Narrowed once the panels themselves priced for real: the gap is now trim and
+        // consumables only, and saying so is what keeps the warning worth reading.
+        hplTrimPricingPending: "HPL trim and consumables pricing pending — panels are priced",
+        suggestedRetail: "Suggested retail {amount}",
+        hplPanelPriceAmbiguous: "This shower mixes two decors that share one supplier code at different prices. Quoted at the higher of the two — confirm the panel line before ordering.",
         doorSize: "{w} × {h}\" high",
         doorGlass: "Glass",
         doorFamilyDesc: {
@@ -3080,7 +3084,9 @@ export const dictionary: Record<Lang, Record<string, any>> = {
         ceilingHeight: "Altura del techo",
         pickDecorForSku: "Elija un decorado para determinar el SKU del kit",
         spcKitMismatch: "Ningún kit NuVo corresponde exactamente a este recinto. Se cotiza con el más cercano ({w}\" × {h}\"), por lo que el ajuste y el flete serán estimados.",
-        hplPricingPending: "Precios de Nature Panel pendientes: las cantidades son definitivas, el importe no",
+        hplTrimPricingPending: "Precios de molduras y consumibles HPL pendientes: los paneles ya tienen precio",
+        suggestedRetail: "Precio minorista sugerido {amount}",
+        hplPanelPriceAmbiguous: "Esta ducha combina dos decorados que comparten un mismo código de proveedor con precios distintos. Se cotiza al mayor de los dos; confirme la línea de paneles antes de pedir.",
         doorSize: "{w} × {h}\" de alto",
         doorGlass: "Vidrio",
         doorFamilyDesc: {
