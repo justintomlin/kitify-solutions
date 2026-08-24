@@ -4,26 +4,31 @@
 // the UI. Only the emitted config objects are stored (never React state/refs).
 
 /**
- * Bumped to 2 in Phase C1, when `bathrooms` joined the shape.
+ * Bumped to 2 in Phase C1 (`bathrooms` joined the shape) and to 3 in C2, when the hub started
+ * writing a real bathrooms array and an active tab.
  *
- * loadCurrentQuote rejects any version it does not recognise, so a version-1 autosave is
+ * loadCurrentQuote rejects any version it does not recognise, so an older autosave is
  * discarded rather than half-loaded. That costs a dealer who is mid-configuration at deploy
  * time their in-flight work — acceptable for crash-recovery data that is re-created on the
- * next edit, and much safer than guessing at a shape. If monitoring shows that landing badly,
- * a version-1 upgrader is a small addition (the v1 fields are a strict subset of v2).
+ * next edit, and much safer than guessing at a shape.
  */
-export const QUOTE_SCHEMA_VERSION = 2;
+export const QUOTE_SCHEMA_VERSION = 3;
 
 export type StoredQuote = {
   version: number;
   savedAt: string; // ISO timestamp
-  // The four legacy slots stay, and stay populated for a single-bathroom quote, mirroring the
-  // dual-write in lib/store.ts. `bathrooms` is the shape the hub will use from C2 onward.
+  /**
+   * The four legacy slots. Still written, and still holding bathroom 1, mirroring the
+   * dual-write in lib/store.ts — so anything reading this the old way finds something real.
+   */
   room: unknown | null;
   shower: unknown | null;
   vanity: unknown | null;
   plumbing: unknown | null;
+  /** The whole quote, from C2 onward. This is what the hub restores from. */
   bathrooms?: unknown[] | null;
+  /** Which tab was open. Restored so a reload does not jump the dealer back to bathroom 1. */
+  activeBathroomId?: string | null;
 };
 
 // `userKey` is the caller's stable auth uuid (see app/portal/configurator/page.tsx), so the

@@ -13,6 +13,8 @@ import assert from "node:assert/strict";
 
 import {
   quoteBathrooms, isMultiBathroom, toBathrooms, quoteFlatSlots, bathroomSlots,
+  addBathroom, removeBathroom, renameBathroom, setBathroomSlots, isBathroomEmpty,
+  labelForBathroom, labelForTier, toOptionNames,
   DEFAULT_BATHROOM_ID, type Bathroom,
 } from "../bathrooms.ts";
 
@@ -154,6 +156,121 @@ test("a frozen snapshot's quote object reads through the same accessor", () => {
 
   const c1SnapshotQuote = { ...legacySnapshotQuote, bathrooms: [{ id: "b1", name: null, shower: SHOWER }] };
   assert.equal(quoteBathrooms(c1SnapshotQuote).length, 1);
+});
+
+// ------------------------------------------------------------- C2 mutation
+
+test("addBathroom appends an empty bathroom with a fresh id", () => {
+  const start = quoteBathrooms(legacyQuote());
+  const { bathrooms, id } = addBathroom(start);
+  assert.equal(bathrooms.length, 2);
+  assert.equal(bathrooms[0], start[0], "the existing bathroom is untouched");
+  assert.equal(bathrooms[1].id, id);
+  assert.equal(bathrooms[1].name, null);
+  assert.equal(isBathroomEmpty(bathrooms[1]), true);
+  assert.notEqual(id, start[0].id);
+});
+
+test("bathroom ids are never reused after a middle removal", () => {
+  // Sequential ids from length would re-issue "b2" here, and a claim pointing at the old b2
+  // would silently re-target the new one.
+  let baths = quoteBathrooms(legacyQuote());
+  const a = addBathroom(baths); baths = a.bathrooms;
+  const b = addBathroom(baths); baths = b.bathrooms;
+  const removed = removeBathroom(baths, a.id).bathrooms;
+  const c = addBathroom(removed);
+  assert.equal(c.bathrooms.some((x) => x.id === a.id), false, `${a.id} was reissued`);
+  assert.equal(new Set(c.bathrooms.map((x) => x.id)).size, c.bathrooms.length);
+});
+
+test("removeBathroom refuses to remove the last one", () => {
+  // quoteBathrooms() guarantees at least one; a zero-bathroom quote would contradict that
+  // everywhere downstream, so the floor lives here rather than in each caller.
+  const one = quoteBathrooms(legacyQuote());
+  const r = removeBathroom(one, one[0].id);
+  assert.equal(r.bathrooms.length, 1);
+  assert.equal(r.bathrooms[0], one[0]);
+  assert.equal(r.activeId, one[0].id);
+});
+
+test("removing the active bathroom falls back to the PREVIOUS one", () => {
+  const baths: Bathroom[] = [
+    { id: "b1", name: "Master" }, { id: "b2", name: "Hall" }, { id: "b3", name: "Guest" },
+  ];
+  assert.equal(removeBathroom(baths, "b2").activeId, "b1", "middle → previous");
+  assert.equal(removeBathroom(baths, "b3").activeId, "b2", "last → previous");
+  // Removing the first has no previous, so it walks right instead of off the end.
+  assert.equal(removeBathroom(baths, "b1").activeId, "b2");
+  assert.deepEqual(removeBathroom(baths, "b2").bathrooms.map((b) => b.id), ["b1", "b3"]);
+});
+
+test("removing an unknown id is a no-op", () => {
+  const baths: Bathroom[] = [{ id: "b1", name: null }, { id: "b2", name: null }];
+  assert.deepEqual(removeBathroom(baths, "nope").bathrooms, baths);
+});
+
+test("renameBathroom trims, and an empty name resets to unnamed", () => {
+  const baths: Bathroom[] = [{ id: "b1", name: null }, { id: "b2", name: "Hall" }];
+  assert.equal(renameBathroom(baths, "b1", "  Master  ")[0].name, "Master");
+  // "clear the field and tab away" must mean "go back to the placeholder", not "".
+  assert.equal(renameBathroom(baths, "b2", "")[1].name, null);
+  assert.equal(renameBathroom(baths, "b2", "   ")[1].name, null);
+  assert.equal(renameBathroom(baths, "b2", null)[1].name, null);
+  // Other bathrooms are untouched.
+  assert.equal(renameBathroom(baths, "b1", "Master")[1].name, "Hall");
+});
+
+test("setBathroomSlots edits one bathroom and leaves the others alone", () => {
+  const baths: Bathroom[] = [{ id: "b1", name: "Master", shower: SHOWER }, { id: "b2", name: "Hall" }];
+  const next = setBathroomSlots(baths, "b2", { vanity: VANITY });
+  assert.equal(next[1].vanity, VANITY);
+  assert.equal(next[1].name, "Hall", "name survives a slot edit");
+  assert.equal(next[0].shower, SHOWER, "the other bathroom is untouched");
+  assert.equal(next[0], baths[0], "…and not even re-created");
+});
+
+test("every mutation helper is pure", () => {
+  const baths: Bathroom[] = [{ id: "b1", name: "Master", shower: SHOWER }, { id: "b2", name: null }];
+  const before = JSON.stringify(baths);
+  addBathroom(baths);
+  removeBathroom(baths, "b2");
+  renameBathroom(baths, "b1", "Renamed");
+  setBathroomSlots(baths, "b1", { vanity: VANITY });
+  assert.equal(JSON.stringify(baths), before, "a helper mutated the array it was given");
+});
+
+// -------------------------------------------------------------- C2 labels
+
+const t: (k: string, v?: Record<string, string>) => string = (k, v) =>
+  k === "configurator.bathroom.numbered" ? `Bathroom ${v?.n}` :
+  k === "configurator.option.numbered" ? `Option ${v?.n}` : k;
+
+test("a bathroom label falls back to a one-based number", () => {
+  assert.equal(labelForBathroom({ id: "b1", name: null }, 0, t), "Bathroom 1");
+  assert.equal(labelForBathroom({ id: "b2", name: "  " }, 1, t), "Bathroom 2", "whitespace is not a name");
+  assert.equal(labelForBathroom({ id: "b1", name: "Master" }, 0, t), "Master");
+  assert.equal(labelForBathroom(undefined, 4, t), "Bathroom 5");
+});
+
+test("an option label falls back to Option N, never to the tier key", () => {
+  // good/better/best is a database detail and a ladder nobody chose — it must not reach the UI.
+  assert.equal(labelForTier("good", null, t), "Option 1");
+  assert.equal(labelForTier("better", null, t), "Option 2");
+  assert.equal(labelForTier("best", null, t), "Option 3");
+  const names = { good: "SPC package", better: null, best: "  " };
+  assert.equal(labelForTier("good", names, t), "SPC package");
+  assert.equal(labelForTier("better", names, t), "Option 2");
+  assert.equal(labelForTier("best", names, t), "Option 3", "whitespace is not a name");
+});
+
+test("toOptionNames keeps real names and collapses empty shapes to null", () => {
+  assert.deepEqual(toOptionNames({ good: "SPC", better: null, best: null }), { good: "SPC", better: null, best: null });
+  assert.equal(toOptionNames({ good: "", better: "  ", best: null }), null, "all-empty reads as unnamed");
+  assert.equal(toOptionNames(null), null);
+  assert.equal(toOptionNames("nonsense"), null);
+  assert.equal(toOptionNames([]), null);
+  // Unknown keys are dropped rather than carried through.
+  assert.deepEqual(toOptionNames({ good: "A", nope: "B" }), { good: "A", better: null, best: null });
 });
 
 test("quoteBathrooms does not mutate its input", () => {

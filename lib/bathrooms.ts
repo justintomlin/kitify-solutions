@@ -114,6 +114,120 @@ export function bathroomSlots(b: Bathroom) {
   };
 }
 
+// ---------------------------------------------------------------- mutation
+// All of these are PURE: they return a new array and never touch the one passed in. The hub
+// holds bathrooms in React state, and an in-place edit there is a re-render that doesn't happen.
+
+/**
+ * A fresh bathroom id.
+ *
+ * Random rather than sequential, because ids have to survive removal: numbering from
+ * `bathrooms.length` re-issues an id the moment a middle bathroom is deleted, and a claim or
+ * a shipment line pointing at the old one would silently re-target the new one. Not a uuid —
+ * these live inside a jsonb document, are never joined on, and stay readable in a snapshot.
+ */
+export function nextBathroomId(existing: Bathroom[] = []): string {
+  const taken = new Set(existing.map((b) => b.id));
+  for (let i = 0; i < 50; i++) {
+    const id = `b-${Math.random().toString(36).slice(2, 9)}`;
+    if (!taken.has(id)) return id;
+  }
+  // Astronomically unlikely; falling back keeps this total rather than looping forever.
+  return `b-${taken.size + 1}-${Date.now().toString(36)}`;
+}
+
+/** Append an empty bathroom. Returns the new array and the id to switch to. */
+export function addBathroom(bathrooms: Bathroom[], name: string | null = null): { bathrooms: Bathroom[]; id: string } {
+  const id = nextBathroomId(bathrooms);
+  return { bathrooms: [...bathrooms, { id, name, room: null, shower: null, vanity: null, plumbing: null }], id };
+}
+
+/**
+ * Remove a bathroom, and say which one should become active.
+ *
+ * REFUSES to remove the last one. quoteBathrooms() guarantees at least one bathroom, and a
+ * quote with zero would contradict that everywhere downstream — so the floor is enforced here
+ * rather than left to each caller to remember.
+ *
+ * The successor is the PREVIOUS bathroom where there is one, so removing from the end walks
+ * left rather than jumping to the start.
+ */
+export function removeBathroom(bathrooms: Bathroom[], id: string): { bathrooms: Bathroom[]; activeId: string } {
+  const idx = bathrooms.findIndex((b) => b.id === id);
+  if (idx < 0 || bathrooms.length <= 1) {
+    return { bathrooms, activeId: bathrooms[Math.max(0, idx)]?.id ?? bathrooms[0]?.id ?? id };
+  }
+  const next = bathrooms.filter((b) => b.id !== id);
+  const successor = next[Math.max(0, idx - 1)] ?? next[0];
+  return { bathrooms: next, activeId: successor.id };
+}
+
+/**
+ * Rename a bathroom. An empty or whitespace-only name resets it to unnamed (null), which is
+ * what makes "clear the field and tab away" mean "go back to the placeholder".
+ */
+export function renameBathroom(bathrooms: Bathroom[], id: string, name: string | null): Bathroom[] {
+  const clean = name === null ? null : (name.trim() || null);
+  return bathrooms.map((b) => (b.id === id ? { ...b, name: clean } : b));
+}
+
+/** Replace one bathroom's config slots, leaving id and name alone. */
+export function setBathroomSlots(
+  bathrooms: Bathroom[],
+  id: string,
+  slots: Partial<Pick<Bathroom, "room" | "shower" | "vanity" | "plumbing">>,
+): Bathroom[] {
+  return bathrooms.map((b) => (b.id === id ? { ...b, ...slots } : b));
+}
+
+/** True when a bathroom has nothing configured in it yet. */
+export function isBathroomEmpty(b: Bathroom): boolean {
+  return !b.room && !b.shower && !b.vanity && !b.plumbing;
+}
+
+// ------------------------------------------------------------------ labels
+
+/** Translator shape, matching the one the configurators use. Kept local to stay import-free. */
+type Tr = (key: string, vars?: Record<string, string>) => string;
+
+/**
+ * What to show on a bathroom's tab or header: the dealer's name, or a numbered placeholder.
+ *
+ * `index` is zero-based and the placeholder is one-based, because a dealer counts bathrooms
+ * from one.
+ */
+export function labelForBathroom(b: Bathroom | undefined, index: number, t: Tr): string {
+  const name = b?.name?.trim();
+  return name || t("configurator.bathroom.numbered", { n: String(index + 1) });
+}
+
+/** The three proposal option slots, in the order a dealer sees them. */
+export const OPTION_TIERS = ["good", "better", "best"] as const;
+export type OptionTier = (typeof OPTION_TIERS)[number];
+/** Dealer-supplied option names, keyed by the tier column they correspond to. */
+export type OptionNames = { good: string | null; better: string | null; best: string | null };
+
+/**
+ * What to show for a proposal option: the dealer's name, or "Option N".
+ *
+ * The tier keys are a database detail — good/better/best is a ladder nobody chose and that a
+ * two-option proposal cannot express — so nothing user-facing renders them. See migration
+ * 0019 for why the columns keep those names anyway.
+ */
+export function labelForTier(tier: OptionTier, names: OptionNames | null | undefined, t: Tr): string {
+  const name = names?.[tier]?.trim();
+  return name || t("configurator.option.numbered", { n: String(OPTION_TIERS.indexOf(tier) + 1) });
+}
+
+/** Coerce a stored option_names value into the expected shape, or null. */
+export function toOptionNames(v: unknown): OptionNames | null {
+  if (!v || typeof v !== "object" || Array.isArray(v)) return null;
+  const r = v as Record<string, unknown>;
+  const one = (k: OptionTier) => (typeof r[k] === "string" && (r[k] as string).trim() ? (r[k] as string) : null);
+  const out = { good: one("good"), better: one("better"), best: one("best") };
+  return out.good || out.better || out.best ? out : null;
+}
+
 /**
  * What the four LEGACY columns should hold when writing this quote — the dual-write rule.
  *

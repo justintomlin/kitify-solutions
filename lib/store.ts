@@ -17,7 +17,7 @@
 
 import { supabase } from "@/lib/supabase";
 import type { PostgrestError } from "@supabase/supabase-js";
-import { quoteBathrooms, quoteFlatSlots, toBathrooms, type Bathroom } from "./bathrooms.ts";
+import { quoteBathrooms, quoteFlatSlots, toBathrooms, toOptionNames, type Bathroom, type OptionNames } from "./bathrooms.ts";
 
 export type JobRegistrationStatus = "not_started" | "started" | "complete";
 
@@ -60,7 +60,12 @@ export type Quote = {
 // The Bathroom seam lives in lib/bathrooms.ts — pure and import-free, so it is unit-testable
 // without a Supabase client (lib/supabase throws at module load without env vars). Re-exported
 // here so callers can keep importing everything quote-shaped from one place.
-export { quoteBathrooms, isMultiBathroom, bathroomSlots, DEFAULT_BATHROOM_ID, type Bathroom } from "./bathrooms.ts";
+export {
+  quoteBathrooms, isMultiBathroom, bathroomSlots, DEFAULT_BATHROOM_ID,
+  addBathroom, removeBathroom, renameBathroom, setBathroomSlots, isBathroomEmpty, nextBathroomId,
+  labelForBathroom, labelForTier, toOptionNames, OPTION_TIERS,
+  type Bathroom, type OptionNames, type OptionTier,
+} from "./bathrooms.ts";
 
 // The save inputs: everything except the server-managed id / timestamps, with an
 // optional id (present ⇒ update, absent ⇒ insert). Unchanged from the previous API.
@@ -111,6 +116,12 @@ export type Proposal = {
   status: "draft" | "shared" | "accepted" | "ordered" | "archived";
   /** Labour and extras. Not tier-specific - demolition costs the same whichever vanity wins. */
   customLineItems: ProposalLineItem[];
+  /**
+   * Dealer-supplied names for the three options, keyed by the tier column they map to.
+   * Null, or a null member, means unnamed and the UI shows a numbered placeholder.
+   * The tier_* COLUMNS are unchanged — see migration 0019; this is labels only.
+   */
+  optionNames: OptionNames | null;
   /** Frozen at share time; null on proposals shared before branding existed. */
   contractorBranding: ContractorBranding | null;
   /** When the contractor last sent the link to the homeowner, for the "sent" indicator. */
@@ -125,7 +136,7 @@ export type Proposal = {
 type ProposalInput = Pick<
   Proposal,
   "ownerId" | "projectId" | "name" | "markupPct" | "tierGood" | "tierBetter" | "tierBest" | "status"
-> & { id?: string; customLineItems?: ProposalLineItem[] };
+> & { id?: string; customLineItems?: ProposalLineItem[]; optionNames?: OptionNames | null };
 
 // ------------------------------ error handling ----------------------------
 // Surface failures loudly instead of returning them as empty data — a Supabase
@@ -266,6 +277,8 @@ type ProposalRow = {
   tier_good: string | null;
   tier_better: string | null;
   tier_best: string | null;
+  // Added by 0019. Absent on a pre-migration read, which reads as unnamed.
+  option_names?: unknown;
   accepted_quote_id: string | null;
   accepted_tier: Proposal["acceptedTier"];
   accepted_by: string | null;
@@ -302,6 +315,7 @@ function rowToProposal(r: ProposalRow): Proposal {
     status: r.status,
     // Defaulted rather than assumed: a row read before the migration has neither column.
     customLineItems: Array.isArray(r.custom_line_items) ? r.custom_line_items : [],
+    optionNames: toOptionNames(r.option_names),
     contractorBranding: r.contractor_branding ?? null,
     lastSentAt: r.last_sent_at ?? null,
     createdAt: r.created_at,
@@ -316,7 +330,7 @@ function rowToProposal(r: ProposalRow): Proposal {
  * migration has not been run yet. Without that, deploying this code ahead of the SQL would
  * take out proposal saving entirely - a working feature broken by an unrelated one.
  */
-const MIGRATED_PROPOSAL_COLUMNS = ["custom_line_items", "contractor_branding", "last_sent_at"];
+const MIGRATED_PROPOSAL_COLUMNS = ["custom_line_items", "contractor_branding", "last_sent_at", "option_names"];
 
 function isMissingColumn(error: PostgrestError | null): boolean {
   if (!error) return false;
@@ -358,6 +372,7 @@ function proposalToRow(p: ProposalInput) {
     tier_best: p.tierBest,
     status: p.status,
     custom_line_items: p.customLineItems ?? [],
+    option_names: p.optionNames ?? null,
   };
 }
 
