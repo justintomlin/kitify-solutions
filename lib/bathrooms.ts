@@ -36,6 +36,16 @@ export type Bathroom = {
   room?: unknown | null;
   shower?: unknown | null;
   vanity?: unknown | null;
+  /**
+   * How many of that vanity this bathroom takes. Absent or null means one, which is every
+   * bathroom written before twin vanities existed.
+   *
+   * A COUNT, not a second configuration. His-and-hers cabinets in a primary bath are the same
+   * cabinet twice — same size, same door style, same finish, same drilling — so the quote says
+   * "two of these" rather than carrying a second document that could drift out of step with
+   * the first. Capped at MAX_VANITY_QTY; see it for why two and not N.
+   */
+  vanityQty?: number | null;
   plumbing?: unknown | null;
 };
 
@@ -114,6 +124,72 @@ export function bathroomSlots(b: Bathroom) {
   };
 }
 
+// ============================================================ twin vanities
+//
+// A bathroom holds ONE vanity CONFIGURATION and a count of how many of it to take. A primary
+// bath with his-and-hers cabinets is the same cabinet twice — same size, same door style, same
+// finish, same drilling — so this is a quantity, not a second document.
+//
+// WHY A COUNT AND NOT AN ARRAY. Two independent vanity documents in one bathroom would each
+// need an identity, a name and a tab, and they would immediately be able to disagree about
+// drilling — which is the one thing the plumbing module needs a single answer to, because a
+// bathroom has one faucet type. A count cannot drift.
+//
+// WHY THE CAP IS TWO. The affordance is a checkbox: "add an identical second vanity". That is
+// the shape of the real job — his-and-hers, not his-and-hers-and-theirs — and it is what lets
+// the room plan carry a second vanity as a second FIXTURE rather than needing its whole
+// per-kind fixture model (selection, drag, clearance, orphan detection) rebuilt around a list.
+// Going past two is a real refactor of the room module and should be priced as one.
+
+/** The most vanities one bathroom can take. See above for why this is a cap and not a limit. */
+export const MAX_VANITY_QTY = 2;
+
+/**
+ * How many vanities this bathroom actually takes: 0, 1 or 2.
+ *
+ * ZERO when nothing is configured — the count answers "how many cabinets are on this quote",
+ * so a bathroom with no vanity honestly has none. That is what makes it safe to derive the
+ * faucet count from.
+ *
+ * Defensive about the stored value because it is jsonb: a string, a float, a negative or a
+ * hand-edited 99 all resolve to something sane rather than propagating.
+ */
+export function vanityCount(b: Bathroom): number {
+  if (b.vanity == null) return 0;
+  const n = Math.floor(Number(b.vanityQty));
+  if (!Number.isFinite(n) || n < 1) return 1;
+  return Math.min(MAX_VANITY_QTY, n);
+}
+
+/** True when this bathroom takes the same vanity more than once. */
+export function isTwinVanity(b: Bathroom): boolean {
+  return vanityCount(b) > 1;
+}
+
+/**
+ * Set how many of this bathroom's vanity to take. Pure.
+ *
+ * Clamped rather than validated: this is driven by a checkbox and a saved document, and the
+ * honest response to a value out of range is the nearest one in range, not a refusal.
+ */
+export function setVanityQty(bathrooms: Bathroom[], id: string, qty: number): Bathroom[] {
+  const n = Math.max(1, Math.min(MAX_VANITY_QTY, Math.floor(Number.isFinite(qty) ? qty : 1)));
+  return bathrooms.map((b) => (b.id === id ? { ...b, vanityQty: n } : b));
+}
+
+/**
+ * How many sinks this bathroom's vanities have between them — every cabinet, every basin.
+ *
+ * This is what the faucet count follows: two double-sink vanities is four faucets, and the
+ * plumbing module is seeded from here rather than from one cabinet's sink count. Reads the
+ * config structurally, because the vanity slot is jsonb.
+ */
+export function bathroomSinkCount(b: Bathroom): number {
+  const sinks = (b.vanity as { selections?: { sinks?: unknown } } | null)?.selections?.sinks;
+  const per = typeof sinks === "number" && Number.isFinite(sinks) && sinks > 0 ? Math.floor(sinks) : 1;
+  return per * vanityCount(b);
+}
+
 // ---------------------------------------------------------------- mutation
 // All of these are PURE: they return a new array and never touch the one passed in. The hub
 // holds bathrooms in React state, and an in-place edit there is a re-render that doesn't happen.
@@ -139,6 +215,8 @@ export function nextBathroomId(existing: Bathroom[] = []): string {
 /** Append an empty bathroom. Returns the new array and the id to switch to. */
 export function addBathroom(bathrooms: Bathroom[], name: string | null = null): { bathrooms: Bathroom[]; id: string } {
   const id = nextBathroomId(bathrooms);
+  // vanityQty is deliberately absent rather than 1: absent is what every bathroom written
+  // before twin vanities carries, and the two must be indistinguishable.
   return { bathrooms: [...bathrooms, { id, name, room: null, shower: null, vanity: null, plumbing: null }], id };
 }
 
@@ -203,9 +281,16 @@ function slotTotal(v: unknown): number {
   return typeof n === "number" && Number.isFinite(n) ? n : 0;
 }
 
-/** What one bathroom costs the dealer: its four slots, summed. */
+/**
+ * What one bathroom costs the dealer: its four slots, summed — with the vanity counted as
+ * many times as the bathroom takes it.
+ *
+ * A single vanity multiplies by one and produces exactly the number it always did. Two
+ * multiplies by two: off the slot alone the second cabinet would be silently free, which
+ * looks like a correct quote right up until the invoice.
+ */
 export function bathroomTotal(b: Bathroom): number {
-  return slotTotal(b.room) + slotTotal(b.shower) + slotTotal(b.vanity) + slotTotal(b.plumbing);
+  return slotTotal(b.room) + slotTotal(b.shower) + slotTotal(b.vanity) * vanityCount(b) + slotTotal(b.plumbing);
 }
 
 /** What the whole quote costs the dealer. Identical to bathroomTotal for a one-bathroom quote. */

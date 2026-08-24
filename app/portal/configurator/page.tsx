@@ -15,6 +15,7 @@ import {
   quoteBathrooms, quoteFlatSlots, bathroomTotal, bathroomsTotal,
   addBathroom, removeBathroom, renameBathroom, setBathroomSlots, isBathroomEmpty,
   labelForBathroom, DEFAULT_BATHROOM_ID, type Bathroom,
+  vanityCount, setVanityQty, bathroomSinkCount,
 } from "@/lib/bathrooms";
 // The per-bathroom bookkeeping — shared sizes and which modules are mounted — as pure
 // functions, so the cross-contamination the C survey flagged is testable rather than buried
@@ -86,6 +87,8 @@ export default function Page() {
   const activeBathroom = bathrooms[activeIndex] ?? bathrooms[0];
   const activeId = activeBathroom.id;
   const multi = bathrooms.length > 1;
+  /** True when this bathroom takes the same vanity twice — his-and-hers. */
+  const twin = vanityCount(activeBathroom) > 1;
 
   // The active bathroom's four slots, typed. Everything downstream — the summary, the hero,
   // the product strip — reads these, so it is unchanged from when they were four useStates.
@@ -208,7 +211,22 @@ export default function Page() {
 
   // Shared seeds for the plumbing module: vanity sink count → faucet qty; the bathing
   // fixture kind → tub/shower vs shower-only trim. Read per bathroom at the render site.
-  const plumbingFaucetQty = (id: string): 1 | 2 => (sharedVanity[id]?.sinks === 2 ? 2 : 1);
+  /**
+   * One faucet per basin, across every cabinet in the bathroom.
+   *
+   * Reads the committed vanity plus its count rather than the live shared size, because the
+   * count is a quote fact and the shared sizes are only a cross-module sync. Two double-sink
+   * vanities is four faucets — off one cabinet's sink count the order would ship two, and
+   * nobody would find out until install day.
+   *
+   * Falls back to the shared size while the vanity is still being configured and has not been
+   * committed to a slot yet, so the plumbing module is seeded from the moment a size is picked.
+   */
+  const plumbingFaucetQty = (id: string): number => {
+    const b = bathrooms.find((x) => x.id === id);
+    const committed = b ? bathroomSinkCount(b) : 0;
+    return committed > 0 ? committed : (sharedVanity[id]?.sinks === 2 ? 2 : 1);
+  };
 
   // ---- persistence: keep the current quote across reloads ------------------
   // Only the emitted config objects are stored, never React state/refs, so a
@@ -497,21 +515,47 @@ export default function Page() {
           </div>
         </div>
 
-        {/* Vanity row */}
-        <div className="flex items-center justify-between gap-3 rounded-2xl border border-line/70 bg-paper/80 px-4 py-3">
-          <div className="text-sm text-ink">
-            <div className="font-semibold">{t("configurator.vanityTitle")}</div>
-            <div className="text-xs text-muted">{vanity ? vanity.label : t("configurator.notAdded")}</div>
+        {/* Vanity row. The twin checkbox lives HERE rather than in the vanity module: the
+            module configures one cabinet, and how many of it the job takes is a quote fact. */}
+        <div className="rounded-2xl border border-line/70 bg-paper/80 px-4 py-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-sm text-ink">
+              <div className="flex items-center gap-1.5 font-semibold">
+                {t("configurator.vanityTitle")}
+                {twin && (
+                  <span className="rounded-full border border-accent/30 bg-accent-soft px-1.5 font-mono text-[9px] tracking-[0.1em] text-accent">
+                    {t("configurator.vanity.twinBadge")}
+                  </span>
+                )}
+              </div>
+              <div className="text-xs text-muted">{vanity ? vanity.label : t("configurator.notAdded")}</div>
+            </div>
+            <div className="flex items-center gap-3">
+              {/* The doubled figure, because that is what the quote charges. */}
+              {vanity && <div className="font-semibold">{money(vanity.price.total * vanityCount(activeBathroom))}</div>}
+              {vanity != null && (
+                <>
+                  <button onClick={() => open("vanity")} className="text-sm text-accent">{t("configurator.edit")}</button>
+                  <button onClick={() => { setSlots(activeId, { vanity: null }); setBathrooms((prev) => setVanityQty(prev, activeId, 1)); }} className="text-sm text-muted">{t("configurator.remove")}</button>
+                </>
+              )}
+            </div>
           </div>
-          <div className="flex items-center gap-3">
-            {vanity && <div className="font-semibold">{money(vanity.price.total)}</div>}
-            {vanity != null && (
-              <>
-                <button onClick={() => open("vanity")} className="text-sm text-accent">{t("configurator.edit")}</button>
-                <button onClick={() => setSlots(activeId, { vanity: null })} className="text-sm text-muted">{t("configurator.remove")}</button>
-              </>
-            )}
-          </div>
+          {/* Warn-don't-block, and opt-in: nothing is doubled until this is ticked. */}
+          {vanity != null && (
+            <label className="mt-2 flex cursor-pointer items-start gap-2 border-t border-line/60 pt-2 text-xs text-muted">
+              <input
+                type="checkbox"
+                checked={twin}
+                onChange={(e) => setBathrooms((prev) => setVanityQty(prev, activeId, e.target.checked ? 2 : 1))}
+                className="mt-0.5 shrink-0"
+              />
+              <span className="min-w-0">
+                <span className="block text-ink">{t("configurator.vanity.twinAdd")}</span>
+                <span className="block leading-snug">{t("configurator.vanity.twinHint")}</span>
+              </span>
+            </label>
+          )}
         </div>
 
         {/* Plumbing row */}
@@ -738,6 +782,7 @@ export default function Page() {
                         mode="dealer"
                         initialBath={bBath}
                         initialVanity={bVanitySizes}
+                        vanityCount={vanityCount(b)}
                         initialTreatments={bRoom?.selections.treatments}
                         initialFlooring={bRoom?.selections.flooring}
                         initialWallBase={bRoom?.selections.wallBase}

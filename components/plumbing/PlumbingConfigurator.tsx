@@ -54,11 +54,32 @@ export type PlumbingOrderSkus = {
   accessories: Partial<Record<PlumbingComponentKey, string>>;
 };
 
+/**
+ * The most faucets one bathroom can take: two double-sink vanities, one per basin.
+ *
+ * A ceiling on a stepper, not a rule about plumbing — it exists so a stuck key cannot put 40
+ * faucets on an order, and it moves the day a bathroom can hold more than two cabinets.
+ */
+export const MAX_FAUCET_QTY = 4;
+
+/** Total, because this is driven by a stepper, a saved document and an upstream seed alike. */
+const clampFaucetQty = (q: number | undefined): number => {
+  const n = Math.floor(Number(q));
+  if (!Number.isFinite(n) || n < 1) return 1;
+  return Math.min(MAX_FAUCET_QTY, n);
+};
+
 export type PlumbingSelections = {
   packageId?: string;
   finishId?: PlumbingFinishId;
   faucetType?: FaucetType;
-  faucetQty: 1 | 2;
+  /**
+   * One faucet per basin. Widened from `1 | 2` when twin vanities landed: a bathroom with two
+   * double-sink cabinets has four basins, and the old union could not express it — the order
+   * would have shipped two faucets and nobody would have found out until install day.
+   * Bounded by MAX_FAUCET_QTY rather than by the type.
+   */
+  faucetQty: number;
   bathTrim?: BathTrimType;
   roughIn: RoughInType;
   dualShower: boolean;    // shower only: second head = second trim + second valve
@@ -300,7 +321,9 @@ export function PlumbingConfigurator({
   // Absent (standalone page) → user picks freely.
   lockedBathKind?: "shower" | "tub";
   // Seeded from the hub's shared state: vanity sink count → faucet quantity.
-  initialFaucetQty?: number;               // 1 or 2
+  // One per basin across every vanity in the bathroom — see bathroomSinkCount(). Clamped to
+  // MAX_FAUCET_QTY on the way in, so an upstream miscount cannot put 40 faucets on an order.
+  initialFaucetQty?: number;
   primaryLabel?: string;
 }) {
   const { t } = useLanguage();
@@ -309,7 +332,7 @@ export function PlumbingConfigurator({
   const [s, setS] = useState<PlumbingSelections>(() => ({
     ...initial,
     faucetType: lockedDrilling ? faucetForDrilling(lockedDrilling) : undefined,
-    faucetQty: initialFaucetQty === 2 ? 2 : 1,
+    faucetQty: clampFaucetQty(initialFaucetQty),
     bathTrim: lockedBathKind === "tub" ? "tubShowerTrim" : lockedBathKind === "shower" ? "showerTrim" : undefined,
   }));
   // Once the user touches a seeded field, stop adopting shared-state changes for it.
@@ -338,7 +361,7 @@ export function PlumbingConfigurator({
   // Adopt shared-state changes while mounted, unless the user has overridden that field.
   useEffect(() => {
     if (initialFaucetQty == null || qtyTouched.current) return;
-    const q: 1 | 2 = initialFaucetQty === 2 ? 2 : 1;
+    const q = clampFaucetQty(initialFaucetQty);
     setS((prev) => (prev.faucetQty === q ? prev : { ...prev, faucetQty: q }));
   }, [initialFaucetQty]);
   // Locked bathing kind always wins — the trim follows the shower slot, even mid-session.
@@ -366,7 +389,7 @@ export function PlumbingConfigurator({
   const onChangeRef = useRef(onChange); onChangeRef.current = onChange;
   useEffect(() => { onChangeRef.current?.(buildConfig()); }, [buildConfig]);
 
-  const setFaucetQty = (q: number) => { qtyTouched.current = true; setS((prev) => ({ ...prev, faucetQty: (q < 1 ? 1 : q > 2 ? 2 : q) as 1 | 2 })); };
+  const setFaucetQty = (q: number) => { qtyTouched.current = true; setS((prev) => ({ ...prev, faucetQty: clampFaucetQty(q) })); };
   const chooseTrim = (bt: BathTrimType) => set({ bathTrim: bt });
   const stepAcc = (k: PlumbingComponentKey, d: number) => setS((prev) => ({ ...prev, accessories: { ...prev.accessories, [k]: Math.max(0, (prev.accessories[k] ?? 0) + d) } }));
 
@@ -489,7 +512,7 @@ export function PlumbingConfigurator({
                 <div className="flex items-center gap-2">
                   <button onClick={() => setFaucetQty(s.faucetQty - 1)} disabled={s.faucetQty <= 1} className="rounded-md border border-line p-1 hover:bg-ink/5 disabled:opacity-35"><Minus className="h-3.5 w-3.5" /></button>
                   <span className="w-5 text-center text-sm font-semibold">{s.faucetQty}</span>
-                  <button onClick={() => setFaucetQty(s.faucetQty + 1)} disabled={s.faucetQty >= 2} className="rounded-md border border-line p-1 hover:bg-ink/5 disabled:opacity-35"><Plus className="h-3.5 w-3.5" /></button>
+                  <button onClick={() => setFaucetQty(s.faucetQty + 1)} disabled={s.faucetQty >= MAX_FAUCET_QTY} className="rounded-md border border-line p-1 hover:bg-ink/5 disabled:opacity-35"><Plus className="h-3.5 w-3.5" /></button>
                 </div>
               </div>
             </Step>

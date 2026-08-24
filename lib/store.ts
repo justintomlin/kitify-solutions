@@ -65,6 +65,8 @@ export {
   quoteBathrooms, isMultiBathroom, bathroomSlots, DEFAULT_BATHROOM_ID,
   addBathroom, removeBathroom, renameBathroom, setBathroomSlots, isBathroomEmpty, nextBathroomId,
   bathroomTotal, bathroomsTotal, quoteFlatSlots,
+  // Twin vanities: one configuration, a count of how many of it to take.
+  vanityCount, isTwinVanity, setVanityQty, bathroomSinkCount, MAX_VANITY_QTY,
   labelForBathroom, labelForTier, toOptionNames, OPTION_TIERS,
   type Bathroom, type OptionNames, type OptionTier,
 } from "./bathrooms.ts";

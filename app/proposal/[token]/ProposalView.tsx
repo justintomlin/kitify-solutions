@@ -16,7 +16,7 @@ import { ShowerPreviewFromConfig, type ShowerConfig } from "@/components/shower/
 import { VanityPreviewFromConfig, type VanityConfig } from "@/components/vanity/VanityConfigurator";
 import { PlumbingPreviewFromConfig, type PlumbingConfig } from "@/components/plumbing/PlumbingConfigurator";
 import { HeroPreview, hasHeroContent } from "@/components/configurator/HeroPreview";
-import { quoteBathrooms, labelForBathroom, labelForTier, type Bathroom, type OptionNames } from "@/lib/bathrooms";
+import { quoteBathrooms, labelForBathroom, labelForTier, isTwinVanity, type Bathroom, type OptionNames } from "@/lib/bathrooms";
 
 export type TierView = {
   room: unknown | null;
@@ -411,6 +411,7 @@ function BathroomBody({ bathroom, t }: { bathroom: Bathroom; t: Tr }) {
   const vanity = bathroom.vanity as VanityConfig | null;
   const plumbing = bathroom.plumbing as PlumbingConfig | null;
   const hasProducts = !!(shower || vanity || plumbing);
+  const twinVanity = isTwinVanity(bathroom);
   return (
     <>
       {/* The bathroom itself, above the plan. A homeowner reads a picture of the room long
@@ -436,8 +437,11 @@ function BathroomBody({ bathroom, t }: { bathroom: Bathroom; t: Tr }) {
               <ShowerPreviewFromConfig config={shower} />
             </PreviewCard>
           )}
+          {/* Labelled "×2" when the bathroom takes the same cabinet twice. One preview, not
+              two: they are identical, and showing the picture twice would read as two
+              different vanities rather than a matched pair. */}
           {vanity && (
-            <PreviewCard label={t("configurator.vanityTitle")}>
+            <PreviewCard label={twinVanity ? t("configurator.vanity.twinLine", { label: t("configurator.vanityTitle") }) : t("configurator.vanityTitle")}>
               <VanityPreviewFromConfig config={vanity} />
             </PreviewCard>
           )}

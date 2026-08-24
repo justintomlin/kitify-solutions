@@ -84,6 +84,8 @@ export type RoomConfig = {
     toilet: RoomToilet | null;
     bath: RoomBath | null;
     vanity: RoomVanity | null;
+    /** The twin, when the bathroom takes two of the same cabinet. Null otherwise. */
+    vanity2: RoomVanity | null;
     treatments: WallTreatments; // per-wall surface finish, keyed by stable side identity
     flooring: RoomFlooring | null;
     wallBase: RoomWallBase | null;
@@ -103,14 +105,31 @@ type Doc = {
   toilet: RoomToilet | null;
   bath: RoomBath | null;
   vanity: RoomVanity | null;
+  vanity2: RoomVanity | null;
   excluded: number[];
   treatments: WallTreatments;
   flooring?: RoomFlooring;
   wallBase?: RoomWallBase;
   partitions: RoomPartition[];
 };
-type Fixtures = { door: RoomDoor | null; toilet: RoomToilet | null; bath: RoomBath | null; vanity: RoomVanity | null };
-type Kind = "door" | "toilet" | "bath" | "vanity";
+type Fixtures = { door: RoomDoor | null; toilet: RoomToilet | null; bath: RoomBath | null; vanity: RoomVanity | null; vanity2: RoomVanity | null };
+/**
+ * `vanity2` is the TWIN — the same cabinet a second time, for a his-and-hers bathroom.
+ *
+ * A second slot rather than a vanities[] array, deliberately. Fixture identity here is the
+ * KIND: selection, drag, clearance, orphan detection, the inspector and the art layer all
+ * index `model[kind]`. A list would mean rebuilding all of that around ids, in the most
+ * intricate code in the repo, to express a quantity the dealer sets with a checkbox. When a
+ * bathroom can hold more than two cabinets, that refactor is the honest price; until then this
+ * is the change that matches the requirement.
+ *
+ * The two are never independently sized: setVanityProp patches both, and the hub's shared
+ * vanity seed drives both. Only their POSITIONS differ.
+ */
+type Kind = "door" | "toilet" | "bath" | "vanity" | "vanity2";
+/** The vanity kinds, in placement order. */
+const VANITY_KINDS = ["vanity", "vanity2"] as const;
+const isVanityKind = (k: Kind): k is "vanity" | "vanity2" => k === "vanity" || k === "vanity2";
 
 // ============================== Constants =================================
 const DOOR_SIZES = [24, 28, 30, 32, 36], RO = 2, TOILET_W = 20, TOILET_D = 30; // RO: rough opening = door size + 2"
@@ -199,7 +218,7 @@ function minWallFor(kind: Kind): number {
   if (kind === "door") return roOf(Math.min(...DOOR_SIZES)); // 24" door + 2" R.O.
   if (kind === "toilet") return TOILET_W + 4;
   if (kind === "bath") return Math.min(...BASES.map((x) => x.w), ...TUBS.map((x) => x.w));
-  if (kind === "vanity") return Math.min(...VANITY_SIZES);
+  if (isVanityKind(kind)) return Math.min(...VANITY_SIZES);
   return 0;
 }
 // footprint of a wall-mounted fixture, in room coords, as 4 corners
@@ -285,6 +304,7 @@ function activeFixtures(edges: Edge[], fx: Fixtures): ActiveFix[] {
   const out: ActiveFix[] = [];
   if (fx.toilet) out.push({ k: "toilet", name: "toilet", o: fx.toilet, w: TOILET_W, d: TOILET_D });
   if (fx.vanity) out.push({ k: "vanity", name: "vanity", o: fx.vanity, w: fx.vanity.w, d: VANITY_D });
+  if (fx.vanity2) out.push({ k: "vanity2", name: "vanity", o: fx.vanity2, w: fx.vanity2.w, d: VANITY_D });
   if (fx.bath) { const b = bathDims(fx.bath); out.push({ k: "bath", name: fx.bath.kind === "tub" ? "tub" : "shower", o: fx.bath, w: b.w, d: b.d }); }
   if (fx.door) out.push({ k: "door", name: "door", o: fx.door, w: roOf(fx.door.w), d: 4 });
   return out.filter((f) => edges[f.o.edge]);
@@ -456,6 +476,8 @@ function baseboardLF(edges: Edge[], ded: number[], fx: Fixtures): number {
   let lf = edges.reduce((a, e, i) => a + Math.max(0, e.len - ded[i]), 0);
   if (fx.door && fx.door.edge < edges.length) lf -= roOf(fx.door.w);
   if (fx.vanity && fx.vanity.edge < edges.length) lf -= fx.vanity.w;
+  // The twin covers its own stretch of wall, so it deducts its own baseboard too.
+  if (fx.vanity2 && fx.vanity2.edge < edges.length) lf -= fx.vanity2.w;
   return Math.max(0, lf) / 12;
 }
 // Build the two long FACES of every partition as mountable surfaces (pass 3). Face `a` sits
@@ -485,6 +507,7 @@ function partitionFaceCover(surfaces: Edge[], fx: Fixtures): Record<string, numb
   add(fx.door, fx.door ? roOf(fx.door.w) : 0);
   add(fx.toilet, TOILET_W);
   add(fx.vanity, fx.vanity ? fx.vanity.w : 0);
+  add(fx.vanity2, fx.vanity2 ? fx.vanity2.w : 0);
   add(fx.bath, fx.bath ? bathDims(fx.bath).w : 0);
   return cover;
 }
@@ -593,7 +616,7 @@ type Model = {
   // a fixture can anchor to. Fixture `edge` indexes into `surfaces`; wall/panel takeoff uses `edges`.
   verts: Pt[]; edges: Edge[]; surfaces: Edge[]; S: RoomDims; cen: Pt; P: (x: number, y: number) => Pt; s: number; ox: number; oy: number;
   minX: number; maxX: number; minY: number; maxY: number; bw: number; bh: number;
-  door: RoomDoor | null; toilet: RoomToilet | null; bath: RoomBath | null; vanity: RoomVanity | null; fx: Fixtures;
+  door: RoomDoor | null; toilet: RoomToilet | null; bath: RoomBath | null; vanity: RoomVanity | null; vanity2: RoomVanity | null; fx: Fixtures;
   perim: number; wallSF: number; wallSFgross: number; floorSF: number; bbLF: number; ded: number[];
   excluded: Set<number>; CL: ClearResult; label: string;
   // wall panels: per-edge treatment, and the offcut-aware takeoff over panelled walls
@@ -612,6 +635,7 @@ function resolveModel(doc: Doc, ada: boolean, t: Tr): Model {
   let toilet: RoomToilet | null = doc.toilet ? { ...doc.toilet } : null;
   let bath: RoomBath | null = doc.bath ? { ...doc.bath } : null;
   let vanity: RoomVanity | null = doc.vanity ? { ...doc.vanity } : null;
+  let vanity2: RoomVanity | null = doc.vanity2 ? { ...doc.vanity2 } : null;
   const excluded = new Set(doc.excluded);
 
   const { verts, edges, S } = build(doc.shape, doc.S);
@@ -666,7 +690,7 @@ function resolveModel(doc: Doc, ada: boolean, t: Tr): Model {
   }
 
   const perim = edges.reduce((a, e) => a + e.len, 0);
-  const fxForDed: Fixtures = { door, toilet, bath, vanity };
+  const fxForDed: Fixtures = { door, toilet, bath, vanity, vanity2 };
   const ded = wallDeductions(edges, fxForDed);
   // ---- interior partitions ---- footprint deducts from floor SF; each face adds length ×
   // height to the billable wall area, LESS the along-face length any fixture now covers (so a
@@ -745,7 +769,7 @@ function resolveModel(doc: Doc, ada: boolean, t: Tr): Model {
     if (door && surfaces[door.edge] && overlapsBlocker(surfaces, toilet, TOILET_W, TOILET_D, door, roOf(door.w), 6, cen)) { if (!toilet.conflictWith) toilet.conflictWith = "door"; toilet.conflict = true; }
   }
 
-  const fx: Fixtures = { door, toilet, bath, vanity };
+  const fx: Fixtures = { door, toilet, bath, vanity, vanity2 };
   const CL = checkClearances(verts, surfaces, cen, ada, fx, t, partGeoms);
   // Surface overlap conflicts in the same amber issues list as clearance failures.
   if (toilet?.conflictWith) CL.issues.push(t("configurator.room.overlapWarn", { fixture: t("configurator.room.toiletHdr"), blocker: fxName(t, toilet.conflictWith) }));
@@ -754,7 +778,7 @@ function resolveModel(doc: Doc, ada: boolean, t: Tr): Model {
 
   return {
     verts, edges, surfaces, S, cen, P, s, ox, oy, minX, maxX, minY, maxY, bw: bwv, bh: bhv,
-    door, toilet, bath, vanity, fx, perim, wallSF, wallSFgross, floorSF, bbLF, ded, excluded, CL, label,
+    door, toilet, bath, vanity, vanity2, fx, perim, wallSF, wallSFgross, floorSF, bbLF, ded, excluded, CL, label,
     treat, panelWallCount: panelNets.length, panelCount, panelledSF, panelHeightExceeded,
     flooring, flooringCartons, flooringCoverageSF, flooringCost,
     wallBase, wallBaseSticks, wallBaseCoverageLF, wallBaseCost,
@@ -765,7 +789,7 @@ function resolveModel(doc: Doc, ada: boolean, t: Tr): Model {
 const initialDoc: Doc = {
   shape: "rect",
   S: { w: 96, d: 60, h: 96, cw: 36, cd: 28, corner: "tl" }, // 8'0 x 5'0 room, 3'0 x 2'4 cutout top-left
-  door: null, toilet: null, bath: null, vanity: null, excluded: [], treatments: {}, partitions: [],
+  door: null, toilet: null, bath: null, vanity: null, vanity2: null, excluded: [], treatments: {}, partitions: [],
 };
 
 // ============================== SVG artwork ===============================
@@ -876,8 +900,10 @@ function BathArt({ m, sel, onSelect, onDragStart, interactive = true, bodySelect
   return <g>{parts}{interactive && <PickCircles kind="bath" cx={h[0]} cy={h[1]} selected={sel} crowded={crowded} onSelect={onSelect} onDragStart={onDragStart} />}</g>;
 }
 
-function VanityArt({ m, sel, onSelect, onDragStart, interactive = true, bodySelectable = false, crowded = false, t }: { m: Model; sel: boolean; onSelect: () => void; onDragStart: (e: React.PointerEvent, k: Kind) => void; interactive?: boolean; bodySelectable?: boolean; crowded?: boolean; t: Tr }) {
-  const vanity = m.vanity!; const e = m.surfaces[vanity.edge]; if (!e) return null;
+function VanityArt({ m, which = "vanity", sel, onSelect, onDragStart, interactive = true, bodySelectable = false, crowded = false, t }: { m: Model; which?: "vanity" | "vanity2"; sel: boolean; onSelect: () => void; onDragStart: (e: React.PointerEvent, k: Kind) => void; interactive?: boolean; bodySelectable?: boolean; crowded?: boolean; t: Tr }) {
+  // The twin draws identically — same size, same sink count, same art. Only its position
+  // differs, so  selects the slot and nothing else in here changes.
+  const vanity = m[which]!; const e = m.surfaces[vanity.edge]; if (!e) return null;
   const v = edgeVec(e);
   const mid: Pt = [e.a[0] + v.ux * v.L * vanity.t, e.a[1] + v.uy * v.L * vanity.t];
   const { nx, ny } = surfNormal(e, mid, m.cen);
@@ -919,7 +945,7 @@ const BTN_ACTIVE = "border-accent bg-accent-soft text-accent";
 type EditTarget = { type: "dim"; d: "w" | "d" } | { type: "seg"; p: string; len: number };
 type EditorState = { left: number; top: number; value: string; target: EditTarget } | null;
 
-export function RoomConfigurator({ mode = "dealer", onComplete, onChange, onBack, initialBath = null, initialVanity = null, initialTreatments = null, initialFlooring = null, initialWallBase = null, initialPartitions = null, primaryLabel }: {
+export function RoomConfigurator({ mode = "dealer", onComplete, onChange, onBack, initialBath = null, initialVanity = null, vanityCount = 1, initialTreatments = null, initialFlooring = null, initialWallBase = null, initialPartitions = null, primaryLabel }: {
   mode?: "dealer" | "customer";
   onComplete?: (config: RoomConfig) => void;
   onChange?: (config: RoomConfig) => void;
@@ -928,6 +954,14 @@ export function RoomConfigurator({ mode = "dealer", onComplete, onChange, onBack
   onBack?: () => void;
   initialBath?: { kind: "shower" | "tub"; baseId: string } | null;
   initialVanity?: { size: number; sinks: 1 | 2; sinkShape?: "oval" | "rectangle" } | null;
+  /**
+   * How many of that vanity the bathroom takes — 1, or 2 for a his-and-hers pair.
+   *
+   * The room does not decide this; the quote does (see lib/bathrooms.ts vanityCount). All the
+   * room does with it is offer a second vanity to place, and stop offering it when the dealer
+   * unticks the twin. The two cabinets are always identical — only their positions differ.
+   */
+  vanityCount?: number;
   // Per-wall treatments to restore on mount (from a saved quote). Keyed by side identity;
   // sides that no longer exist after a shape edit are simply ignored by resolveModel.
   initialTreatments?: WallTreatments | null;
@@ -1006,7 +1040,7 @@ export function RoomConfigurator({ mode = "dealer", onComplete, onChange, onBack
     if (s === doc.shape) return;
     const had = !!(doc.door || doc.toilet || doc.bath || doc.vanity);
     if (had && !window.confirm(t("configurator.room.confirmShape"))) return;
-    commit((prev) => ({ ...prev, shape: s, door: null, toilet: null, bath: null, vanity: null, excluded: [], partitions: [] }));
+    commit((prev) => ({ ...prev, shape: s, door: null, toilet: null, bath: null, vanity: null, vanity2: null, excluded: [], partitions: [] }));
     setSel(null); setSelPart(null); setArmed(null); setArmPartition(false); setPartAnchor(null);
     setShapeNote(had);
   }
@@ -1043,10 +1077,12 @@ export function RoomConfigurator({ mode = "dealer", onComplete, onChange, onBack
     patchFix("bath", { kind: k, sku: same.id }, true);
   }
   function setVanityProp(k: "w" | "sinks", v: number) {
-    const van = doc.vanity; if (!van) return;
+    const van = doc.vanity ?? doc.vanity2; if (!van) return;
     const patch: Record<string, unknown> = { [k]: v };
     if (k === "w" && (van.sinks || 1) > maxSinks(v)) patch.sinks = 1;
-    patchFix("vanity", patch, true);
+    // Applied to the pair. Resizing one of a his-and-hers pair and not the other would mean
+    // the quote is charging for two of a cabinet the plan shows only one of.
+    for (const slot of VANITY_KINDS) if (doc[slot]) patchFix(slot, patch, true);
   }
   // Memoised because the keyboard effect and the toolbar both call these; a fresh identity
   // every render would re-subscribe the keydown listener on each one.
@@ -1100,11 +1136,17 @@ export function RoomConfigurator({ mode = "dealer", onComplete, onChange, onBack
       // fixed-size fixture).
       const t = tapFitting(TOILET_W, TOILET_D) ?? placeClear(verts, surfaces, i, TOILET_W, TOILET_D, cen, "toilet", m.fx);
       commit((prev) => ({ ...prev, toilet: { edge: i, side: surf.side, t, rough: 12 } })); setSel("toilet");
-    } else if (armed === "vanity") {
-      // freeFit still picks the SIZE — the tap only decides where that size lands.
-      const f = freeFit(verts, surfaces, i, VANITY_SIZES, VANITY_D, cen, "vanity", m.fx); if (!f) return;
+    } else if (armed && isVanityKind(armed)) {
+      // freeFit still picks the SIZE — the tap only decides where that size lands. The twin
+      // takes the FIRST vanity's size and sink count rather than fitting its own: they are the
+      // same cabinet, so letting the wall it lands on resize it would break that.
+      const slot = armed;
+      const twinOf = doc.vanity;
+      const f = freeFit(verts, surfaces, i, slot === "vanity2" && twinOf ? [twinOf.w] : VANITY_SIZES, VANITY_D, cen, slot, m.fx); if (!f) return;
       const t = tapFitting(f.w, VANITY_D) ?? f.t;
-      commit((prev) => ({ ...prev, vanity: { edge: i, side: surf.side, t, w: f.w, sinks: maxSinks(f.w) } })); setSel("vanity");
+      const sinks = slot === "vanity2" && twinOf ? (twinOf.sinks || 1) : maxSinks(f.w);
+      const sinkShape = slot === "vanity2" ? twinOf?.sinkShape : undefined;
+      commit((prev) => ({ ...prev, [slot]: { edge: i, side: surf.side, t, w: f.w, sinks, sinkShape } })); setSel(slot);
     } else if (armed === "bath") {
       // Choose a base that fits this surface (prefer 60x32), then land it in clear space.
       const pref = BASES.find((x) => x.id === "60x32"); let sku: Sku | undefined;
@@ -1338,7 +1380,7 @@ export function RoomConfigurator({ mode = "dealer", onComplete, onChange, onBack
       // Emit treatments keyed by the CURRENT walls' side identity only (stale sides drop
       // out); "paint" is the default so it's omitted and simply restores as paint.
       selections: {
-        shape: doc.shape, dims: model.S, door: model.door, toilet: model.toilet, bath: model.bath, vanity: model.vanity,
+        shape: doc.shape, dims: model.S, door: model.door, toilet: model.toilet, bath: model.bath, vanity: model.vanity, vanity2: model.vanity2,
         treatments: Object.fromEntries(model.edges.map((e, i) => [e.side, model.treat[i]] as [string, WallTreatment]).filter(([, v]) => v !== "paint")),
         flooring: model.flooring,
         wallBase: model.wallBase,
@@ -1378,19 +1420,37 @@ export function RoomConfigurator({ mode = "dealer", onComplete, onChange, onBack
     const sinks = initialVanity.sinks === 2 && size >= 48 ? 2 : 1;
     const sinkShape = initialVanity.sinkShape ?? "oval";
     setDoc((prev) => {
-      if (!prev.vanity) return prev;
-      if (prev.vanity.w === size && (prev.vanity.sinks || 1) === sinks && (prev.vanity.sinkShape ?? "oval") === sinkShape) return prev;
-      return { ...prev, vanity: { ...prev.vanity, w: size, sinks, sinkShape } };
+      if (!prev.vanity && !prev.vanity2) return prev;
+      // BOTH cabinets, always. The twin is the same cabinet a second time, so a size or sink
+      // change upstream applies to the pair — letting them diverge here is the one thing the
+      // count model exists to prevent.
+      const inSync = (v: RoomVanity | null) => !v || (v.w === size && (v.sinks || 1) === sinks && (v.sinkShape ?? "oval") === sinkShape);
+      if (inSync(prev.vanity) && inSync(prev.vanity2)) return prev;
+      const apply = (v: RoomVanity | null) => (v ? { ...v, w: size, sinks, sinkShape } : null);
+      return { ...prev, vanity: apply(prev.vanity), vanity2: apply(prev.vanity2) };
     });
   }, [initialVanity?.size, initialVanity?.sinks, initialVanity?.sinkShape]);
 
+  /**
+   * Drop the twin when the quote stops taking two.
+   *
+   * Without this, unticking the checkbox would leave a second cabinet on the plan that the
+   * quote no longer charges for — a drawing that disagrees with the price, which is exactly
+   * the failure the plan is meant to prevent. Not history-committed: this is a consequence of
+   * a decision made elsewhere, and undo here should return to the dealer's own last action.
+   */
+  useEffect(() => {
+    if (vanityCount > 1) return;
+    setDoc((prev) => (prev.vanity2 ? { ...prev, vanity2: null } : prev));
+  }, [vanityCount]);
+
   // ---- derived UI ----
-  const anyFix = !!(model.door || model.toilet || model.bath || model.vanity);
-  const moved = ([["door", model.door], ["toilet", model.toilet], ["bath", model.bath], ["vanity", model.vanity]] as [string, { orphaned?: boolean } | null][]).filter(([, o]) => o && o.orphaned).map(([n]) => n);
+  const anyFix = !!(model.door || model.toilet || model.bath || model.vanity || model.vanity2);
+  const moved = ([["door", model.door], ["toilet", model.toilet], ["bath", model.bath], ["vanity", model.vanity], ["vanity", model.vanity2]] as [string, { orphaned?: boolean } | null][]).filter(([, o]) => o && o.orphaned).map(([n]) => n);
   const armHint = (() => {
     if (armPartition) return partAnchor ? t("configurator.room.hintPartEnd") : t("configurator.room.hintPartStart");
     if (armed === "bath") { const any = model.edges.some((e) => bestFit(model.verts, e, BASES, model.cen)); return any ? t("configurator.room.hintBath") : t("configurator.room.hintBathNone"); }
-    return armed ? t("configurator.room.hintPlace", { item: t(armed === "door" ? "configurator.room.fixtureDoor" : armed === "vanity" ? "configurator.room.fixtureVanity" : "configurator.room.fixtureToilet") }) : "";
+    return armed ? t("configurator.room.hintPlace", { item: t(armed === "door" ? "configurator.room.fixtureDoor" : isVanityKind(armed) ? "configurator.room.fixtureVanity" : "configurator.room.fixtureToilet") }) : "";
   })();
 
   // In-progress partition placement: the resolved anchor dot on the wall, and a perpendicular
@@ -1426,7 +1486,11 @@ export function RoomConfigurator({ mode = "dealer", onComplete, onChange, onBack
             </button>
           )}
           <span className="mr-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-muted">{t("configurator.room.add")}</span>
-          {([["door", "configurator.room.addDoor"], ["bath", "configurator.room.addBath"], ["toilet", "configurator.room.addToilet"], ["vanity", "configurator.room.addVanity"]] as [Kind, string][]).map(([k, label]) => (
+          {([["door", "configurator.room.addDoor"], ["bath", "configurator.room.addBath"], ["toilet", "configurator.room.addToilet"], ["vanity", "configurator.room.addVanity"],
+             // The twin is offered ONLY when the quote takes two cabinets and the first is
+             // already down — placing the second before the first would leave the pair with no
+             // size to copy. It disappears again the moment the dealer unticks the twin.
+             ...(vanityCount > 1 && doc.vanity ? [["vanity2", "configurator.room.addVanity2"] as [Kind, string]] : [])] as [Kind, string][]).map(([k, label]) => (
             <button key={k} onClick={() => arm(k)} className={`${BTN} ${armed === k ? BTN_ACTIVE : ""}`}>{t(label)}</button>
           ))}
           <button onClick={armPartitionToggle} className={`${BTN} ${armPartition ? BTN_ACTIVE : ""}`}>{t("configurator.room.addPartition")}</button>
@@ -1615,7 +1679,7 @@ function handleCenterFor(m: Model, kind: Kind): Pt | null {
   const v = edgeVec(e);
   const mid: Pt = [e.a[0] + v.ux * v.L * rf.t, e.a[1] + v.uy * v.L * rf.t];
   const { nx, ny } = surfNormal(e, mid, m.cen);
-  const i2 = kind === "door" ? 0 : kind === "toilet" ? 4 : kind === "bath" ? bathDims(m.bath!).d / 2 : VANITY_D / 2;
+  const i2 = kind === "door" ? 0 : kind === "toilet" ? 4 : kind === "bath" ? bathDims(m.bath!).d / 2 : VANITY_D / 2; // both vanity kinds share the offset
   return m.P(mid[0] + nx * i2, mid[1] + ny * i2);
 }
 
@@ -1763,7 +1827,7 @@ function Plan({ svgRef, model, armed, showClear, sel, onBackground, onPlace, onS
           stays reachable); when armed they're inert so wall hit-targets win. Rendered with
           the selected fixture LAST so its handle draws on top; crowded handles shrink. */}
       {(() => {
-        const kinds: Kind[] = ["door", "toilet", "bath", "vanity"];
+        const kinds: Kind[] = ["door", "toilet", "bath", "vanity", "vanity2"];
         const centers: Partial<Record<Kind, Pt>> = {};
         kinds.forEach((k) => { const c = handleCenterFor(model, k); if (c) centers[k] = c; });
         const CROWD = 40;
@@ -1775,7 +1839,8 @@ function Plan({ svgRef, model, armed, showClear, sel, onBackground, onPlace, onS
           if (k === "door" && model.door) return <DoorArt key="door" m={model} sel={sel === "door"} crowded={crowdedOf("door")} onSelect={() => onSelect?.("door")} onDragStart={drag} interactive={interactive} />;
           if (k === "toilet" && model.toilet) return <ToiletArt key="toilet" m={model} sel={sel === "toilet"} bodySelectable={bodySel} crowded={crowdedOf("toilet")} onSelect={() => onSelect?.("toilet")} onDragStart={drag} interactive={interactive} />;
           if (k === "bath" && model.bath) return <BathArt key="bath" m={model} sel={sel === "bath"} bodySelectable={bodySel} crowded={crowdedOf("bath")} onSelect={() => onSelect?.("bath")} onDragStart={drag} interactive={interactive} t={t} />;
-          if (k === "vanity" && model.vanity) return <VanityArt key="vanity" m={model} sel={sel === "vanity"} bodySelectable={bodySel} crowded={crowdedOf("vanity")} onSelect={() => onSelect?.("vanity")} onDragStart={drag} interactive={interactive} t={t} />;
+          if (k === "vanity" && model.vanity) return <VanityArt key="vanity" m={model} which="vanity" sel={sel === "vanity"} bodySelectable={bodySel} crowded={crowdedOf("vanity")} onSelect={() => onSelect?.("vanity")} onDragStart={drag} interactive={interactive} t={t} />;
+          if (k === "vanity2" && model.vanity2) return <VanityArt key="vanity2" m={model} which="vanity2" sel={sel === "vanity2"} bodySelectable={bodySel} crowded={crowdedOf("vanity2")} onSelect={() => onSelect?.("vanity2")} onDragStart={drag} interactive={interactive} t={t} />;
           return null;
         });
       })()}
@@ -1883,6 +1948,7 @@ export type RoomPlanState = {
   toilet: RoomToilet | null;
   bath: RoomBath | null;
   vanity: RoomVanity | null;
+  vanity2?: RoomVanity | null;
   excluded?: number[];
   treatments?: WallTreatments;
   flooring?: RoomFlooring | null;
@@ -1890,7 +1956,7 @@ export type RoomPlanState = {
   partitions?: RoomPartition[];
 };
 function planStateToDoc(s: RoomPlanState): Doc {
-  return { shape: s.shape, S: s.dims, door: s.door, toilet: s.toilet, bath: s.bath, vanity: s.vanity, excluded: s.excluded ?? [], treatments: s.treatments ?? {}, flooring: s.flooring ?? undefined, wallBase: s.wallBase ?? undefined, partitions: s.partitions ?? [] };
+  return { shape: s.shape, S: s.dims, door: s.door, toilet: s.toilet, bath: s.bath, vanity: s.vanity, vanity2: s.vanity2 ?? null, excluded: s.excluded ?? [], treatments: s.treatments ?? {}, flooring: s.flooring ?? undefined, wallBase: s.wallBase ?? undefined, partitions: s.partitions ?? [] };
 }
 
 /**
@@ -2039,11 +2105,11 @@ function ContextPanel({ model, sel, onDoor, onToiletRough, onBathKind, onBathSku
       </div>
     );
   }
-  if (sel === "vanity" && model.vanity) {
-    const vanity = model.vanity; const L = edgeVec(surfaces[vanity.edge]).L;
+  if ((sel === "vanity" || sel === "vanity2") && model[sel]) {
+    const vanity = model[sel]!; const L = edgeVec(surfaces[vanity.edge]).L;
     return (
       <div>
-        {hdr(t("configurator.room.vanityHdr"), "vanity")}
+        {hdr(t(sel === "vanity2" ? "configurator.room.vanity2Hdr" : "configurator.room.vanityHdr"), sel)}
         <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted">{t("configurator.room.sizeLbl")}</div>
         <div className="mt-1 flex flex-wrap gap-1.5">{VANITY_SIZES.map((w) => <button key={w} onClick={() => onVanity("w", w)} className={`${SB} ${vanity.w === w ? BTN_ACTIVE : ""}`} style={w > L ? { borderColor: AMBER, color: AMBER } : undefined}>{w}&quot;</button>)}</div>
         <Field label={t("configurator.room.sinksLbl")}><span className="flex gap-1.5">{[1, 2].map((n) => <button key={n} disabled={n > maxSinks(vanity.w)} onClick={() => onVanity("sinks", n)} className={`${SB} ${(vanity.sinks || 1) === n ? BTN_ACTIVE : ""}`}>{n}</button>)}</span></Field>

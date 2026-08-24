@@ -20,7 +20,7 @@ import { ShowerPreviewFromConfig, type ShowerConfig } from "@/components/shower/
 import { VanityPreviewFromConfig, type VanityConfig } from "@/components/vanity/VanityConfigurator";
 import { PlumbingPreviewFromConfig, type PlumbingConfig } from "@/components/plumbing/PlumbingConfigurator";
 import { HeroPreview, hasHeroContent } from "@/components/configurator/HeroPreview";
-import { quoteBathrooms, labelForBathroom, type Bathroom } from "@/lib/bathrooms";
+import { quoteBathrooms, labelForBathroom, isTwinVanity, type Bathroom } from "@/lib/bathrooms";
 
 const money = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 const fmtDate = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString() : "—");
@@ -494,7 +494,7 @@ function SnapshotBathroom({ bathroom, t }: { bathroom: Bathroom; t: (k: string, 
       {hasProducts && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           {shower && <PreviewCard label={t("configurator.showerTitle")}><ShowerPreviewFromConfig config={shower} /></PreviewCard>}
-          {vanity && <PreviewCard label={t("configurator.vanityTitle")}><VanityPreviewFromConfig config={vanity} /></PreviewCard>}
+          {vanity && <PreviewCard label={isTwinVanity(bathroom) ? t("configurator.vanity.twinLine", { label: t("configurator.vanityTitle") }) : t("configurator.vanityTitle")}><VanityPreviewFromConfig config={vanity} /></PreviewCard>}
           {/* showHeroPhoto: this card has no separate product grid to hold the faucet, so
               without it the accessories render as real photos while the faucet alone falls
               back to the schematic — it reads as a missing image. */}
