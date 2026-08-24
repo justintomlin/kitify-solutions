@@ -935,7 +935,8 @@ function VanityArt({ m, which = "vanity", sel, onSelect, onDragStart, interactiv
     parts.push(<text key="wt" x={wp[0]} y={wp[1]} textAnchor="middle" dominantBaseline="middle" fontFamily="monospace" fontSize={LABEL_FS} fill={AMBER} pointerEvents="none">{t("configurator.room.doesntFitHere")}</text>);
   }
   const h = pt(0, dp / 2);
-  return <g>{parts}{interactive && <PickCircles kind="vanity" cx={h[0]} cy={h[1]} selected={sel} crowded={crowded} onSelect={onSelect} onDragStart={onDragStart} />}</g>;
+  // `which`, NOT a hardcoded "vanity": the handle has to drag the cabinet it is drawn on.
+  return <g>{parts}{interactive && <PickCircles kind={which} cx={h[0]} cy={h[1]} selected={sel} crowded={crowded} onSelect={onSelect} onDragStart={onDragStart} />}</g>;
 }
 
 const IN_CLS = "w-11 rounded-md border border-line bg-card px-1 py-1 text-center font-mono text-xs";
@@ -1086,7 +1087,17 @@ export function RoomConfigurator({ mode = "dealer", onComplete, onChange, onBack
   }
   // Memoised because the keyboard effect and the toolbar both call these; a fresh identity
   // every render would re-subscribe the keydown listener on each one.
-  const del = useCallback((k: Kind) => { commit((prev) => ({ ...prev, [k]: null })); setSel(null); }, [commit]);
+  const del = useCallback((k: Kind) => {
+    commit((prev) => {
+      // Removing the FIRST of a pair promotes the twin into its place. Left alone, the plan
+      // would keep one cabinet parked in the second slot with nothing to take its size from,
+      // and the toolbar — which gates "+ 2nd vanity" on the first existing — could never
+      // offer it again.
+      if (k === "vanity" && prev.vanity2) return { ...prev, vanity: prev.vanity2, vanity2: null };
+      return { ...prev, [k]: null };
+    });
+    setSel(null);
+  }, [commit]);
 
   // ---- placement ---- `i` indexes into surfaces (a perimeter wall OR a partition face), so
   // a fixture mounts to either by the same offset-along-surface model.
@@ -1116,6 +1127,20 @@ export function RoomConfigurator({ mode = "dealer", onComplete, onChange, onBack
       const tt = tapOffset(w);
       return tt !== null && fits(verts, surf, tt, w, d, cen) ? tt : null;
     };
+    // As tapFitting, but ALSO refuses a tap that lands on another fixture.
+    //
+    // fits() only tests the room outline, so tapping straight onto an existing cabinet used to
+    // drop the new one exactly on top of it — most visible with twin vanities, where the two
+    // are identical and simply disappeared into each other. Falling back to freeFit's clear
+    // position is the same warn-don't-block rule the outline test already follows.
+    const tapClear = (w: number, d: number, skipKind: Kind): number | null => {
+      const tt = tapFitting(w, d);
+      if (tt === null) return null;
+      const mine = aabb(zoneOn(surfaces, { edge: i, t: tt }, w, 0, d, cen)!);
+      const others = activeFixtures(surfaces, m.fx).filter((f) => f.k !== skipKind)
+        .map((g) => aabb(zoneOn(surfaces, g.o, g.w, 0, g.d, cen)!));
+      return others.some((b) => overlaps(mine, b)) ? null : tt;
+    };
 
     if (armed === "door") {
       // Widest-first, so when the preferred size doesn't fit this wall resolveDefault's
@@ -1143,7 +1168,7 @@ export function RoomConfigurator({ mode = "dealer", onComplete, onChange, onBack
       const slot = armed;
       const twinOf = doc.vanity;
       const f = freeFit(verts, surfaces, i, slot === "vanity2" && twinOf ? [twinOf.w] : VANITY_SIZES, VANITY_D, cen, slot, m.fx); if (!f) return;
-      const t = tapFitting(f.w, VANITY_D) ?? f.t;
+      const t = tapClear(f.w, VANITY_D, slot) ?? f.t;
       const sinks = slot === "vanity2" && twinOf ? (twinOf.sinks || 1) : maxSinks(f.w);
       const sinkShape = slot === "vanity2" ? twinOf?.sinkShape : undefined;
       commit((prev) => ({ ...prev, [slot]: { edge: i, side: surf.side, t, w: f.w, sinks, sinkShape } })); setSel(slot);
@@ -1275,7 +1300,9 @@ export function RoomConfigurator({ mode = "dealer", onComplete, onChange, onBack
       const ux = (ev.clientX - rr.left) * (W / rr.width), uy = (ev.clientY - rr.top) * (H / rr.height);
       const m = modelRef.current; const rf = m[kind]; if (!rf) return;
       const rx = (ux - m.ox) / m.s, ry = (uy - m.oy) / m.s;
-      const wf = kind === "door" ? roOf((rf as RoomDoor).w) : kind === "toilet" ? TOILET_W : kind === "vanity" ? (rf as RoomVanity).w : bathDims(rf as RoomBath).w;
+      // isVanityKind, not `kind === "vanity"` — the twin fell through to bathDims() and was
+      // measured as if it were a tub, which is a NaN width and a fixture that cannot be placed.
+      const wf = kind === "door" ? roOf((rf as RoomDoor).w) : kind === "toilet" ? TOILET_W : isVanityKind(kind) ? (rf as RoomVanity).w : bathDims(rf as RoomBath).w;
       // Free between walls: the target surface is re-derived from the pointer on EVERY move,
       // not fixed at drag start. Writing the new `edge` is also what produces the live
       // rotation — every Art component derives its orientation from the current edge's vector
