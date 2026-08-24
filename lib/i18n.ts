@@ -1299,6 +1299,13 @@ export const dictionary: Record<Lang, Record<string, any>> = {
         accGrabBar: "Grab bar",
       },
       vanity: {
+        // Twin vanities — the same cabinet twice, his-and-hers. A COUNT, not a second
+        // configuration, so the affordance is a checkbox and the copy says "identical".
+        twinAdd: "Add an identical second vanity",
+        twinHint: "Same size, door style, finish and drilling — ordered twice, drawn twice on the plan.",
+        twinBadge: "×2",
+        twinLine: "{label} ×2",
+        twinPlaceHint: "Two vanities are on this quote. Place the second one on the plan.",
         pickMountSize: "Pick a mount and size to price it.",
         stepMount: "Mount",
         stepSize: "Size",
@@ -3203,6 +3210,11 @@ export const dictionary: Record<Lang, Record<string, any>> = {
         accGrabBar: "Barra de apoyo",
       },
       vanity: {
+        twinAdd: "Agregar un segundo mueble idéntico",
+        twinHint: "Misma medida, estilo de puerta, acabado y perforación — se pide dos veces y se dibuja dos veces en el plano.",
+        twinBadge: "×2",
+        twinLine: "{label} ×2",
+        twinPlaceHint: "Esta cotización lleva dos muebles. Coloque el segundo en el plano.",
         pickMountSize: "Elija montaje y medida para cotizar.",
         stepMount: "Montaje",
         stepSize: "Medida",
