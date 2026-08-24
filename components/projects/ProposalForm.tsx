@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { useLanguage } from "@/components/LanguageContext";
-import { saveProposal, type Proposal, type ProposalLineItem, type Quote } from "@/lib/store";
+import { saveProposal, labelForTier, toOptionNames, type Proposal, type ProposalLineItem, type Quote } from "@/lib/store";
+import type { OptionTier } from "@/lib/bathrooms";
 
 const INPUT =
   "w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm text-ink placeholder:text-muted focus:border-accent focus:outline-none";
@@ -32,9 +33,19 @@ function Field({ label, required, error, children }: { label: string; required?:
   );
 }
 
-// Group up to three of a project's saved quotes into a good/better/best proposal. Tiers are
-// optional (a proposal can carry just two). Editing preserves an existing share link and any
-// acceptance, because saveProposal never touches those columns.
+/**
+ * Group up to three of a project's saved quotes into a proposal. Options are optional (a
+ * proposal can carry just two). Editing preserves an existing share link and any acceptance,
+ * because saveProposal never touches those columns.
+ *
+ * The three slots are stored as tier_good / tier_better / tier_best and are called Option 1 /
+ * 2 / 3 everywhere a person can see them. The columns keep their names — the accept flow, the
+ * public route, the order path and every saved row reference them, and renaming them would be
+ * a large and entirely cosmetic migration — but the ladder itself was never the contractor's
+ * idea of what they are offering. "SPC package" and "HPL package" are not better and worse,
+ * and a two-option proposal has no "best". So each option can be named, and an unnamed one
+ * numbers itself.
+ */
 export function ProposalForm({ ownerId, projectId, quotes, initial, onSaved, onCancel }: {
   ownerId: string;
   projectId: string;
@@ -49,6 +60,13 @@ export function ProposalForm({ ownerId, projectId, quotes, initial, onSaved, onC
   const [tierBetter, setTierBetter] = useState(initial?.tierBetter ?? "");
   const [tierBest, setTierBest] = useState(initial?.tierBest ?? "");
   const [markup, setMarkup] = useState(String(initial?.markupPct ?? 0));
+  // Held as raw strings while editing, like the line-item amounts, and normalised once on
+  // submit — so clearing a field and tabbing away means "go back to the number", not "".
+  const [optionNames, setOptionNames] = useState<Record<OptionTier, string>>(() => ({
+    good: initial?.optionNames?.good ?? "",
+    better: initial?.optionNames?.better ?? "",
+    best: initial?.optionNames?.best ?? "",
+  }));
   // Amounts are held as strings while editing so a half-typed "12." or a cleared field stays
   // exactly as typed; they are parsed once on submit.
   const [lineItems, setLineItems] = useState<{ id: string; description: string; amount: string }[]>(
@@ -57,13 +75,29 @@ export function ProposalForm({ ownerId, projectId, quotes, initial, onSaved, onC
   const [nameError, setNameError] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const tierSelect = (value: string, onChange: (v: string) => void, key: string) => (
-    <select value={value} onChange={(e) => onChange(e.target.value)} className={INPUT} aria-label={key}>
-      <option value="">{t("projects.tierNone")}</option>
-      {quotes.map((q) => (
-        <option key={q.id} value={q.id}>{q.name}</option>
-      ))}
-    </select>
+  // The current names, in the shape labelForTier reads. Live, so the heading above each
+  // column becomes the dealer's own wording as they type it.
+  const namesNow = toOptionNames(optionNames);
+  const optionLabel = (tier: OptionTier) => labelForTier(tier, namesNow, t);
+  /** The numbered placeholder, i.e. what this option is called while it has no name. */
+  const optionFallback = (tier: OptionTier) => labelForTier(tier, null, t);
+
+  const optionColumn = (tier: OptionTier, value: string, onChange: (v: string) => void) => (
+    <Field label={optionLabel(tier)}>
+      <input
+        value={optionNames[tier]}
+        onChange={(e) => setOptionNames((prev) => ({ ...prev, [tier]: e.target.value }))}
+        placeholder={optionFallback(tier)}
+        aria-label={t("projects.optionNameLabel", { option: optionFallback(tier) })}
+        className={`${INPUT} mb-2`}
+      />
+      <select value={value} onChange={(e) => onChange(e.target.value)} className={INPUT} aria-label={optionLabel(tier)}>
+        <option value="">{t("projects.tierNone")}</option>
+        {quotes.map((q) => (
+          <option key={q.id} value={q.id}>{q.name}</option>
+        ))}
+      </select>
+    </Field>
   );
 
   const addLineItem = () =>
@@ -98,6 +132,9 @@ export function ProposalForm({ ownerId, projectId, quotes, initial, onSaved, onC
       tierBest: tierBest || null,
       status: initial?.status ?? "draft", // keep an existing status (e.g. 'shared') on edit
       customLineItems: cleanLineItems(),
+      // toOptionNames trims and collapses an all-blank set to null, so clearing every field
+      // saves "unnamed" rather than three empty strings.
+      optionNames: namesNow,
     });
     setSaving(false);
     onSaved(saved);
@@ -115,10 +152,11 @@ export function ProposalForm({ ownerId, projectId, quotes, initial, onSaved, onC
         </Field>
 
         <div className="grid gap-3 sm:grid-cols-3">
-          <Field label={t("projects.tierGoodLabel")}>{tierSelect(tierGood, setTierGood, "good")}</Field>
-          <Field label={t("projects.tierBetterLabel")}>{tierSelect(tierBetter, setTierBetter, "better")}</Field>
-          <Field label={t("projects.tierBestLabel")}>{tierSelect(tierBest, setTierBest, "best")}</Field>
+          {optionColumn("good", tierGood, setTierGood)}
+          {optionColumn("better", tierBetter, setTierBetter)}
+          {optionColumn("best", tierBest, setTierBest)}
         </div>
+        <p className="text-xs text-muted">{t("projects.optionNamesHint")}</p>
 
         <div className="sm:max-w-[180px]">
           <Field label={t("projects.markupLabel")}>

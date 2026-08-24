@@ -74,9 +74,9 @@ export const dictionary: Record<Lang, Record<string, any>> = {
       unavailableBody: "This link may have expired or been removed. Please reach out to your contractor for an updated link.",
       comingSoonTitle: "Details coming soon",
       comingSoonBody: "Your contractor is putting the finishing touches on this proposal. Please check back shortly.",
-      tierGood: "Good",
-      tierBetter: "Better",
-      tierBest: "Best",
+      // proposal.tierGood / tierBetter / tierBest are gone. A homeowner is never told that one
+      // of the three things they are being offered is the worst one; the toggle reads the
+      // contractor's own name for each option, or configurator.option.numbered.
       priceLabel: "Total price",
       compareHint: "You're viewing {tier} — tap {others} to compare.",
       orSeparator: " or ",
@@ -1099,6 +1099,11 @@ export const dictionary: Record<Lang, Record<string, any>> = {
         removeBody: "Everything configured in this bathroom — room, shower, vanity and plumbing — is deleted. This can't be undone.",
         removeConfirm: "Remove bathroom",
       },
+      // The three proposal options, wherever one is unnamed. Deliberately NOT good/better/
+      // best — see labelForTier and migration 0019.
+      option: {
+        numbered: "Option {n}",
+      },
       openRoomEditor: "Open the room editor",
       openConfigurator: "Open {item} configurator",
       // Hero compositor — the live room preview at the top of the hub. Material and colour
@@ -1711,12 +1716,14 @@ export const dictionary: Record<Lang, Record<string, any>> = {
       editProposalTitle: "Edit proposal",
       proposalName: "Proposal name",
       proposalNamePlaceholder: "e.g. Master Bath — Options",
-      tierGoodLabel: "Good",
-      tierBetterLabel: "Better",
-      tierBestLabel: "Best",
+      // The three proposal options. Nothing here says good/better/best: the tier_* columns
+      // keep those names (migration 0019) but the ladder is a database detail, and "SPC
+      // package" and "HPL package" are not better and worse versions of each other.
+      optionNameLabel: "Name for {option}",
+      optionNamesHint: "Name each option so your customer sees what it is — “SPC package”, “HPL package”. Leave blank to number them.",
       tierNone: "— None —",
       markupLabel: "Markup %",
-      markupHint: "Added to each tier's dealer total to get the price your customer sees.",
+      markupHint: "Added to each option's dealer total to get the price your customer sees.",
       noTiersAssigned: "No tiers assigned yet",
       quoteRemoved: "Quote removed",
       pStatusDraft: "Draft",
@@ -1844,6 +1851,8 @@ export const dictionary: Record<Lang, Record<string, any>> = {
       claimOrder: "Order",
       claimFiledOn: "Filed",
       claimProducts: "Affected",
+      // Only on a multi-bathroom order, where the product alone no longer says which goods.
+      claimProductScoped: "{bathroom} · {product}",
       noProducts: "No line items on this order's snapshot.",
     },
     customers: {
@@ -1970,9 +1979,6 @@ export const dictionary: Record<Lang, Record<string, any>> = {
       unavailableBody: "Es posible que este enlace haya vencido o se haya eliminado. Comuníquese con su contratista para obtener un enlace actualizado.",
       comingSoonTitle: "Detalles próximamente",
       comingSoonBody: "Su contratista está dando los toques finales a esta propuesta. Vuelva a consultar en breve.",
-      tierGood: "Buena",
-      tierBetter: "Mejor",
-      tierBest: "Óptima",
       priceLabel: "Precio total",
       compareHint: "Está viendo {tier} — toque {others} para comparar.",
       orSeparator: " o ",
@@ -2988,6 +2994,9 @@ export const dictionary: Record<Lang, Record<string, any>> = {
         removeBody: "Se elimina todo lo configurado en este baño — cuarto, ducha, tocador y plomería. Esta acción no se puede deshacer.",
         removeConfirm: "Quitar baño",
       },
+      option: {
+        numbered: "Opción {n}",
+      },
       hero: {
         caption: "La vista previa se actualiza mientras configura",
         preview: "Vista previa de su baño",
@@ -3579,12 +3588,11 @@ export const dictionary: Record<Lang, Record<string, any>> = {
       editProposalTitle: "Editar propuesta",
       proposalName: "Nombre de la propuesta",
       proposalNamePlaceholder: "p. ej. Baño principal — Opciones",
-      tierGoodLabel: "Buena",
-      tierBetterLabel: "Mejor",
-      tierBestLabel: "Óptima",
+      optionNameLabel: "Nombre para {option}",
+      optionNamesHint: "Nombre cada opción para que su cliente vea de qué se trata — “Paquete SPC”, “Paquete HPL”. Déjelo en blanco para numerarlas.",
       tierNone: "— Ninguna —",
       markupLabel: "Margen %",
-      markupHint: "Se suma al total de distribuidor de cada nivel para obtener el precio que ve el cliente.",
+      markupHint: "Se suma al total de distribuidor de cada opción para obtener el precio que ve el cliente.",
       noTiersAssigned: "Aún no hay niveles asignados",
       quoteRemoved: "Cotización eliminada",
       pStatusDraft: "Borrador",
@@ -3712,6 +3720,7 @@ export const dictionary: Record<Lang, Record<string, any>> = {
       claimOrder: "Pedido",
       claimFiledOn: "Presentado",
       claimProducts: "Afectados",
+      claimProductScoped: "{bathroom} · {product}",
       noProducts: "Este pedido no tiene partidas en su instantánea.",
     },
     customers: {

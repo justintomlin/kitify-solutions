@@ -20,7 +20,7 @@ import { ShowerPreviewFromConfig, type ShowerConfig } from "@/components/shower/
 import { VanityPreviewFromConfig, type VanityConfig } from "@/components/vanity/VanityConfigurator";
 import { PlumbingPreviewFromConfig, type PlumbingConfig } from "@/components/plumbing/PlumbingConfigurator";
 import { HeroPreview, hasHeroContent } from "@/components/configurator/HeroPreview";
-import { quoteBathrooms } from "@/lib/bathrooms";
+import { quoteBathrooms, labelForBathroom, type Bathroom } from "@/lib/bathrooms";
 
 const money = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 const fmtDate = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString() : "—");
@@ -187,13 +187,8 @@ export default function OrderDetailPage() {
   // Every snapshot frozen before Phase C1 carries the four flat slots and no `bathrooms`;
   // the accessor synthesises a bathroom from them, so a historical order renders exactly as
   // it always has. A C1-or-later snapshot carries both shapes and resolves to the same thing.
-  // Still bathroom 0 only — C2 is what sections this view.
-  const bath = quoteBathrooms(snap?.quote ?? {})[0];
-  const room = (bath.room as RoomConfig | null) ?? null;
-  const shower = (bath.shower as ShowerConfig | null) ?? null;
-  const vanity = (bath.vanity as VanityConfig | null) ?? null;
-  const plumbing = (bath.plumbing as PlumbingConfig | null) ?? null;
-  const hasProducts = !!(shower || vanity || plumbing);
+  const baths = quoteBathrooms(snap?.quote ?? {});
+  const multiBath = baths.length > 1;
   const addr = order.address;
   const addrLine = addr ? [addr.street, [addr.city, addr.state, addr.zip].filter(Boolean).join(", ")].filter(Boolean).join(" · ") : "";
   const hasShipping = !!(order.carrier || order.trackingNumber || order.actualDelivery);
@@ -252,27 +247,19 @@ export default function OrderDetailPage() {
           </div>
         </div>
         <div className="space-y-5">
-          {/* Same placement and reasoning as the proposal: the picture of the room leads, the
-              dimensioned plan follows. Rendered from the frozen snapshot's own configs. */}
-          {hasHeroContent({ room, shower, vanity, plumbing }) && (
-            <HeroPreview room={room} shower={shower} vanity={vanity} plumbing={plumbing}
-              caption={t("configurator.hero.preview")} />
-          )}
-          {room?.selections && (
-            <div className="mx-auto w-full max-w-[560px]">
-              <RoomPlanSVG state={room.selections} interactive={false} showClearances={false} />
-            </div>
-          )}
-          {hasProducts && (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              {shower && <PreviewCard label={t("configurator.showerTitle")}><ShowerPreviewFromConfig config={shower} /></PreviewCard>}
-              {vanity && <PreviewCard label={t("configurator.vanityTitle")}><VanityPreviewFromConfig config={vanity} /></PreviewCard>}
-              {/* showHeroPhoto: this card has no separate product grid to hold the faucet, so
-                  without it the accessories render as real photos while the faucet alone falls
-                  back to the schematic — it reads as a missing image. */}
-              {plumbing && <PreviewCard label={t("configurator.plumbingTitle")}><PlumbingPreviewFromConfig config={plumbing} showHeroPhoto /></PreviewCard>}
-            </div>
-          )}
+          {/* One bathroom renders exactly what it always did — no heading over a single
+              bathroom's worth of goods. Two or more get a named block each, so a contractor
+              chasing a missing panel can see which room it belongs to. */}
+          {multiBath
+            ? baths.map((b, i) => (
+                <div key={b.id} className="space-y-5">
+                  <h3 className="bathroom-heading border-b border-line pb-2 font-display text-base font-semibold tracking-tight text-ink">
+                    {labelForBathroom(b, i, t)}
+                  </h3>
+                  <SnapshotBathroom bathroom={b} t={t} />
+                </div>
+              ))
+            : <SnapshotBathroom bathroom={baths[0]} t={t} />}
         </div>
       </Section>
 
@@ -464,6 +451,44 @@ export default function OrderDetailPage() {
         </Section>
       )}
     </div>
+  );
+}
+
+/**
+ * One bathroom out of the frozen snapshot: the picture of the room leads, the dimensioned plan
+ * follows, then the products — same placement and reasoning as the proposal.
+ *
+ * A Fragment rather than a wrapper, so a single-bathroom order — which is every order placed
+ * before C2 — renders byte-for-byte what it rendered before.
+ */
+function SnapshotBathroom({ bathroom, t }: { bathroom: Bathroom; t: (k: string, v?: Record<string, string>) => string }) {
+  const room = (bathroom.room as RoomConfig | null) ?? null;
+  const shower = (bathroom.shower as ShowerConfig | null) ?? null;
+  const vanity = (bathroom.vanity as VanityConfig | null) ?? null;
+  const plumbing = (bathroom.plumbing as PlumbingConfig | null) ?? null;
+  const hasProducts = !!(shower || vanity || plumbing);
+  return (
+    <>
+      {hasHeroContent({ room, shower, vanity, plumbing }) && (
+        <HeroPreview room={room} shower={shower} vanity={vanity} plumbing={plumbing}
+          caption={t("configurator.hero.preview")} />
+      )}
+      {room?.selections && (
+        <div className="mx-auto w-full max-w-[560px]">
+          <RoomPlanSVG state={room.selections} interactive={false} showClearances={false} />
+        </div>
+      )}
+      {hasProducts && (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          {shower && <PreviewCard label={t("configurator.showerTitle")}><ShowerPreviewFromConfig config={shower} /></PreviewCard>}
+          {vanity && <PreviewCard label={t("configurator.vanityTitle")}><VanityPreviewFromConfig config={vanity} /></PreviewCard>}
+          {/* showHeroPhoto: this card has no separate product grid to hold the faucet, so
+              without it the accessories render as real photos while the faucet alone falls
+              back to the schematic — it reads as a missing image. */}
+          {plumbing && <PreviewCard label={t("configurator.plumbingTitle")}><PlumbingPreviewFromConfig config={plumbing} showHeroPhoto /></PreviewCard>}
+        </div>
+      )}
+    </>
   );
 }
 

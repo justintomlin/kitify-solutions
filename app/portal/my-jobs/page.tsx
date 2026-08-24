@@ -25,6 +25,7 @@ import { useToast, ToastView } from "@/components/Toast";
 import { PhotoUpload } from "@/components/PhotoUpload";
 import { WarrantyStatusChip, ClaimStatusChip } from "@/components/projects/ui";
 import { createClaim, listClaims, listOrders, updateOrder, type Claim, type Order } from "@/lib/store";
+import { claimLines, claimProductLabel, PRODUCT_KEY_LABEL } from "@/lib/claim-scope";
 
 const fmtDate = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString() : "—");
 
@@ -44,20 +45,11 @@ const TAG_KEY: Record<Tag, string> = {
   "full-room": "myJobs.tagFullRoom",
 };
 
-// Claim line items come from the frozen order snapshot — never from the live quote.
-type Snap = { quote?: Record<string, unknown> | null } | null;
-const PRODUCT_KEYS = ["room", "shower", "vanity", "plumbing"] as const;
-const PRODUCT_KEY_LABEL: Record<string, string> = {
-  room: "configurator.roomTitle",
-  shower: "configurator.showerTitle",
-  vanity: "configurator.vanityTitle",
-  plumbing: "configurator.plumbingTitle",
-};
-function lineItems(o: Order): string[] {
-  const q = (o.snapshot as Snap)?.quote;
-  if (!q) return [];
-  return PRODUCT_KEYS.filter((k) => q[k] != null);
-}
+// Claim line items come from the frozen order snapshot — never from the live quote. The
+// two-shape rule (bare 'shower' vs bathroom-scoped 'b-4f2a91:shower') lives in lib/claim-scope,
+// where it is testable; here we only pull the snapshot's quote out of the order.
+type Snap = { quote?: unknown } | null;
+const snapshotQuote = (o: Order | undefined) => (o?.snapshot as Snap)?.quote ?? null;
 
 const BTN = "inline-flex items-center gap-1.5 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50";
 const BTN_GHOST = "inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-2 text-sm font-medium text-muted transition hover:text-ink disabled:opacity-50";
@@ -418,7 +410,7 @@ function ClaimsTab({ orders, ownerId, onDone }: { orders: Order[]; ownerId: stri
                   {c.affectedProducts.length > 0 && (
                     <span>
                       {t("myJobs.claimProducts")}:{" "}
-                      {c.affectedProducts.map((k) => t(PRODUCT_KEY_LABEL[k] ?? k)).join(", ")}
+                      {c.affectedProducts.map((k) => claimProductLabel(k, snapshotQuote(o), t)).join(", ")}
                     </span>
                   )}
                   {c.photos.length > 0 && (
@@ -446,7 +438,7 @@ function ClaimForm({
   const [error, setError] = useState("");
 
   const order = orders.find((o) => o.id === orderId) ?? null;
-  const items = order ? lineItems(order) : [];
+  const items = claimLines(snapshotQuote(order ?? undefined), t);
 
   async function submit() {
     if (!orderId) { setError(t("myJobs.errJob")); return; }
@@ -495,14 +487,18 @@ function ClaimForm({
             <p className="text-xs text-muted">{t("myJobs.noProducts")}</p>
           ) : (
             <div className="flex flex-wrap gap-2">
-              {items.map((k) => {
-                const on = products.includes(k);
+              {items.map((it) => {
+                const on = products.includes(it.key);
                 return (
-                  <label key={k}
+                  <label key={it.key}
                     className={`inline-flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-1.5 text-sm transition ${on ? "border-accent bg-accent-soft/50 text-accent" : "border-line text-muted hover:text-ink"}`}>
                     <input type="checkbox" checked={on}
-                      onChange={() => setProducts((prev) => (on ? prev.filter((x) => x !== k) : [...prev, k]))} />
-                    {t(PRODUCT_KEY_LABEL[k] ?? k)}
+                      onChange={() => setProducts((prev) => (on ? prev.filter((x) => x !== it.key) : [...prev, it.key]))} />
+                    {/* On a two-bathroom job "Shower" is not an answer — the room comes first,
+                        the product second, so the pair reads as one thing being claimed. */}
+                    {it.bathroom
+                      ? t("myJobs.claimProductScoped", { bathroom: it.bathroom, product: t(PRODUCT_KEY_LABEL[it.kind]) })
+                      : t(PRODUCT_KEY_LABEL[it.kind])}
                   </label>
                 );
               })}

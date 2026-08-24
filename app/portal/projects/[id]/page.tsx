@@ -12,7 +12,7 @@ import {
   listOrders, createOrderFromProposal,
   type Project, type Quote, type Proposal, type Order, type ContractorBranding,
 } from "@/lib/store";
-import { quoteBathrooms } from "@/lib/bathrooms";
+import { quoteBathrooms, labelForTier } from "@/lib/bathrooms";
 import { ProjectForm } from "@/components/projects/ProjectForm";
 import { ProposalForm } from "@/components/projects/ProposalForm";
 import { ProjectStatusChip, RegChip, QuoteStatusChip, ProposalStatusChip, OrderStatusChip, relativeUpdated } from "@/components/projects/ui";
@@ -274,15 +274,18 @@ export default function ProjectDetailPage() {
           <div className="space-y-3">
             {proposals.map((p) => {
               const link = p.shareToken ? `${origin}/proposal/${p.shareToken}` : "";
+              // The contractor's own name for each option, or "Option N". Never good/better/
+              // best — the tier_* columns keep those names, but nothing user-facing renders
+              // them (see ProposalForm and migration 0019).
               const tiers = ([
-                ["good", t("projects.tierGoodLabel"), p.tierGood],
-                ["better", t("projects.tierBetterLabel"), p.tierBetter],
-                ["best", t("projects.tierBestLabel"), p.tierBest],
+                ["good", labelForTier("good", p.optionNames, t), p.tierGood],
+                ["better", labelForTier("better", p.optionNames, t), p.tierBetter],
+                ["best", labelForTier("best", p.optionNames, t), p.tierBest],
               ] as [string, string, string | null][]).filter(([, , qid]) => qid);
               const acceptedTier =
-                p.acceptedQuoteId === p.tierGood ? t("projects.tierGoodLabel")
-                : p.acceptedQuoteId === p.tierBetter ? t("projects.tierBetterLabel")
-                : p.acceptedQuoteId === p.tierBest ? t("projects.tierBestLabel")
+                p.acceptedQuoteId === p.tierGood ? labelForTier("good", p.optionNames, t)
+                : p.acceptedQuoteId === p.tierBetter ? labelForTier("better", p.optionNames, t)
+                : p.acceptedQuoteId === p.tierBest ? labelForTier("best", p.optionNames, t)
                 : "—";
               const order = orders.find((o) => o.proposalId === p.id);
               // Locked = accepted or converted: the homeowner link stays live and can't be

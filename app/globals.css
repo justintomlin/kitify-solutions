@@ -228,6 +228,14 @@ body {
     page-break-inside: avoid;
   }
 
+  /* A multi-bathroom estimate flows continuously — one bathroom per sheet would waste
+     paper on a two-bathroom job, where the second is often a powder room. The only rule
+     is that a bathroom's heading must not be the last thing on a page. */
+  .bathroom-heading {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
   /* Print-only elements (the "printed on" stamp) opt in via `hidden print:block`,
      which Tailwind emits as this rule; declared here too so it survives regardless
      of class ordering. */

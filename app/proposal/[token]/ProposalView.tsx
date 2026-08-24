@@ -16,7 +16,7 @@ import { ShowerPreviewFromConfig, type ShowerConfig } from "@/components/shower/
 import { VanityPreviewFromConfig, type VanityConfig } from "@/components/vanity/VanityConfigurator";
 import { PlumbingPreviewFromConfig, type PlumbingConfig } from "@/components/plumbing/PlumbingConfigurator";
 import { HeroPreview, hasHeroContent } from "@/components/configurator/HeroPreview";
-import { quoteBathrooms } from "@/lib/bathrooms";
+import { quoteBathrooms, labelForBathroom, labelForTier, type Bathroom, type OptionNames } from "@/lib/bathrooms";
 
 export type TierView = {
   room: unknown | null;
@@ -50,6 +50,11 @@ export type ProposalData = {
   markupPct: number;
   lineItems?: ProposalLineItem[];
   branding?: ProposalBranding | null;
+  /**
+   * What the contractor called each option. Absent on a link served by an older deploy or read
+   * from a pre-0019 database, which reads as unnamed and falls back to "Option N".
+   */
+  optionNames?: OptionNames | null;
   tiers: { good: TierView | null; better: TierView | null; best: TierView | null };
 };
 
@@ -71,8 +76,17 @@ export function ProposalView({ payload, acceptance, token }: {
 }) {
   const { t } = useLanguage();
 
-  const tierLabel = (k: TierKey) =>
-    t(k === "good" ? "proposal.tierGood" : k === "better" ? "proposal.tierBetter" : "proposal.tierBest");
+  /**
+   * What a homeowner sees on the toggle: the contractor's own name for the option, or
+   * "Option 1 / 2 / 3".
+   *
+   * Never Good/Better/Best. That ladder is a database detail nobody chose — the columns keep
+   * those names (see migration 0019) because the accept flow, the public route and every saved
+   * row reference them, but it cannot describe what the three options on a real proposal
+   * usually are, and it tells a homeowner that one of the things they are being offered is the
+   * worst one.
+   */
+  const tierLabel = (k: TierKey) => labelForTier(k, payload?.optionNames ?? null, t);
 
   // "Better" is the pre-selected sales anchor; fall back to the first assigned tier.
   const [activeTier, setActiveTier] = useState<TierKey>(() => {
@@ -301,13 +315,10 @@ function TierBody({ tier, markupPct, lineItems, t }: {
   // The headline figure is what the homeowner will actually be billed. Showing the product
   // subtotal there and burying labour further down would quote a number nobody pays.
   const grandTotal = retail + extras;
-  // One bathroom in C1 — the same one this always rendered. C2 sections this per bathroom.
-  const bath = quoteBathrooms(tier)[0];
-  const room = bath.room as RoomConfig | null;
-  const shower = bath.shower as ShowerConfig | null;
-  const vanity = bath.vanity as VanityConfig | null;
-  const plumbing = bath.plumbing as PlumbingConfig | null;
-  const hasProducts = !!(shower || vanity || plumbing);
+  // Both shapes resolve here: a pre-C1 payload has no `bathrooms` and synthesises one from
+  // its four flat slots, which is what keeps a link a homeowner is already holding correct.
+  const baths = quoteBathrooms(tier);
+  const multi = baths.length > 1;
   return (
     <section className="overflow-hidden rounded-2xl border border-line bg-card shadow-sm">
       <div className="border-b border-line px-5 py-6 text-center sm:px-6">
@@ -320,44 +331,19 @@ function TierBody({ tier, markupPct, lineItems, t }: {
         )}
       </div>
       <div className="space-y-5 p-5 sm:p-6">
-        {/* The bathroom itself, above the plan. A homeowner reads a picture of the room long
-            before they read a dimensioned floor plan, so it leads. Rendered live from the
-            quote's own configs — see HeroPreview for why nothing is snapshotted — and skipped
-            entirely when the quote has no materials to show, rather than presenting a generic
-            grey bathroom as if it were theirs. */}
-        {hasHeroContent({ room, shower, vanity, plumbing }) && (
-          <div className="hero-print">
-            <HeroPreview room={room} shower={shower} vanity={vanity} plumbing={plumbing}
-              caption={t("configurator.hero.preview")} />
-          </div>
-        )}
-        {room?.selections && (
-          <div className="mx-auto w-full max-w-[560px]">
-            <RoomPlanSVG state={room.selections} interactive={false} showClearances={false} />
-          </div>
-        )}
-        {hasProducts && (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            {shower && (
-              <PreviewCard label={t("configurator.showerTitle")}>
-                <ShowerPreviewFromConfig config={shower} />
-              </PreviewCard>
-            )}
-            {vanity && (
-              <PreviewCard label={t("configurator.vanityTitle")}>
-                <VanityPreviewFromConfig config={vanity} />
-              </PreviewCard>
-            )}
-            {plumbing && (
-              <PreviewCard label={t("configurator.plumbingTitle")}>
-                {/* showHeroPhoto: same reason as the order snapshot — no product grid here to
-                    carry the faucet, so the schematic hero reads as a missing image next to
-                    the real accessory photos. */}
-                <PlumbingPreviewFromConfig config={plumbing} showHeroPhoto />
-              </PreviewCard>
-            )}
-          </div>
-        )}
+        {/* ONE bathroom renders exactly what it always did: no heading, no grouping, nothing
+            to tell a homeowner their estimate covers "bathroom 1 of 1". Two or more get a
+            named block each, in the order the contractor built them. */}
+        {multi
+          ? baths.map((b, i) => (
+              <div key={b.id} className="space-y-5">
+                <h2 className="bathroom-heading border-b border-line pb-2 font-display text-lg font-semibold tracking-tight text-ink">
+                  {labelForBathroom(b, i, t)}
+                </h2>
+                <BathroomBody bathroom={b} t={t} />
+              </div>
+            ))
+          : <BathroomBody bathroom={baths[0]} t={t} />}
 
         {/* Labour & extras. Listed after the products because they are what the contractor
             adds on top of them, and itemised rather than folded into one number so the
@@ -381,6 +367,61 @@ function TierBody({ tier, markupPct, lineItems, t }: {
         )}
       </div>
     </section>
+  );
+}
+
+/**
+ * One bathroom: the picture, the plan, the products. Returns a Fragment rather than a wrapper,
+ * so a single-bathroom estimate renders byte-for-byte what it rendered before bathrooms
+ * existed — no extra element, no extra spacing. Homeowners are holding these links already.
+ */
+function BathroomBody({ bathroom, t }: { bathroom: Bathroom; t: Tr }) {
+  const room = bathroom.room as RoomConfig | null;
+  const shower = bathroom.shower as ShowerConfig | null;
+  const vanity = bathroom.vanity as VanityConfig | null;
+  const plumbing = bathroom.plumbing as PlumbingConfig | null;
+  const hasProducts = !!(shower || vanity || plumbing);
+  return (
+    <>
+      {/* The bathroom itself, above the plan. A homeowner reads a picture of the room long
+          before they read a dimensioned floor plan, so it leads. Rendered live from the
+          quote's own configs — see HeroPreview for why nothing is snapshotted — and skipped
+          entirely when the quote has no materials to show, rather than presenting a generic
+          grey bathroom as if it were theirs. */}
+      {hasHeroContent({ room, shower, vanity, plumbing }) && (
+        <div className="hero-print">
+          <HeroPreview room={room} shower={shower} vanity={vanity} plumbing={plumbing}
+            caption={t("configurator.hero.preview")} />
+        </div>
+      )}
+      {room?.selections && (
+        <div className="mx-auto w-full max-w-[560px]">
+          <RoomPlanSVG state={room.selections} interactive={false} showClearances={false} />
+        </div>
+      )}
+      {hasProducts && (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          {shower && (
+            <PreviewCard label={t("configurator.showerTitle")}>
+              <ShowerPreviewFromConfig config={shower} />
+            </PreviewCard>
+          )}
+          {vanity && (
+            <PreviewCard label={t("configurator.vanityTitle")}>
+              <VanityPreviewFromConfig config={vanity} />
+            </PreviewCard>
+          )}
+          {plumbing && (
+            <PreviewCard label={t("configurator.plumbingTitle")}>
+              {/* showHeroPhoto: same reason as the order snapshot — no product grid here to
+                  carry the faucet, so the schematic hero reads as a missing image next to
+                  the real accessory photos. */}
+              <PlumbingPreviewFromConfig config={plumbing} showHeroPhoto />
+            </PreviewCard>
+          )}
+        </div>
+      )}
+    </>
   );
 }
 

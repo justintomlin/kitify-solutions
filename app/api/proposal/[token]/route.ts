@@ -14,6 +14,9 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+// From lib/bathrooms, which is import-free: nothing server-only, and nothing that would drag
+// the browser Supabase client into a route that must never see it.
+import { toOptionNames } from "@/lib/bathrooms";
 
 // Force a dynamic, Node.js server execution (never statically prerendered, never edge) so
 // the service_role key stays on the server.
@@ -31,6 +34,8 @@ type ProposalRow = {
   tier_best: string | null;
   custom_line_items: { id: string; description: string; amount: number }[] | null;
   contractor_branding: Record<string, string | null> | null;
+  // Added by 0019. Absent on a pre-migration read, which reads as unnamed.
+  option_names?: unknown;
 };
 type QuoteRow = {
   id: string;
@@ -72,7 +77,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tok
   // does not exist is a hard 400 from PostgREST, so a public page that homeowners already
   // hold links to would go dark the moment this deployed ahead of the SQL.
   const BASE_COLUMNS = "name, markup_pct, status, share_token, tier_good, tier_better, tier_best";
-  const FULL_COLUMNS = `${BASE_COLUMNS}, custom_line_items, contractor_branding`;
+  const FULL_COLUMNS = `${BASE_COLUMNS}, custom_line_items, contractor_branding, option_names`;
 
   const readProposal = (columns: string) =>
     admin
@@ -83,9 +88,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tok
       .not("share_token", "is", null)
       .maybeSingle<ProposalRow>();
 
+  // option_names joins the full set rather than getting a fallback of its own: one retry is
+  // enough, and losing the contractor's option names on a pre-migration database is exactly
+  // what "unnamed" means — the labels fall back to Option 1 / 2 / 3 and the page still works.
   let { data: proposal, error: pErr } = await readProposal(FULL_COLUMNS);
   if (pErr && (pErr.code === "42703" || pErr.code === "PGRST204" || /column .* does not exist/i.test(pErr.message))) {
-    console.warn("[proposal route] proposal-enhancement columns missing - run docs/migrations/2026-08-04-proposal-enhancements.sql");
+    console.warn("[proposal route] proposal-enhancement columns missing - run docs/migrations/2026-08-04-proposal-enhancements.sql and supabase/migrations/0019_proposal_option_names.sql");
     ({ data: proposal, error: pErr } = await readProposal(BASE_COLUMNS));
   }
 
@@ -167,11 +175,16 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tok
       }
     : null;
 
+  // The contractor's names for the three options. Labels only — nothing about the tier
+  // columns, the quote ids or the dealer relationship crosses this boundary, exactly as before.
+  const optionNames = toOptionNames(proposal.option_names);
+
   const body = {
     name: proposal.name,
     markupPct: Number(proposal.markup_pct),
     lineItems,
     branding,
+    optionNames,
     tiers: {
       good: tierView(proposal.tier_good),
       better: tierView(proposal.tier_better),
