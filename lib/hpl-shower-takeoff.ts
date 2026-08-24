@@ -159,10 +159,28 @@ export const HPL_CONSUMABLE_SKU_CODES = {
   wax: "HPL-WAX-TUBE",
 } as const;
 
+/**
+ * Installation tools. NOT part of any takeoff, and deliberately absent from every compute
+ * function in this file — a tool is bought once per ten or twenty kits, not once per shower,
+ * so anything that emitted them per shower would multiply them the way wax would if it were
+ * not held at order level (see computeHplOrderConsumables).
+ *
+ * They live here because this is where an admin reads off the list of SKUs to create, and
+ * because HPL_REQUIRED_SKU_CODES is what the inventory seam checks against. They reach a quote
+ * only through the tools offer, and only when a dealer ticks one.
+ *
+ * No supplier pricing exists for either yet — both sit on the $1 sentinel.
+ */
+export const HPL_TOOL_SKU_CODES = {
+  groutTool: "HPL-TOOL-GROUT",
+  suctionCup: "HPL-TOOL-SUCTION",
+} as const;
+
 /** Every non-decor SKU this takeoff can emit — the list an admin needs to create. */
 export const HPL_REQUIRED_SKU_CODES: string[] = [
   ...Object.values(HPL_TRIM_SKU_CODES),
   ...Object.values(HPL_CONSUMABLE_SKU_CODES),
+  ...Object.values(HPL_TOOL_SKU_CODES),
 ];
 
 // ----------------------------------------------------------------- panels
