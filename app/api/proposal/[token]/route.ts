@@ -38,6 +38,7 @@ type QuoteRow = {
   shower: unknown | null;
   vanity: unknown | null;
   plumbing: unknown | null;
+  bathrooms?: unknown;   // absent on a pre-0018 database — see the column fallback below
   total: number | string;
 };
 
@@ -98,20 +99,35 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tok
   const tierIds = [proposal.tier_good, proposal.tier_better, proposal.tier_best].filter(
     (id): id is string => !!id,
   );
+  // Same two-column-set dance as the proposal read above, for the same reason: selecting a
+  // column that does not exist is a hard 400 from PostgREST, so deploying this ahead of
+  // migration 0018 would dark every share link a homeowner already holds.
+  const QUOTE_BASE_COLUMNS = "id, room, shower, vanity, plumbing, total";
+  const QUOTE_FULL_COLUMNS = `${QUOTE_BASE_COLUMNS}, bathrooms`;
+
   const quotesById = new Map<string, QuoteRow>();
   if (tierIds.length) {
-    const { data: quotes, error: qErr } = await admin
-      .from("quotes")
-      .select("id, room, shower, vanity, plumbing, total")
-      .in("id", tierIds);
+    const readQuotes = (columns: string) =>
+      admin.from("quotes").select(columns).in("id", tierIds);
+
+    let { data: quotes, error: qErr } = await readQuotes(QUOTE_FULL_COLUMNS);
+    if (qErr && (qErr.code === "42703" || qErr.code === "PGRST204" || /column .* does not exist/i.test(qErr.message))) {
+      console.warn("[proposal route] quotes.bathrooms missing - run supabase/migrations/0018_quotes_bathrooms.sql");
+      ({ data: quotes, error: qErr } = await readQuotes(QUOTE_BASE_COLUMNS));
+    }
     if (qErr) {
       console.error("[proposal route] tier quotes lookup failed:", qErr.message);
       return serverError();
     }
-    for (const q of (quotes ?? []) as QuoteRow[]) quotesById.set(q.id, q);
+    for (const q of (quotes ?? []) as unknown as QuoteRow[]) quotesById.set(q.id, q);
   }
 
   // Per-tier public view: config objects + dealer total only. No quote id leaks out.
+  //
+  // Both shapes go out. The flat slots keep a homeowner on a cached older bundle rendering
+  // correctly, and `bathrooms` is what the current client resolves through. Undefined rather
+  // than null when the column is absent, so the client's accessor falls back to the flat
+  // slots instead of treating an empty array as "no bathrooms".
   const tierView = (id: string | null) => {
     if (!id) return null;
     const q = quotesById.get(id);
@@ -121,6 +137,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tok
       shower: q.shower ?? null,
       vanity: q.vanity ?? null,
       plumbing: q.plumbing ?? null,
+      bathrooms: q.bathrooms ?? undefined,
       dealerTotal: Number(q.total),
     };
   };

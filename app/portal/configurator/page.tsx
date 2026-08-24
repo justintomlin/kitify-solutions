@@ -9,6 +9,9 @@ import { useAuth } from "@/components/AuthContext";
 import { useMediaQuery } from "@/lib/useMediaQuery";
 import { loadCurrentQuote, saveCurrentQuote, clearCurrentQuote } from "@/lib/quoteStorage";
 import { getQuote, getProject, saveQuote, type Quote } from "@/lib/store";
+// From lib/bathrooms rather than lib/store: this is a client component, and lib/store pulls in
+// the Supabase client, which throws at module load without env vars. The seam is import-free.
+import { quoteBathrooms, bathroomSlots } from "@/lib/bathrooms";
 import { SaveQuotePanel } from "@/components/configurator/SaveQuotePanel";
 import { HeroPreview } from "@/components/configurator/HeroPreview";
 import { VanityConfigurator, VanityPreviewFromConfig, type VanityConfig } from "@/components/vanity/VanityConfigurator";
@@ -176,12 +179,17 @@ export default function Page() {
         const q = await getQuote(quoteId);
         if (cancelled) return;
         if (q) {
-          hydrateSlots(q.room as RoomConfig | null, q.shower as ShowerConfig | null, q.vanity as VanityConfig | null, q.plumbing as PlumbingConfig | null);
+          // Through the accessor rather than off q directly: a legacy quote (bathrooms null)
+          // resolves to a synthesised bathroom holding the same four slots, so this loads
+          // identically either way. The hub still edits ONE bathroom — C2 is what lets it
+          // show the rest — so bathroom 0 is the whole of C1's behaviour.
+          const bath = quoteBathrooms(q)[0];
+          hydrateSlots(bath.room as RoomConfig | null, bath.shower as ShowerConfig | null, bath.vanity as VanityConfig | null, bath.plumbing as PlumbingConfig | null);
           const proj = await getProject(q.projectId);
           if (cancelled) return;
           setActiveQuote({ id: q.id, projectId: q.projectId, name: q.name, projectName: proj?.name ?? "", status: q.status });
           if (typeof window !== "undefined") window.history.replaceState(null, "", "/portal/configurator");
-          lastSnapshotRef.current = JSON.stringify({ room: q.room ?? null, shower: q.shower ?? null, vanity: q.vanity ?? null, plumbing: q.plumbing ?? null });
+          lastSnapshotRef.current = JSON.stringify(bathroomSlots(bath));
           hydratedRef.current = true;
           return;
         }
@@ -189,11 +197,12 @@ export default function Page() {
       // Fall back to the autosaved current quote.
       const stored = loadCurrentQuote(userKey);
       if (cancelled) return;
+      const storedBath = quoteBathrooms(stored ?? {})[0];
       if (stored) {
-        hydrateSlots(stored.room as RoomConfig | null, stored.shower as ShowerConfig | null, stored.vanity as VanityConfig | null, stored.plumbing as PlumbingConfig | null);
+        hydrateSlots(storedBath.room as RoomConfig | null, storedBath.shower as ShowerConfig | null, storedBath.vanity as VanityConfig | null, storedBath.plumbing as PlumbingConfig | null);
         setSavedAt(stored.savedAt);
       }
-      lastSnapshotRef.current = JSON.stringify({ room: stored?.room ?? null, shower: stored?.shower ?? null, vanity: stored?.vanity ?? null, plumbing: stored?.plumbing ?? null });
+      lastSnapshotRef.current = JSON.stringify(bathroomSlots(storedBath));
       hydratedRef.current = true;
     })();
     return () => { cancelled = true; };

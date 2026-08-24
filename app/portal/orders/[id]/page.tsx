@@ -20,6 +20,7 @@ import { ShowerPreviewFromConfig, type ShowerConfig } from "@/components/shower/
 import { VanityPreviewFromConfig, type VanityConfig } from "@/components/vanity/VanityConfigurator";
 import { PlumbingPreviewFromConfig, type PlumbingConfig } from "@/components/plumbing/PlumbingConfigurator";
 import { HeroPreview, hasHeroContent } from "@/components/configurator/HeroPreview";
+import { quoteBathrooms } from "@/lib/bathrooms";
 
 const money = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 const fmtDate = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString() : "—");
@@ -28,7 +29,9 @@ const fmtDate = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString(
 type Snap = {
   retailTotal?: number;
   project?: { name?: string | null } | null;
-  quote?: { name?: string | null; room?: unknown; shower?: unknown; vanity?: unknown; plumbing?: unknown } | null;
+  // `bathrooms` is present only on snapshots frozen from Phase C1 onward. Optional, because a
+  // snapshot is an immutable document and the older shape is read forever.
+  quote?: { name?: string | null; room?: unknown; shower?: unknown; vanity?: unknown; plumbing?: unknown; bathrooms?: unknown } | null;
 } | null;
 
 // order status → chip/label i18n key (reuses the keys that back OrderStatusChip)
@@ -181,10 +184,15 @@ export default function OrderDetailPage() {
   }
 
   const snap = order.snapshot as Snap;
-  const room = (snap?.quote?.room as RoomConfig | null) ?? null;
-  const shower = (snap?.quote?.shower as ShowerConfig | null) ?? null;
-  const vanity = (snap?.quote?.vanity as VanityConfig | null) ?? null;
-  const plumbing = (snap?.quote?.plumbing as PlumbingConfig | null) ?? null;
+  // Every snapshot frozen before Phase C1 carries the four flat slots and no `bathrooms`;
+  // the accessor synthesises a bathroom from them, so a historical order renders exactly as
+  // it always has. A C1-or-later snapshot carries both shapes and resolves to the same thing.
+  // Still bathroom 0 only — C2 is what sections this view.
+  const bath = quoteBathrooms(snap?.quote ?? {})[0];
+  const room = (bath.room as RoomConfig | null) ?? null;
+  const shower = (bath.shower as ShowerConfig | null) ?? null;
+  const vanity = (bath.vanity as VanityConfig | null) ?? null;
+  const plumbing = (bath.plumbing as PlumbingConfig | null) ?? null;
   const hasProducts = !!(shower || vanity || plumbing);
   const addr = order.address;
   const addrLine = addr ? [addr.street, [addr.city, addr.state, addr.zip].filter(Boolean).join(", ")].filter(Boolean).join(" · ") : "";

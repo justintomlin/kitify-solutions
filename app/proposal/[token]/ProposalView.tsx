@@ -16,12 +16,19 @@ import { ShowerPreviewFromConfig, type ShowerConfig } from "@/components/shower/
 import { VanityPreviewFromConfig, type VanityConfig } from "@/components/vanity/VanityConfigurator";
 import { PlumbingPreviewFromConfig, type PlumbingConfig } from "@/components/plumbing/PlumbingConfigurator";
 import { HeroPreview, hasHeroContent } from "@/components/configurator/HeroPreview";
+import { quoteBathrooms } from "@/lib/bathrooms";
 
 export type TierView = {
   room: unknown | null;
   shower: unknown | null;
   vanity: unknown | null;
   plumbing: unknown | null;
+  /**
+   * Present from Phase C1 onward, absent on a link served by an older deploy or read from a
+   * pre-0018 database. Resolved through quoteBathrooms(), so both cases render the same —
+   * which matters here more than anywhere else: homeowners hold these links already.
+   */
+  bathrooms?: unknown;
   dealerTotal: number;
 };
 /** A contractor-entered charge: labour, permits, disposal. Same across every tier. */
@@ -294,10 +301,12 @@ function TierBody({ tier, markupPct, lineItems, t }: {
   // The headline figure is what the homeowner will actually be billed. Showing the product
   // subtotal there and burying labour further down would quote a number nobody pays.
   const grandTotal = retail + extras;
-  const room = tier.room as RoomConfig | null;
-  const shower = tier.shower as ShowerConfig | null;
-  const vanity = tier.vanity as VanityConfig | null;
-  const plumbing = tier.plumbing as PlumbingConfig | null;
+  // One bathroom in C1 — the same one this always rendered. C2 sections this per bathroom.
+  const bath = quoteBathrooms(tier)[0];
+  const room = bath.room as RoomConfig | null;
+  const shower = bath.shower as ShowerConfig | null;
+  const vanity = bath.vanity as VanityConfig | null;
+  const plumbing = bath.plumbing as PlumbingConfig | null;
   const hasProducts = !!(shower || vanity || plumbing);
   return (
     <section className="overflow-hidden rounded-2xl border border-line bg-card shadow-sm">

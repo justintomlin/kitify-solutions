@@ -12,6 +12,7 @@ import {
   listOrders, createOrderFromProposal,
   type Project, type Quote, type Proposal, type Order, type ContractorBranding,
 } from "@/lib/store";
+import { quoteBathrooms } from "@/lib/bathrooms";
 import { ProjectForm } from "@/components/projects/ProjectForm";
 import { ProposalForm } from "@/components/projects/ProposalForm";
 import { ProjectStatusChip, RegChip, QuoteStatusChip, ProposalStatusChip, OrderStatusChip, relativeUpdated } from "@/components/projects/ui";
@@ -428,11 +429,15 @@ export default function ProjectDetailPage() {
  * knowing their shapes — so the cast happens here, once, rather than at each call site.
  */
 function quoteSource(q: Quote): HeroSource {
+  // Through the accessor, so a legacy quote (bathrooms null) and a C1 one resolve the same.
+  // The hero paints one bathroom — that is what its props are — so bathroom 0 it is; C2 is
+  // what gives a multi-bathroom quote a hero per bathroom.
+  const bath = quoteBathrooms(q)[0];
   return {
-    room: q.room as HeroSource["room"],
-    shower: q.shower as HeroSource["shower"],
-    vanity: q.vanity as HeroSource["vanity"],
-    plumbing: q.plumbing as HeroSource["plumbing"],
+    room: bath.room as HeroSource["room"],
+    shower: bath.shower as HeroSource["shower"],
+    vanity: bath.vanity as HeroSource["vanity"],
+    plumbing: bath.plumbing as HeroSource["plumbing"],
   };
 }
 
