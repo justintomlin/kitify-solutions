@@ -1082,6 +1082,23 @@ export const dictionary: Record<Lang, Record<string, any>> = {
       selectToBegin: "Select a configurator above to begin.",
       selectedProducts: "Selected products",
       roomPlan: "Room plan",
+      // The bathroom strip. None of this is on screen for a one-bathroom quote — the strip
+      // only exists once there are two — so the tone is a dealer organising a bigger job.
+      bathroom: {
+        // The fallback when a bathroom has no dealer-supplied name. Numbered from one.
+        numbered: "Bathroom {n}",
+        strip: "Bathrooms on this quote",
+        addAnother: "Add another bathroom",
+        add: "Add a bathroom",
+        rename: "Rename",
+        remove: "Remove",
+        renameHint: "Double-click to rename",
+        renameLabel: "Rename {name}",
+        menuLabel: "{name} options",
+        removeTitle: "Remove {name}?",
+        removeBody: "Everything configured in this bathroom — room, shower, vanity and plumbing — is deleted. This can't be undone.",
+        removeConfirm: "Remove bathroom",
+      },
       openRoomEditor: "Open the room editor",
       openConfigurator: "Open {item} configurator",
       // Hero compositor — the live room preview at the top of the hub. Material and colour
@@ -2956,6 +2973,21 @@ export const dictionary: Record<Lang, Record<string, any>> = {
       selectToBegin: "Seleccione un configurador arriba para comenzar.",
       selectedProducts: "Productos seleccionados",
       roomPlan: "Plano del cuarto",
+      // La tira de baños. Nada de esto aparece en una cotización de un solo baño.
+      bathroom: {
+        numbered: "Baño {n}",
+        strip: "Baños en esta cotización",
+        addAnother: "Agregar otro baño",
+        add: "Agregar un baño",
+        rename: "Cambiar nombre",
+        remove: "Quitar",
+        renameHint: "Doble clic para cambiar el nombre",
+        renameLabel: "Cambiar el nombre de {name}",
+        menuLabel: "Opciones de {name}",
+        removeTitle: "¿Quitar {name}?",
+        removeBody: "Se elimina todo lo configurado en este baño — cuarto, ducha, tocador y plomería. Esta acción no se puede deshacer.",
+        removeConfirm: "Quitar baño",
+      },
       hero: {
         caption: "La vista previa se actualiza mientras configura",
         preview: "Vista previa de su baño",

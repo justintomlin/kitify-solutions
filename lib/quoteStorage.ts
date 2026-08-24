@@ -14,6 +14,19 @@
  */
 export const QUOTE_SCHEMA_VERSION = 3;
 
+/**
+ * Versions loadCurrentQuote will still read. 3 is current; 2 is read because it needs no
+ * guessing — a v2 draft is the four flat slots, which is exactly what quoteBathrooms()
+ * synthesises a first bathroom from, so the upgrade is the accessor the hub already runs.
+ *
+ * 1 stays rejected. It predates `bathrooms` entirely and is not distinguishable from 2 by
+ * shape, only by this number, so honouring the bump is the only way to be sure.
+ *
+ * Nothing below 2 is worth an upgrader: this is crash-recovery data that the next edit
+ * rewrites, and a wrong guess at a shape costs more than a discarded draft.
+ */
+const READABLE_VERSIONS = new Set<number>([2, QUOTE_SCHEMA_VERSION]);
+
 export type StoredQuote = {
   version: number;
   savedAt: string; // ISO timestamp
@@ -43,7 +56,7 @@ export function loadCurrentQuote(userKey: string): StoredQuote | null {
     if (!raw) return null;
     const parsed = JSON.parse(raw) as StoredQuote;
     // Reject anything we don't recognise rather than partially loading an unknown schema.
-    if (!parsed || typeof parsed !== "object" || parsed.version !== QUOTE_SCHEMA_VERSION) return null;
+    if (!parsed || typeof parsed !== "object" || !READABLE_VERSIONS.has(parsed.version)) return null;
     return parsed;
   } catch {
     return null;

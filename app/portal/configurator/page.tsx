@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import { Check, ChevronUp, X } from "lucide-react";
+import { Check, ChevronUp, Plus, X } from "lucide-react";
 import { useLanguage } from "@/components/LanguageContext";
 import { useAuth } from "@/components/AuthContext";
 import { useMediaQuery } from "@/lib/useMediaQuery";
@@ -11,7 +11,20 @@ import { loadCurrentQuote, saveCurrentQuote, clearCurrentQuote } from "@/lib/quo
 import { getQuote, getProject, saveQuote, type Quote } from "@/lib/store";
 // From lib/bathrooms rather than lib/store: this is a client component, and lib/store pulls in
 // the Supabase client, which throws at module load without env vars. The seam is import-free.
-import { quoteBathrooms, bathroomSlots } from "@/lib/bathrooms";
+import {
+  quoteBathrooms, quoteFlatSlots, bathroomTotal, bathroomsTotal,
+  addBathroom, removeBathroom, renameBathroom, setBathroomSlots, isBathroomEmpty,
+  labelForBathroom, DEFAULT_BATHROOM_ID, type Bathroom,
+} from "@/lib/bathrooms";
+// The per-bathroom bookkeeping — shared sizes and which modules are mounted — as pure
+// functions, so the cross-contamination the C survey flagged is testable rather than buried
+// in a setState callback. Also import-free, for the same reason lib/bathrooms is.
+import {
+  omitKey, mergeSharedBath, mergeSharedVanity, markSectionOpened, isSectionOpen,
+  type ByBathroom, type ConfigKind, type OpenedSections, type SharedBath, type SharedVanity,
+} from "@/lib/hub-state";
+import { BathroomStrip } from "@/components/configurator/BathroomStrip";
+import { ConfirmDialog } from "@/components/configurator/ConfirmDialog";
 import { SaveQuotePanel } from "@/components/configurator/SaveQuotePanel";
 import { HeroPreview } from "@/components/configurator/HeroPreview";
 import { VanityConfigurator, VanityPreviewFromConfig, type VanityConfig } from "@/components/vanity/VanityConfigurator";
@@ -40,92 +53,162 @@ function relativeSaved(t: (k: string, v?: Record<string, string>) => string, sav
   return t(day === 1 ? "configurator.savedDayAgo" : "configurator.savedDaysAgo", { n: String(day) });
 }
 
-type ConfigKind = "room" | "shower" | "vanity" | "plumbing";
+/**
+ * A blank bathroom. Key order matches quoteBathrooms()' synthesised one so the autosave
+ * comparison below (a JSON string) doesn't see a difference that isn't there.
+ */
+const emptyBathroom = (id: string): Bathroom => ({ id, name: null, room: null, shower: null, vanity: null, plumbing: null });
 
-// Shared size selections, last-edit-wins. Any configurator can write these; the
-// others seed from them. Only positive selections are pushed (removing a fixture
-// never clears a size another module chose).
-type SharedBath = { kind: "shower" | "tub"; baseId: string; baseColor?: string };
-type SharedVanity = { size: number; sinks: 1 | 2; drilling: "1cc" | "8cc"; sinkShape: "oval" | "rectangle" };
+/** Which tab to open, preferring the one asked for and falling back to the first. */
+const resolveActive = (baths: Bathroom[], wanted: string | null | undefined) =>
+  baths.some((b) => b.id === wanted) ? (wanted as string) : baths[0].id;
+
+/** What the autosave effect compares against — the quote AND which tab was open. */
+const autosaveKey = (baths: Bathroom[], activeId: string) => JSON.stringify({ bathrooms: baths, activeId });
 
 export default function Page() {
   const { t } = useLanguage();
 
-  const [room, setRoom] = useState<RoomConfig | null>(null);
-  const [shower, setShower] = useState<ShowerConfig | null>(null);
-  const [vanity, setVanity] = useState<VanityConfig | null>(null);
-  const [plumbing, setPlumbing] = useState<PlumbingConfig | null>(null);
+  /**
+   * The whole quote. One bathroom for the ordinary job — the array is what makes a second
+   * expressible, not a change of shape for the first. DEFAULT_BATHROOM_ID is the id
+   * quoteBathrooms() synthesises, so a fresh single-bathroom quote saves byte-identically to
+   * what C1 wrote.
+   */
+  const [bathrooms, setBathrooms] = useState<Bathroom[]>(() => [emptyBathroom(DEFAULT_BATHROOM_ID)]);
+  const [activeBathroomId, setActiveBathroomId] = useState<string>(DEFAULT_BATHROOM_ID);
   const [activeKind, setActiveKind] = useState<ConfigKind | null>(null);
+  const [pendingRemove, setPendingRemove] = useState<string | null>(null);
 
-  const [sharedBath, setSharedBath] = useState<SharedBath | null>(null);
-  const [sharedVanity, setSharedVanity] = useState<SharedVanity | null>(null);
+  // A stale id — the active bathroom was just removed — resolves to the first rather than to
+  // undefined, so every read below stays total.
+  const activeIndex = Math.max(0, bathrooms.findIndex((b) => b.id === activeBathroomId));
+  const activeBathroom = bathrooms[activeIndex] ?? bathrooms[0];
+  const activeId = activeBathroom.id;
+  const multi = bathrooms.length > 1;
+
+  // The active bathroom's four slots, typed. Everything downstream — the summary, the hero,
+  // the product strip — reads these, so it is unchanged from when they were four useStates.
+  const room = (activeBathroom.room as RoomConfig | null) ?? null;
+  const shower = (activeBathroom.shower as ShowerConfig | null) ?? null;
+  const vanity = (activeBathroom.vanity as VanityConfig | null) ?? null;
+  const plumbing = (activeBathroom.plumbing as PlumbingConfig | null) ?? null;
+
+  const [sharedBath, setSharedBath] = useState<ByBathroom<SharedBath>>({});
+  const [sharedVanity, setSharedVanity] = useState<ByBathroom<SharedVanity>>({});
 
   // In-progress configs, emitted by each module on every selection. They feed the hero
   // preview only — never the quote, never persistence — so the picture moves as the dealer
   // picks a decor instead of waiting for Add-to-quote. A committed slot is the fallback, so
   // closing a module without committing leaves the hero showing the last committed state.
-  const [draftShower, setDraftShower] = useState<ShowerConfig | null>(null);
-  const [draftVanity, setDraftVanity] = useState<VanityConfig | null>(null);
-  const [draftPlumbing, setDraftPlumbing] = useState<PlumbingConfig | null>(null);
+  const [draftShower, setDraftShower] = useState<ByBathroom<ShowerConfig>>({});
+  const [draftVanity, setDraftVanity] = useState<ByBathroom<VanityConfig>>({});
+  const [draftPlumbing, setDraftPlumbing] = useState<ByBathroom<PlumbingConfig>>({});
 
-  // Configurators mount lazily on first open and then stay mounted (hidden when
-  // inactive) so in-progress work — and the room's placed fixtures — survive
-  // switching between them. Seeding therefore reads shared state at first open.
-  const [opened, setOpened] = useState<Record<ConfigKind, boolean>>({ room: false, shower: false, vanity: false, plumbing: false });
-  const open = (kind: ConfigKind) => { setActiveKind(kind); setOpened((p) => (p[kind] ? p : { ...p, [kind]: true })); };
+  /**
+   * MOUNT PER BATHROOM, LAZILY. One entry per (bathroom, section) that has ever been opened.
+   *
+   * Through C1 a configurator mounted on first open and then stayed mounted (hidden when
+   * inactive) so in-progress work — and the room's placed fixtures — survived switching
+   * between sections. That property is load-bearing and gets stronger here, not weaker: the
+   * four modules take partial seeds (baseId, dimensions, finishes) and cannot be handed a
+   * committed config back, and the room drawing has no initialDoc at all. Re-mounting on a
+   * bathroom switch would therefore mean drawing a room in bathroom 1, switching away and
+   * back, and committing from a blank canvas over the top of the good data. Ordinary
+   * navigation would destroy work.
+   *
+   * So each bathroom gets its OWN set of modules, mounted the first time that bathroom's
+   * section is opened and hidden when it isn't the visible one. Nothing mounts for a section
+   * a dealer never opens, which is why the usual one-to-three bathrooms cost nothing.
+   */
+  const [opened, setOpened] = useState<OpenedSections>({});
+  const markOpened = (id: string, kind: ConfigKind) => setOpened((p) => markSectionOpened(p, id, kind));
+  const open = (kind: ConfigKind) => { setActiveKind(kind); markOpened(activeId, kind); };
 
-  // Base color only comes from the shower module; a room-sourced update (which omits it)
-  // preserves whatever the shower last chose. Last-edit-wins on every field.
-  const applyBath = (v: { kind: "shower" | "tub"; baseId: string; baseColor?: string } | null) => {
-    if (!v) return;
-    setSharedBath((prev) => {
-      const baseColor = v.baseColor ?? prev?.baseColor ?? "white";
-      if (prev && prev.kind === v.kind && prev.baseId === v.baseId && (prev.baseColor ?? "white") === baseColor) return prev;
-      return { kind: v.kind, baseId: v.baseId, baseColor };
-    });
-  };
-  // Drilling & sink shape only come from the vanity module; a room-sourced update (which
-  // omits them) preserves whatever the vanity last chose. Last-edit-wins on every field.
-  const applyVanity = (v: { size: number; sinks: 1 | 2; drilling?: "1cc" | "8cc"; sinkShape?: "oval" | "rectangle" } | null) => {
-    if (!v) return;
-    setSharedVanity((prev) => {
-      const drilling = v.drilling ?? prev?.drilling ?? "1cc";
-      const sinkShape = v.sinkShape ?? prev?.sinkShape ?? "oval";
-      if (prev && prev.size === v.size && prev.sinks === v.sinks && prev.drilling === drilling && prev.sinkShape === sinkShape) return prev;
-      return { size: v.size, sinks: v.sinks, drilling, sinkShape };
-    });
-  };
+  // The cross-module size sync, scoped to one bathroom. The merge rules — which field wins,
+  // and when nothing has actually moved — live in lib/hub-state so they are testable.
+  const applyBath = (id: string, v: Parameters<typeof mergeSharedBath>[2]) =>
+    setSharedBath((all) => mergeSharedBath(all, id, v));
+  const applyVanity = (id: string, v: Parameters<typeof mergeSharedVanity>[2]) =>
+    setSharedVanity((all) => mergeSharedVanity(all, id, v));
 
-  const onRoomChange = (cfg: RoomConfig) => {
+  /** Commit into one bathroom's slots. Pure helper in, new array out — never an in-place edit. */
+  const setSlots = useCallback(
+    (id: string, slots: Partial<Pick<Bathroom, "room" | "shower" | "vanity" | "plumbing">>) =>
+      setBathrooms((prev) => setBathroomSlots(prev, id, slots)),
+    [],
+  );
+
+  const onRoomChange = (id: string, cfg: RoomConfig) => {
     const b = cfg.selections.bath, v = cfg.selections.vanity;
-    if (b) applyBath({ kind: b.kind, baseId: b.sku });
-    if (v) applyVanity({ size: v.w, sinks: v.sinks === 2 ? 2 : 1 });
-    setRoom((prev) => (prev ? cfg : prev)); // keep a committed room slot live as sizes flow in
+    if (b) applyBath(id, { kind: b.kind, baseId: b.sku });
+    if (v) applyVanity(id, { size: v.w, sinks: v.sinks === 2 ? 2 : 1 });
+    // Keep a COMMITTED room slot live as sizes flow in; an uncommitted one stays uncommitted.
+    setBathrooms((prev) => prev.map((x) => (x.id === id && x.room ? { ...x, room: cfg } : x)));
   };
-  const onRoomComplete = (cfg: RoomConfig) => {
+  const onRoomComplete = (id: string, cfg: RoomConfig) => {
     const b = cfg.selections.bath, v = cfg.selections.vanity;
-    if (b) applyBath({ kind: b.kind, baseId: b.sku });
-    if (v) applyVanity({ size: v.w, sinks: v.sinks === 2 ? 2 : 1 });
-    setRoom(cfg); setActiveKind(null);
+    if (b) applyBath(id, { kind: b.kind, baseId: b.sku });
+    if (v) applyVanity(id, { size: v.w, sinks: v.sinks === 2 ? 2 : 1 });
+    setSlots(id, { room: cfg }); setActiveKind(null);
   };
-  const onShowerComplete = (cfg: ShowerConfig) => {
-    if (cfg.selections.path && cfg.selections.baseId) applyBath({ kind: cfg.selections.path, baseId: cfg.selections.baseId, baseColor: cfg.selections.baseColor });
-    setShower(cfg); setActiveKind(null);
+  const onShowerComplete = (id: string, cfg: ShowerConfig) => {
+    if (cfg.selections.path && cfg.selections.baseId) applyBath(id, { kind: cfg.selections.path, baseId: cfg.selections.baseId, baseColor: cfg.selections.baseColor });
+    setSlots(id, { shower: cfg }); setActiveKind(null);
   };
-  const onVanityComplete = (cfg: VanityConfig) => {
-    if (cfg.selections.size != null) applyVanity({ size: cfg.selections.size, sinks: cfg.selections.sinks, drilling: cfg.selections.drilling, sinkShape: cfg.selections.sinkShape });
-    setVanity(cfg); setActiveKind(null);
+  const onVanityComplete = (id: string, cfg: VanityConfig) => {
+    if (cfg.selections.size != null) applyVanity(id, { size: cfg.selections.size, sinks: cfg.selections.sinks, drilling: cfg.selections.drilling, sinkShape: cfg.selections.sinkShape });
+    setSlots(id, { vanity: cfg }); setActiveKind(null);
   };
-  const onPlumbingComplete = (cfg: PlumbingConfig) => { setPlumbing(cfg); setActiveKind(null); };
+  const onPlumbingComplete = (id: string, cfg: PlumbingConfig) => { setSlots(id, { plumbing: cfg }); setActiveKind(null); };
 
-  const total = useMemo(() => {
-    return (room ? room.price.total : 0) + (vanity ? vanity.price.total : 0) + (shower ? shower.price.total : 0) + (plumbing ? plumbing.price.total : 0);
-  }, [room, vanity, shower, plumbing]);
+  // The quote total is the whole JOB — every bathroom on it. Anything charged once per job
+  // (freight, in Phase D) belongs at quote level and never inside a bathroom, or a
+  // two-bathroom quote would pay for it twice.
+  const total = useMemo(() => bathroomsTotal(bathrooms), [bathrooms]);
+
+  // ---- bathroom actions ----------------------------------------------------
+  /**
+   * Switch tabs, carrying the open section across: with the shower open, clicking another
+   * bathroom means "show me this bathroom's shower". That mounts it if this is the first time,
+   * which is the only place a module mounts without an explicit section click.
+   */
+  const selectBathroom = (id: string) => {
+    setActiveBathroomId(id);
+    if (activeKind) markOpened(id, activeKind);
+  };
+
+  function addAnotherBathroom() {
+    const next = addBathroom(bathrooms);
+    setBathrooms(next.bathrooms);
+    setActiveBathroomId(next.id);
+    // Back to the overview: a brand-new bathroom has nothing to show in any section yet.
+    setActiveKind(null);
+  }
+
+  function confirmRemoveBathroom() {
+    const id = pendingRemove;
+    setPendingRemove(null);
+    if (!id) return;
+    const next = removeBathroom(bathrooms, id);
+    if (next.bathrooms === bathrooms) return; // refused (the last one) or an unknown id
+    setBathrooms(next.bathrooms);
+    setActiveBathroomId(next.activeId);
+    // Ids are never re-issued, so these entries could only leak memory — but a long session
+    // adding and removing bathrooms would accumulate them, and a stale draft is worse than none.
+    setSharedBath((m) => omitKey(m, id));
+    setSharedVanity((m) => omitKey(m, id));
+    setDraftShower((m) => omitKey(m, id));
+    setDraftVanity((m) => omitKey(m, id));
+    setDraftPlumbing((m) => omitKey(m, id));
+    setOpened((m) => omitKey(m, id));
+  }
+
+  const renameBathroomTo = (id: string, name: string) => setBathrooms((prev) => renameBathroom(prev, id, name));
 
   // Shared seeds for the plumbing module: vanity sink count → faucet qty; the bathing
-  // fixture kind → tub/shower vs shower-only trim.
-  const plumbingFaucetQty: 1 | 2 = sharedVanity?.sinks === 2 ? 2 : 1;
-  const plumbingBathKind = sharedBath?.kind;
+  // fixture kind → tub/shower vs shower-only trim. Read per bathroom at the render site.
+  const plumbingFaucetQty = (id: string): 1 | 2 => (sharedVanity[id]?.sinks === 2 ? 2 : 1);
 
   // ---- persistence: keep the current quote across reloads ------------------
   // Only the emitted config objects are stored, never React state/refs, so a
@@ -149,21 +232,36 @@ export default function Page() {
   const [saveStamp, setSaveStamp] = useState(0); // bumped on each explicit save to flash a confirmation
   const [showSaved, setShowSaved] = useState(false);
 
-  // Push the three slots + shared sizes from a set of config objects. Shared with the
-  // localStorage restore and the ?quote= load so both flow through one hydration path.
-  const hydrateSlots = useCallback((r: RoomConfig | null, sh: ShowerConfig | null, va: VanityConfig | null, pl: PlumbingConfig | null) => {
-    if (r) setRoom(r);
-    if (sh) setShower(sh);
-    if (va) setVanity(va);
-    if (pl) setPlumbing(pl);
-    const bath: SharedBath | null = sh && sh.selections.path && sh.selections.baseId
-      ? { kind: sh.selections.path, baseId: sh.selections.baseId, baseColor: sh.selections.baseColor ?? "white" }
-      : r && r.selections.bath ? { kind: r.selections.bath.kind, baseId: r.selections.bath.sku } : null;
-    if (bath) setSharedBath(bath);
-    const van: SharedVanity | null = va && va.selections.size != null
-      ? { size: va.selections.size, sinks: va.selections.sinks, drilling: va.selections.drilling ?? "1cc", sinkShape: va.selections.sinkShape ?? "oval" }
-      : r && r.selections.vanity ? { size: r.selections.vanity.w, sinks: (r.selections.vanity.sinks === 2 ? 2 : 1) as 1 | 2, drilling: "1cc", sinkShape: r.selections.vanity.sinkShape ?? "oval" } : null;
-    if (van) setSharedVanity(van);
+  /**
+   * Adopt a whole quote's bathrooms, re-deriving each one's shared sizes from its own configs.
+   *
+   * Shared by the localStorage restore and the ?quote= load so both flow through one path.
+   * The shared sizes are DERIVED rather than stored: they are a running cross-module sync, not
+   * quote data, and re-computing them from the committed configs is what makes a restored
+   * quote behave exactly like one that was just built.
+   */
+  const hydrateBathrooms = useCallback((baths: Bathroom[], wantedActive?: string | null) => {
+    setBathrooms(baths);
+    setActiveBathroomId(resolveActive(baths, wantedActive));
+    const nextBath: ByBathroom<SharedBath> = {};
+    const nextVanity: ByBathroom<SharedVanity> = {};
+    for (const b of baths) {
+      const r = b.room as RoomConfig | null;
+      const sh = b.shower as ShowerConfig | null;
+      const va = b.vanity as VanityConfig | null;
+      // The shower is authoritative on the bathing fixture; the room's placed bath is the
+      // fallback for a quote where only the room was drawn.
+      const bath: SharedBath | null = sh && sh.selections.path && sh.selections.baseId
+        ? { kind: sh.selections.path, baseId: sh.selections.baseId, baseColor: sh.selections.baseColor ?? "white" }
+        : r && r.selections.bath ? { kind: r.selections.bath.kind, baseId: r.selections.bath.sku } : null;
+      if (bath) nextBath[b.id] = bath;
+      const van: SharedVanity | null = va && va.selections.size != null
+        ? { size: va.selections.size, sinks: va.selections.sinks, drilling: va.selections.drilling ?? "1cc", sinkShape: va.selections.sinkShape ?? "oval" }
+        : r && r.selections.vanity ? { size: r.selections.vanity.w, sinks: (r.selections.vanity.sinks === 2 ? 2 : 1) as 1 | 2, drilling: "1cc", sinkShape: r.selections.vanity.sinkShape ?? "oval" } : null;
+      if (van) nextVanity[b.id] = van;
+    }
+    setSharedBath(nextBath);
+    setSharedVanity(nextVanity);
   }, []);
 
   // Restore once auth is ready (client-only; never reads storage during render). A
@@ -180,16 +278,15 @@ export default function Page() {
         if (cancelled) return;
         if (q) {
           // Through the accessor rather than off q directly: a legacy quote (bathrooms null)
-          // resolves to a synthesised bathroom holding the same four slots, so this loads
-          // identically either way. The hub still edits ONE bathroom — C2 is what lets it
-          // show the rest — so bathroom 0 is the whole of C1's behaviour.
-          const bath = quoteBathrooms(q)[0];
-          hydrateSlots(bath.room as RoomConfig | null, bath.shower as ShowerConfig | null, bath.vanity as VanityConfig | null, bath.plumbing as PlumbingConfig | null);
+          // resolves to a synthesised bathroom holding the same four slots, so a quote saved
+          // before C1 and one saved after it load identically.
+          const baths = quoteBathrooms(q);
+          hydrateBathrooms(baths);
           const proj = await getProject(q.projectId);
           if (cancelled) return;
           setActiveQuote({ id: q.id, projectId: q.projectId, name: q.name, projectName: proj?.name ?? "", status: q.status });
           if (typeof window !== "undefined") window.history.replaceState(null, "", "/portal/configurator");
-          lastSnapshotRef.current = JSON.stringify(bathroomSlots(bath));
+          lastSnapshotRef.current = autosaveKey(baths, baths[0].id);
           hydratedRef.current = true;
           return;
         }
@@ -197,16 +294,19 @@ export default function Page() {
       // Fall back to the autosaved current quote.
       const stored = loadCurrentQuote(userKey);
       if (cancelled) return;
-      const storedBath = quoteBathrooms(stored ?? {})[0];
+      // A v2 draft has no `bathrooms` and no open tab — the accessor synthesises the first
+      // bathroom from its four flat slots, which is the whole of the upgrade.
+      const baths = quoteBathrooms(stored ?? {});
+      const active = resolveActive(baths, stored?.activeBathroomId);
       if (stored) {
-        hydrateSlots(storedBath.room as RoomConfig | null, storedBath.shower as ShowerConfig | null, storedBath.vanity as VanityConfig | null, storedBath.plumbing as PlumbingConfig | null);
+        hydrateBathrooms(baths, stored.activeBathroomId);
         setSavedAt(stored.savedAt);
       }
-      lastSnapshotRef.current = JSON.stringify(bathroomSlots(storedBath));
+      lastSnapshotRef.current = autosaveKey(baths, active);
       hydratedRef.current = true;
     })();
     return () => { cancelled = true; };
-  }, [ready, userKey, hydrateSlots]);
+  }, [ready, userKey, hydrateBathrooms]);
 
   // Flash a brief "saved" confirmation after an explicit save/update.
   useEffect(() => {
@@ -216,23 +316,27 @@ export default function Page() {
     return () => clearTimeout(id);
   }, [saveStamp]);
 
-  // Auto-save (debounced) whenever the slots change; clear storage once empty.
+  // Auto-save (debounced) whenever the quote changes; clear storage once empty. The open tab
+  // is part of the key as well as the payload, so a bare tab switch is persisted too and a
+  // reload does not drop the dealer back on bathroom 1.
   useEffect(() => {
     if (!ready || !hydratedRef.current) return;
-    const snapshot = JSON.stringify({ room, shower, vanity, plumbing });
+    const snapshot = autosaveKey(bathrooms, activeId);
     if (snapshot === lastSnapshotRef.current) return; // nothing actually changed (e.g. just restored)
     const timer = setTimeout(() => {
-      if (!room && !shower && !vanity && !plumbing) {
+      if (bathrooms.length === 1 && isBathroomEmpty(bathrooms[0])) {
         clearCurrentQuote(userKey);
         setSavedAt(null);
       } else {
-        saveCurrentQuote(userKey, { room, shower, vanity, plumbing });
+        // Both shapes, as everywhere else: the flat slots hold bathroom 1 for anything that
+        // has not been taught about bathrooms, and the array holds the truth.
+        saveCurrentQuote(userKey, { ...quoteFlatSlots({ bathrooms }), bathrooms, activeBathroomId: activeId });
         setSavedAt(new Date().toISOString());
       }
       lastSnapshotRef.current = snapshot;
     }, 400);
     return () => clearTimeout(timer);
-  }, [room, shower, vanity, plumbing, ready, userKey]);
+  }, [bathrooms, activeId, ready, userKey]);
 
   // Refresh the "saved N ago" label without spamming re-renders.
   useEffect(() => {
@@ -244,18 +348,22 @@ export default function Page() {
 
   function clearQuote() {
     if (typeof window !== "undefined" && !window.confirm(t("configurator.confirmClear"))) return;
-    setRoom(null); setShower(null); setVanity(null); setPlumbing(null);
-    setSharedBath(null); setSharedVanity(null);
+    // Back to one empty bathroom — clearing the quote clears the whole job, extra bathrooms
+    // included, which is what "clear the whole quote?" asks.
+    const fresh = [emptyBathroom(DEFAULT_BATHROOM_ID)];
+    setBathrooms(fresh);
+    setActiveBathroomId(DEFAULT_BATHROOM_ID);
+    setSharedBath({}); setSharedVanity({});
     // Drafts too, or a module left open would keep repainting the hero from work the dealer
     // just cleared. A still-mounted module re-emits its own state on the next edit.
-    setDraftShower(null); setDraftVanity(null); setDraftPlumbing(null);
+    setDraftShower({}); setDraftVanity({}); setDraftPlumbing({});
     clearCurrentQuote(userKey);
     setSavedAt(null);
     setActiveQuote(null); setSavePanelOpen(false); setShowSaved(false);
-    lastSnapshotRef.current = JSON.stringify({ room: null, shower: null, vanity: null, plumbing: null });
+    lastSnapshotRef.current = autosaveKey(fresh, DEFAULT_BATHROOM_ID);
   }
 
-  const hasAny = !!(room || shower || vanity || plumbing);
+  const hasAny = bathrooms.some((b) => !isBathroomEmpty(b));
 
   // A brand-new quote was created (via Save-to-project or Save-as-new): adopt it as active.
   function onQuoteSaved(saved: Quote, projectName: string) {
@@ -269,7 +377,11 @@ export default function Page() {
     if (!activeQuote) return;
     await saveQuote({
       id: activeQuote.id, projectId: activeQuote.projectId, ownerId: userKey,
-      name: activeQuote.name, room, shower, vanity, plumbing, total, status: activeQuote.status,
+      name: activeQuote.name,
+      // The dual-write, from the one place that knows the whole quote: flat slots mirror
+      // bathroom 1, `bathrooms` carries the rest.
+      ...quoteFlatSlots({ bathrooms }), bathrooms,
+      total, status: activeQuote.status,
     });
     setSaveStamp((s) => s + 1);
   }
@@ -323,27 +435,20 @@ export default function Page() {
   // else — turning configs into textures, hexes and product photos — lives in HeroPreview,
   // which the proposal, order and quote-list views share so all four agree on what a quote
   // looks like.
+  // The hero shows the ACTIVE bathroom, so the drafts it prefers are that bathroom's — a
+  // draft left behind in another one must not paint over the picture of this one.
   const heroSource = {
     room,
-    shower: draftShower ?? shower,
-    vanity: draftVanity ?? vanity,
-    plumbing: draftPlumbing ?? plumbing,
+    shower: draftShower[activeId] ?? shower,
+    vanity: draftVanity[activeId] ?? vanity,
+    plumbing: draftPlumbing[activeId] ?? plumbing,
   };
 
-  // The quote panel, built once and placed in exactly one of two spots (see wideQuote).
-  const quoteSummary = (
-    <div className="rounded-2xl border border-line bg-card p-5">
-      <div className="mb-4">
-        <div className="flex items-center justify-between gap-2">
-          <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">{t("configurator.currentQuote")}</span>
-          {(room || shower || vanity) && (
-            <button onClick={clearQuote} className="text-[10px] text-muted transition hover:text-ink">{t("configurator.clearQuote")}</button>
-          )}
-        </div>
-        {savedText && <div className="mt-0.5 text-[10px] text-muted">{savedText}</div>}
-      </div>
-
-      <div className="space-y-3">
+  // The four slot rows of the ACTIVE bathroom. Extracted so the summary can put a bathroom
+  // heading above them without duplicating them per bathroom — only one bathroom is ever
+  // expanded, and it is always the one whose sections the dealer is editing.
+  const slotRows = (
+    <>
         {/* Room row */}
         <div className="rounded-2xl border border-line/70 bg-paper/80 px-4 py-3">
           <div className="flex items-center justify-between gap-3">
@@ -357,7 +462,7 @@ export default function Page() {
                 <button onClick={() => open("room")} className="text-sm text-accent">{t("configurator.edit")}</button>
               )}
               {room != null && (
-                <button onClick={() => setRoom(null)} className="text-sm text-muted">{t("configurator.remove")}</button>
+                <button onClick={() => setSlots(activeId, { room: null })} className="text-sm text-muted">{t("configurator.remove")}</button>
               )}
             </div>
           </div>
@@ -386,7 +491,7 @@ export default function Page() {
             {shower != null && (
               <>
                 <button onClick={() => open("shower")} className="text-sm text-accent">{t("configurator.edit")}</button>
-                <button onClick={() => setShower(null)} className="text-sm text-muted">{t("configurator.remove")}</button>
+                <button onClick={() => setSlots(activeId, { shower: null })} className="text-sm text-muted">{t("configurator.remove")}</button>
               </>
             )}
           </div>
@@ -403,7 +508,7 @@ export default function Page() {
             {vanity != null && (
               <>
                 <button onClick={() => open("vanity")} className="text-sm text-accent">{t("configurator.edit")}</button>
-                <button onClick={() => setVanity(null)} className="text-sm text-muted">{t("configurator.remove")}</button>
+                <button onClick={() => setSlots(activeId, { vanity: null })} className="text-sm text-muted">{t("configurator.remove")}</button>
               </>
             )}
           </div>
@@ -420,11 +525,57 @@ export default function Page() {
             {plumbing != null && (
               <>
                 <button onClick={() => open("plumbing")} className="text-sm text-accent">{t("configurator.edit")}</button>
-                <button onClick={() => setPlumbing(null)} className="text-sm text-muted">{t("configurator.remove")}</button>
+                <button onClick={() => setSlots(activeId, { plumbing: null })} className="text-sm text-muted">{t("configurator.remove")}</button>
               </>
             )}
           </div>
         </div>
+    </>
+  );
+
+  // The quote panel, built once and placed in exactly one of two spots (see wideQuote).
+  const quoteSummary = (
+    <div className="rounded-2xl border border-line bg-card p-5">
+      <div className="mb-4">
+        <div className="flex items-center justify-between gap-2">
+          <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">{t("configurator.currentQuote")}</span>
+          {/* Across every bathroom now, but otherwise the condition it has always been —
+              plumbing deliberately still not counted, so a single-bathroom quote shows this
+              exactly where it did before. Left alone rather than quietly corrected here. */}
+          {bathrooms.some((b) => b.room || b.shower || b.vanity) && (
+            <button onClick={clearQuote} className="text-[10px] text-muted transition hover:text-ink">{t("configurator.clearQuote")}</button>
+          )}
+        </div>
+        {savedText && <div className="mt-0.5 text-[10px] text-muted">{savedText}</div>}
+      </div>
+
+      <div className="space-y-3">
+        {/* One bathroom expands into its four slot rows; the others collapse to a name and a
+            subtotal that switches to them. At N=1 neither the heading nor a collapsed row is
+            rendered, so this is the same list of four rows it has always been. */}
+        {bathrooms.map((b, i) =>
+          b.id === activeId ? (
+            <Fragment key={b.id}>
+              {multi && (
+                <div className="flex items-baseline justify-between gap-2 pt-1 font-mono text-[10px] uppercase tracking-[0.12em] text-accent">
+                  <span className="truncate">{labelForBathroom(b, i, t)}</span>
+                  <span className="shrink-0 normal-case tracking-normal text-muted">{money(bathroomTotal(b))}</span>
+                </div>
+              )}
+              {slotRows}
+            </Fragment>
+          ) : (
+            <button
+              key={b.id}
+              type="button"
+              onClick={() => selectBathroom(b.id)}
+              className="flex w-full items-baseline justify-between gap-2 rounded-2xl border border-line/70 bg-paper/40 px-4 py-2.5 text-left transition hover:border-accent"
+            >
+              <span className="truncate text-sm text-muted">{labelForBathroom(b, i, t)}</span>
+              <span className="shrink-0 text-sm text-muted">{money(bathroomTotal(b))}</span>
+            </button>
+          ),
+        )}
 
         {/* Total */}
         <div className="mt-3 flex items-center justify-between border-t border-line pt-3">
@@ -483,7 +634,7 @@ export default function Page() {
               <SaveQuotePanel
                 ownerId={userKey}
                 initialProjectId={savePanelProjectId}
-                quoteInput={{ room, shower, vanity, plumbing, total }}
+                quoteInput={{ bathrooms, total }}
                 onSaved={onQuoteSaved}
                 onCancel={() => setSavePanelOpen(false)}
               />
@@ -505,6 +656,19 @@ export default function Page() {
         </div>
         <p className="text-sm leading-6 text-ink/75">{t("pages.configurator.desc")}</p>
       </div>
+
+      {/* Bathroom tabs. Renders NOTHING for a one-bathroom quote, which is every quote that
+          exists today — see BathroomStrip for why that is the design and not an omission. */}
+      {multi && (
+        <BathroomStrip
+          bathrooms={bathrooms}
+          activeId={activeId}
+          onSelect={selectBathroom}
+          onRename={renameBathroomTo}
+          onAdd={addAnotherBathroom}
+          onRemoveRequest={setPendingRemove}
+        />
+      )}
 
       {/* Module tabs — one row across the top of the work area, equal width so they're
           predictable finger targets on a tablet. Tapping the open module returns to the
@@ -549,71 +713,89 @@ export default function Page() {
               scene is the starting canvas the dealer configures against. */}
           <HeroPreview {...heroSource} caption={t("configurator.hero.caption")} />
 
-          {/* Open configurator area. Each configurator mounts on first open and
-              stays mounted (hidden when inactive) so its state persists and it
-              can keep seeding from / feeding the shared sizes. */}
+          {/* Open configurator area. ONE SET OF MODULES PER BATHROOM, each mounting the first
+              time that bathroom's section is opened and then staying mounted (hidden when it
+              isn't the visible one) so its state persists and it can keep seeding from /
+              feeding that bathroom's shared sizes. See the `opened` state for why switching
+              bathrooms must not re-mount a shared set. */}
           <div>
-            <div className={activeKind === "room" ? "" : "hidden"}>
-              {opened.room && (
-                <RoomConfigurator
-                  mode="dealer"
-                  initialBath={sharedBath}
-                  initialVanity={sharedVanity}
-                  initialTreatments={room?.selections.treatments}
-                  initialFlooring={room?.selections.flooring}
-                  initialWallBase={room?.selections.wallBase}
-                  initialPartitions={room?.selections.partitions}
-                  onChange={onRoomChange}
-                  onComplete={onRoomComplete}
-                  // Same call the module tab above makes — but reachable without scrolling
-                  // back up past the drawing.
-                  onBack={() => setActiveKind(null)}
-                  primaryLabel={room ? t("configurator.updateRoom") : t("configurator.addToQuote")}
-                />
-              )}
-            </div>
-            <div className={activeKind === "shower" ? "" : "hidden"}>
-              {opened.shower && (
-                <ShowerConfigurator
-                  mode="dealer"
-                  initialKind={sharedBath?.kind}
-                  initialBaseId={sharedBath?.baseId}
-                  initialBaseColor={sharedBath?.baseColor}
-                  onChange={applyBath}
-                  onPreview={setDraftShower}
-                  onComplete={onShowerComplete}
-                  primaryLabel={shower ? t("configurator.updateShower") : t("configurator.addToQuote")}
-                />
-              )}
-            </div>
-            <div className={activeKind === "vanity" ? "" : "hidden"}>
-              {opened.vanity && (
-                <VanityConfigurator
-                  mode="dealer"
-                  initialSize={sharedVanity?.size}
-                  initialSinks={sharedVanity?.sinks}
-                  initialDrilling={sharedVanity?.drilling}
-                  initialSinkShape={sharedVanity?.sinkShape}
-                  onChange={applyVanity}
-                  onPreview={setDraftVanity}
-                  onComplete={onVanityComplete}
-                  primaryLabel={vanity ? t("configurator.updateVanity") : t("configurator.addToQuote")}
-                />
-              )}
-            </div>
-            <div className={activeKind === "plumbing" ? "" : "hidden"}>
-              {opened.plumbing && (
-                <PlumbingConfigurator
-                  mode="dealer"
-                  lockedDrilling={sharedVanity?.drilling}
-                  lockedBathKind={plumbingBathKind}
-                  initialFaucetQty={plumbingFaucetQty}
-                  onChange={setDraftPlumbing}
-                  onComplete={onPlumbingComplete}
-                  primaryLabel={plumbing ? t("configurator.updatePlumbing") : t("configurator.addToQuote")}
-                />
-              )}
-            </div>
+            {bathrooms.map((b) => {
+              // Same four typed slots as the active-bathroom reads above, for THIS bathroom.
+              const bRoom = (b.room as RoomConfig | null) ?? null;
+              const bShower = (b.shower as ShowerConfig | null) ?? null;
+              const bVanity = (b.vanity as VanityConfig | null) ?? null;
+              const bPlumbing = (b.plumbing as PlumbingConfig | null) ?? null;
+              const bBath = sharedBath[b.id] ?? null;
+              const bVanitySizes = sharedVanity[b.id] ?? null;
+              // Visible only where the dealer actually is: this bathroom's tab AND this section.
+              const shows = (kind: ConfigKind) => (b.id === activeId && activeKind === kind ? "" : "hidden");
+              const mounted = (kind: ConfigKind) => isSectionOpen(opened, b.id, kind);
+              return (
+                <Fragment key={b.id}>
+                  <div className={shows("room")}>
+                    {mounted("room") && (
+                      <RoomConfigurator
+                        mode="dealer"
+                        initialBath={bBath}
+                        initialVanity={bVanitySizes}
+                        initialTreatments={bRoom?.selections.treatments}
+                        initialFlooring={bRoom?.selections.flooring}
+                        initialWallBase={bRoom?.selections.wallBase}
+                        initialPartitions={bRoom?.selections.partitions}
+                        onChange={(cfg) => onRoomChange(b.id, cfg)}
+                        onComplete={(cfg) => onRoomComplete(b.id, cfg)}
+                        // Same call the module tab above makes — but reachable without scrolling
+                        // back up past the drawing.
+                        onBack={() => setActiveKind(null)}
+                        primaryLabel={bRoom ? t("configurator.updateRoom") : t("configurator.addToQuote")}
+                      />
+                    )}
+                  </div>
+                  <div className={shows("shower")}>
+                    {mounted("shower") && (
+                      <ShowerConfigurator
+                        mode="dealer"
+                        initialKind={bBath?.kind}
+                        initialBaseId={bBath?.baseId}
+                        initialBaseColor={bBath?.baseColor}
+                        onChange={(v) => applyBath(b.id, v)}
+                        onPreview={(cfg) => setDraftShower((m) => ({ ...m, [b.id]: cfg }))}
+                        onComplete={(cfg) => onShowerComplete(b.id, cfg)}
+                        primaryLabel={bShower ? t("configurator.updateShower") : t("configurator.addToQuote")}
+                      />
+                    )}
+                  </div>
+                  <div className={shows("vanity")}>
+                    {mounted("vanity") && (
+                      <VanityConfigurator
+                        mode="dealer"
+                        initialSize={bVanitySizes?.size}
+                        initialSinks={bVanitySizes?.sinks}
+                        initialDrilling={bVanitySizes?.drilling}
+                        initialSinkShape={bVanitySizes?.sinkShape}
+                        onChange={(v) => applyVanity(b.id, v)}
+                        onPreview={(cfg) => setDraftVanity((m) => ({ ...m, [b.id]: cfg }))}
+                        onComplete={(cfg) => onVanityComplete(b.id, cfg)}
+                        primaryLabel={bVanity ? t("configurator.updateVanity") : t("configurator.addToQuote")}
+                      />
+                    )}
+                  </div>
+                  <div className={shows("plumbing")}>
+                    {mounted("plumbing") && (
+                      <PlumbingConfigurator
+                        mode="dealer"
+                        lockedDrilling={bVanitySizes?.drilling}
+                        lockedBathKind={bBath?.kind}
+                        initialFaucetQty={plumbingFaucetQty(b.id)}
+                        onChange={(cfg) => setDraftPlumbing((m) => ({ ...m, [b.id]: cfg }))}
+                        onComplete={(cfg) => onPlumbingComplete(b.id, cfg)}
+                        primaryLabel={bPlumbing ? t("configurator.updatePlumbing") : t("configurator.addToQuote")}
+                      />
+                    )}
+                  </div>
+                </Fragment>
+              );
+            })}
             {!activeKind && (
               <div className="space-y-4">
                 {room ? (
@@ -671,6 +853,20 @@ export default function Page() {
               </div>
             )}
           </div>
+
+          {/* The one way into a second bathroom, and it only appears once there is a first
+              bathroom worth having a second alongside. An empty quote offering "add another
+              bathroom" would be asking a dealer to organise work they have not done yet.
+              Past two, the strip's own + is the control and this disappears. */}
+          {!multi && !isBathroomEmpty(bathrooms[0]) && (
+            <button
+              type="button"
+              onClick={addAnotherBathroom}
+              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-dashed border-line px-4 text-sm font-medium text-muted transition hover:border-accent hover:text-accent"
+            >
+              <Plus className="h-4 w-4" /> {t("configurator.bathroom.addAnother")}
+            </button>
+          )}
         </div>
 
         {/* Quote summary. Wide screens keep it as a standing, sticky column; below the
@@ -743,6 +939,26 @@ export default function Page() {
             {quoteSummary}
           </div>
         </div>
+      )}
+
+      {/* Removing a bathroom deletes work, and the dealer has to be able to read WHICH
+          bathroom before they agree to it — hence a named dialog rather than window.confirm.
+          removeBathroom() still refuses to remove the last one, so this can never empty a quote. */}
+      {pendingRemove && (
+        <ConfirmDialog
+          title={t("configurator.bathroom.removeTitle", {
+            name: labelForBathroom(
+              bathrooms.find((b) => b.id === pendingRemove),
+              Math.max(0, bathrooms.findIndex((b) => b.id === pendingRemove)),
+              t,
+            ),
+          })}
+          body={t("configurator.bathroom.removeBody")}
+          confirmLabel={t("configurator.bathroom.removeConfirm")}
+          cancelLabel={t("configurator.cancel")}
+          onConfirm={confirmRemoveBathroom}
+          onCancel={() => setPendingRemove(null)}
+        />
       )}
     </div>
   );

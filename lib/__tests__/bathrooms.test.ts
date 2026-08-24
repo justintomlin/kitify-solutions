@@ -14,6 +14,7 @@ import assert from "node:assert/strict";
 import {
   quoteBathrooms, isMultiBathroom, toBathrooms, quoteFlatSlots, bathroomSlots,
   addBathroom, removeBathroom, renameBathroom, setBathroomSlots, isBathroomEmpty,
+  bathroomTotal, bathroomsTotal,
   labelForBathroom, labelForTier, toOptionNames,
   DEFAULT_BATHROOM_ID, type Bathroom,
 } from "../bathrooms.ts";
@@ -237,6 +238,33 @@ test("every mutation helper is pure", () => {
   renameBathroom(baths, "b1", "Renamed");
   setBathroomSlots(baths, "b1", { vanity: VANITY });
   assert.equal(JSON.stringify(baths), before, "a helper mutated the array it was given");
+});
+
+// --------------------------------------------------------------- C2 money
+
+test("a quote's total is every bathroom on it", () => {
+  // The whole job, not the open tab. A dealer looking at bathroom 2 must still see what the
+  // quote costs, and the saved `total` column is what a proposal marks up.
+  const baths: Bathroom[] = [
+    { id: "b1", name: "Master", room: ROOM, shower: SHOWER, vanity: VANITY, plumbing: PLUMB },
+    { id: "b2", name: "Hall", shower: SHOWER },
+  ];
+  assert.equal(bathroomTotal(baths[0]), 100 + 464.4 + 900 + 200);
+  assert.equal(bathroomTotal(baths[1]), 464.4);
+  assert.equal(bathroomsTotal(baths), 1664.4 + 464.4);
+  // One bathroom: the same number the hub summed from four slots before C2 existed.
+  assert.equal(bathroomsTotal(quoteBathrooms(legacyQuote())), 1664.4);
+});
+
+test("an empty or malformed slot contributes zero rather than NaN", () => {
+  // These are jsonb. A half-written or hand-edited document must not turn a dealer's total
+  // into "$NaN" — and, worse, save as null.
+  assert.equal(bathroomTotal({ id: "b1", name: null }), 0);
+  assert.equal(
+    bathroomTotal({ id: "b1", name: null, shower: { price: { total: "464.40" } }, vanity: { price: null }, room: {} }),
+    0,
+  );
+  assert.equal(bathroomsTotal([]), 0);
 });
 
 // -------------------------------------------------------------- C2 labels

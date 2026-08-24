@@ -63,6 +63,7 @@ export type Quote = {
 export {
   quoteBathrooms, isMultiBathroom, bathroomSlots, DEFAULT_BATHROOM_ID,
   addBathroom, removeBathroom, renameBathroom, setBathroomSlots, isBathroomEmpty, nextBathroomId,
+  bathroomTotal, bathroomsTotal, quoteFlatSlots,
   labelForBathroom, labelForTier, toOptionNames, OPTION_TIERS,
   type Bathroom, type OptionNames, type OptionTier,
 } from "./bathrooms.ts";

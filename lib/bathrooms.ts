@@ -185,6 +185,34 @@ export function isBathroomEmpty(b: Bathroom): boolean {
   return !b.room && !b.shower && !b.vanity && !b.plumbing;
 }
 
+// -------------------------------------------------------------- money
+// A quote's total is the whole job — every bathroom on it. Freight and anything else charged
+// once per job is added at quote level and deliberately never inside a bathroom, or a
+// two-bathroom job would pay for it twice.
+
+/** Each config object carries its own priced result. Read structurally — the slots are jsonb. */
+type PricedSlot = { price?: { total?: unknown } | null } | null | undefined;
+
+/**
+ * One slot's contribution. Defensive because these are jsonb: a half-written or
+ * hand-edited document would otherwise turn the whole quote total into NaN, which prints as
+ * "$NaN" on a dealer's screen and saves as null.
+ */
+function slotTotal(v: unknown): number {
+  const n = (v as PricedSlot)?.price?.total;
+  return typeof n === "number" && Number.isFinite(n) ? n : 0;
+}
+
+/** What one bathroom costs the dealer: its four slots, summed. */
+export function bathroomTotal(b: Bathroom): number {
+  return slotTotal(b.room) + slotTotal(b.shower) + slotTotal(b.vanity) + slotTotal(b.plumbing);
+}
+
+/** What the whole quote costs the dealer. Identical to bathroomTotal for a one-bathroom quote. */
+export function bathroomsTotal(bathrooms: Bathroom[]): number {
+  return bathrooms.reduce((n, b) => n + bathroomTotal(b), 0);
+}
+
 // ------------------------------------------------------------------ labels
 
 /** Translator shape, matching the one the configurators use. Kept local to stay import-free. */

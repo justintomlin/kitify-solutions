@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useLanguage } from "@/components/LanguageContext";
-import { listProjects, listQuotes, saveQuote, type Project, type Quote } from "@/lib/store";
+import { listProjects, listQuotes, saveQuote, quoteFlatSlots, type Bathroom, type Project, type Quote } from "@/lib/store";
 import { ProjectForm } from "@/components/projects/ProjectForm";
 
 const NEW = "__new__";
@@ -24,7 +24,8 @@ export function SaveQuotePanel({
 }: {
   ownerId: string;
   initialProjectId?: string;
-  quoteInput: { room: unknown; shower: unknown; vanity: unknown; plumbing: unknown; total: number };
+  /** The whole quote, every bathroom on it. The flat columns are derived at save time. */
+  quoteInput: { bathrooms: Bathroom[]; total: number };
   onSaved: (quote: Quote, projectName: string) => void;
   onCancel: () => void;
 }) {
@@ -68,10 +69,10 @@ export function SaveQuotePanel({
       projectId: selectedId,
       ownerId,
       name: finalName,
-      room: quoteInput.room,
-      shower: quoteInput.shower,
-      vanity: quoteInput.vanity,
-      plumbing: quoteInput.plumbing,
+      // Both shapes: the flat columns mirror bathroom 1 so anything that has not been taught
+      // about bathrooms still reads the quote, and the array carries the rest.
+      ...quoteFlatSlots({ bathrooms: quoteInput.bathrooms }),
+      bathrooms: quoteInput.bathrooms,
       total: quoteInput.total,
       status: "draft",
     });
