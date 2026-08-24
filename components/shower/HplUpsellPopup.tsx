@@ -18,26 +18,35 @@
  * under configurator.shower.hplUpsell.* and can be rewritten without touching this file.
  */
 
-import { Plus, Check, X } from "lucide-react";
+import { Minus, Plus, Check, X } from "lucide-react";
 import { useLanguage } from "@/components/LanguageContext";
 import type { HplShowerBom, HplUpsellOffer } from "@/lib/hpl-shower-takeoff";
+import { HPL_TOOL_OFFERS, type HplToolPick } from "@/lib/hpl-tools";
 
 export function HplUpsellPopup({
   bom,
   accepted,
   onToggle,
   onDismissAll,
+  tools,
+  onToolQty,
 }: {
   bom: HplShowerBom;
   accepted: string[];
   onToggle: (offerId: string) => void;
   onDismissAll: () => void;
+  /** Tools and replenishment the dealer has taken, with quantities. */
+  tools: HplToolPick[];
+  onToolQty: (skuCode: string, qty: number) => void;
 }) {
   const { t } = useLanguage();
   const offers = bom.upsells.offers;
-  if (offers.length === 0) return null;
+  // The tools block stands on its own: a shower with an even panel count and no trim fires no
+  // upsell offers at all, and the dealer still needs to be asked about tools.
+  if (offers.length === 0 && HPL_TOOL_OFFERS.length === 0) return null;
 
   const isOn = (o: HplUpsellOffer) => accepted.includes(o.id);
+  const qtyOf = (skuCode: string) => tools.find((x) => x.skuCode === skuCode)?.qty ?? 0;
 
   return (
     <div className="mt-3 rounded-xl border border-accent/30 bg-accent-soft/30 p-3">
@@ -61,6 +70,7 @@ export function HplUpsellPopup({
       </div>
 
       <div className="space-y-1.5">
+        {/* The three computed offers, unchanged. */}
         {offers.map((o) => {
           const on = isOn(o);
           return (
@@ -91,6 +101,55 @@ export function HplUpsellPopup({
             </button>
           );
         })}
+      </div>
+
+      {/* Tools & replenishment. Below a divider inside the same block rather than as a second
+          panel: two adjacent accent cards in a 380px sticky column read as clutter, and this is
+          the same conversation — "here is what else you might want before you order". Every row
+          starts at zero; the block adds nothing until a dealer presses +. */}
+      <div className="mt-3 border-t border-accent/20 pt-3">
+        <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-accent">
+          {t("configurator.shower.hplTools.heading")}
+        </div>
+        <p className="mt-0.5 text-[11px] leading-relaxed text-muted">{t("configurator.shower.hplTools.sub")}</p>
+
+        <div className="mt-2 space-y-1.5">
+          {HPL_TOOL_OFFERS.map((o) => {
+            const qty = qtyOf(o.skuCode);
+            return (
+              <div
+                key={o.skuCode}
+                className={`flex items-center gap-2 rounded-lg border px-2.5 py-1.5 transition ${
+                  qty > 0 ? "border-accent bg-card" : "border-line bg-card/60"
+                }`}
+              >
+                <span className="min-w-0 flex-1 text-[12px] leading-snug text-ink">{t(o.labelKey)}</span>
+                {/* A stepper, not a checkbox: a dealer restocking wants three sealant tubes,
+                    and a tool is still a one-tap add because zero → 1 is the first press. */}
+                <span className="flex shrink-0 items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => onToolQty(o.skuCode, qty - 1)}
+                    disabled={qty === 0}
+                    aria-label={t("configurator.shower.hplTools.less", { item: t(o.labelKey) })}
+                    className="grid h-6 w-6 place-items-center rounded border border-line text-muted transition hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-30"
+                  >
+                    <Minus className="h-3 w-3" />
+                  </button>
+                  <span className="w-5 text-center font-mono text-[11px] tabular-nums text-ink">{qty}</span>
+                  <button
+                    type="button"
+                    onClick={() => onToolQty(o.skuCode, qty + 1)}
+                    aria-label={t("configurator.shower.hplTools.more", { item: t(o.labelKey) })}
+                    className="grid h-6 w-6 place-items-center rounded border border-line text-muted transition hover:border-accent hover:text-accent"
+                  >
+                    <Plus className="h-3 w-3" />
+                  </button>
+                </span>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

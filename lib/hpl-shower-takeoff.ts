@@ -91,7 +91,15 @@ export type HplOrderConsumables = { wax: number };
 
 export type HplBomKind =
   | "panel" | "interior-corner" | "base-profile" | "end-cap"
-  | "sealant" | "spray-cleaner" | "wipes" | "wax";
+  | "sealant" | "spray-cleaner" | "wipes" | "wax"
+  /**
+   * An installation tool or a replenishment top-up the dealer opted into. NOTHING IN THIS
+   * MODULE EMITS ONE — no compute function here produces a "tool" line, because a tool is not
+   * a question about a shower. The kind exists so that a line the caller appends can ride the
+   * same BOM array, and therefore reach the inventory extractor's pick list (migration 0017
+   * reads quote → shower → hplBom → lines and would never see a price line).
+   */
+  | "tool";
 
 export type HplShowerBomLine = {
   kind: HplBomKind;

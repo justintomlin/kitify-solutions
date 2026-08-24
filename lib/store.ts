@@ -18,6 +18,7 @@
 import { supabase } from "@/lib/supabase";
 import type { PostgrestError } from "@supabase/supabase-js";
 import { quoteBathrooms, quoteFlatSlots, toBathrooms, toOptionNames, type Bathroom, type OptionNames } from "./bathrooms.ts";
+import { freightForQuote, resolveFreight, retailWithFreight } from "./freight.ts";
 
 export type JobRegistrationStatus = "not_started" | "started" | "complete";
 
@@ -67,6 +68,12 @@ export {
   labelForBathroom, labelForTier, toOptionNames, OPTION_TIERS,
   type Bathroom, type OptionNames, type OptionTier,
 } from "./bathrooms.ts";
+// Freight is a quote-shaped concern too — same reasoning, same re-export, so a caller imports
+// everything quote-shaped from one place.
+export {
+  freightForQuote, freightForBathroomCount, resolveFreight, retailWithFreight,
+  hasBathingConfiguration, FREIGHT_BY_BATHROOM_COUNT, type ResolvedFreight,
+} from "./freight.ts";
 
 // The save inputs: everything except the server-managed id / timestamps, with an
 // optional id (present ⇒ update, absent ⇒ insert). Unchanged from the previous API.
@@ -123,6 +130,12 @@ export type Proposal = {
    * The tier_* COLUMNS are unchanged — see migration 0019; this is labels only.
    */
   optionNames: OptionNames | null;
+  /**
+   * Dealer-entered freight, overriding the computed per-bathroom-count estimate. Null means
+   * use the estimate; ZERO is a real value meaning "charge no freight" and is not the same
+   * thing. See migration 0020 and lib/freight.ts.
+   */
+  freightOverride: number | null;
   /** Frozen at share time; null on proposals shared before branding existed. */
   contractorBranding: ContractorBranding | null;
   /** When the contractor last sent the link to the homeowner, for the "sent" indicator. */
@@ -137,7 +150,7 @@ export type Proposal = {
 type ProposalInput = Pick<
   Proposal,
   "ownerId" | "projectId" | "name" | "markupPct" | "tierGood" | "tierBetter" | "tierBest" | "status"
-> & { id?: string; customLineItems?: ProposalLineItem[]; optionNames?: OptionNames | null };
+> & { id?: string; customLineItems?: ProposalLineItem[]; optionNames?: OptionNames | null; freightOverride?: number | null };
 
 // ------------------------------ error handling ----------------------------
 // Surface failures loudly instead of returning them as empty data — a Supabase
@@ -280,6 +293,8 @@ type ProposalRow = {
   tier_best: string | null;
   // Added by 0019. Absent on a pre-migration read, which reads as unnamed.
   option_names?: unknown;
+  // Added by 0020. Absent on a pre-migration read, which reads as "use the estimate".
+  freight_override?: number | string | null;
   accepted_quote_id: string | null;
   accepted_tier: Proposal["acceptedTier"];
   accepted_by: string | null;
@@ -317,6 +332,9 @@ function rowToProposal(r: ProposalRow): Proposal {
     // Defaulted rather than assumed: a row read before the migration has neither column.
     customLineItems: Array.isArray(r.custom_line_items) ? r.custom_line_items : [],
     optionNames: toOptionNames(r.option_names),
+    // numeric may arrive as a string, like markup_pct. Null and absent both mean "use the
+    // computed estimate"; a real 0 must survive as 0, so this cannot use `|| null`.
+    freightOverride: r.freight_override == null || r.freight_override === "" ? null : Number(r.freight_override),
     contractorBranding: r.contractor_branding ?? null,
     lastSentAt: r.last_sent_at ?? null,
     createdAt: r.created_at,
@@ -331,7 +349,7 @@ function rowToProposal(r: ProposalRow): Proposal {
  * migration has not been run yet. Without that, deploying this code ahead of the SQL would
  * take out proposal saving entirely - a working feature broken by an unrelated one.
  */
-const MIGRATED_PROPOSAL_COLUMNS = ["custom_line_items", "contractor_branding", "last_sent_at", "option_names"];
+const MIGRATED_PROPOSAL_COLUMNS = ["custom_line_items", "contractor_branding", "last_sent_at", "option_names", "freight_override"];
 
 function isMissingColumn(error: PostgrestError | null): boolean {
   if (!error) return false;
@@ -374,6 +392,9 @@ function proposalToRow(p: ProposalInput) {
     status: p.status,
     custom_line_items: p.customLineItems ?? [],
     option_names: p.optionNames ?? null,
+    // `?? null` rather than `|| null`: a 0 override means "charge no freight" and has to be
+    // written as 0, not collapsed into "use the estimate".
+    freight_override: p.freightOverride ?? null,
   };
 }
 
@@ -877,7 +898,13 @@ export async function createOrderFromProposal(proposalId: string): Promise<Order
   const quote = await getQuote(proposal.acceptedQuoteId);
   if (!quote) throw new Error("store: createOrderFromProposal — accepted quote not found");
   const project = await getProject(proposal.projectId);
-  const retailTotal = quote.total * (1 + (proposal.markupPct || 0) / 100);
+  // Freight, resolved once and frozen. The snapshot is the record of what was CHARGED, so it
+  // carries the number in force at this moment rather than a rule to re-run later: the rate
+  // table will move, and a placed order must not silently re-price when it does.
+  const freight = resolveFreight(freightForQuote(quote), proposal.freightOverride);
+  // Goods marked up, freight added flat. retailWithFreight is the one place that composition
+  // lives — see lib/freight.ts for why freight is never inside the markup.
+  const retailTotal = retailWithFreight(quote.total, proposal.markupPct, freight?.amount ?? null);
 
   const snapshot = {
     frozenAt: new Date().toISOString(),
@@ -897,6 +924,16 @@ export async function createOrderFromProposal(proposalId: string): Promise<Order
       bathrooms: quoteBathrooms(quote),
       dealerTotal: quote.total,
     },
+    /**
+     * What freight was charged, and what the estimate had been. Null — and, on every order
+     * placed before Phase D, ABSENT — means no freight line, which is how a historical order
+     * keeps rendering exactly as it always has.
+     *
+     * Rides in the snapshot jsonb, so this needed no schema change. `retailTotal` already
+     * includes it, which is what keeps the orders list, the dashboard and both admin CRM
+     * views consistent without any of them knowing freight exists.
+     */
+    freight,
     retailTotal,
     project: project ? { id: project.id, name: project.name, customer: project.customer, address: project.address } : null,
   };

@@ -30,6 +30,14 @@ export type TierView = {
    */
   bathrooms?: unknown;
   dealerTotal: number;
+  /**
+   * Freight for this option, already resolved server-side (computed from bathroom count, or
+   * the dealer's override). A FINISHED dollar amount — it is passed through at cost and never
+   * multiplied by the markup, so unlike dealerTotal there is nothing for the client to do to
+   * it. Null means this option ships nothing that needs a truck; absent on a payload served by
+   * a deploy older than Phase D, which reads the same way.
+   */
+  freight?: number | null;
 };
 /** A contractor-entered charge: labour, permits, disposal. Same across every tier. */
 export type ProposalLineItem = { id: string; description: string; amount: number };
@@ -312,9 +320,16 @@ function TierBody({ tier, markupPct, lineItems, t }: {
 }) {
   const retail = tier.dealerTotal * (1 + (markupPct || 0) / 100);
   const extras = lineItems.reduce((n, li) => n + li.amount, 0);
+  // Freight arrives already resolved and is added FLAT — retailWithFreight is the shape this
+  // mirrors, and the markup deliberately does not reach it (see lib/freight.ts).
+  const freight = tier.freight ?? 0;
   // The headline figure is what the homeowner will actually be billed. Showing the product
   // subtotal there and burying labour further down would quote a number nobody pays.
-  const grandTotal = retail + extras;
+  const grandTotal = retail + extras + freight;
+  // The itemised block below the products. Freight belongs in it for the same reason labour
+  // does: it is a real charge on the invoice, and folding it into the product price would
+  // quote a delivery cost as though it were part of the shower.
+  const hasCharges = lineItems.length > 0 || freight > 0;
   // Both shapes resolve here: a pre-C1 payload has no `bathrooms` and synthesises one from
   // its four flat slots, which is what keeps a link a homeowner is already holding correct.
   const baths = quoteBathrooms(tier);
@@ -327,6 +342,13 @@ function TierBody({ tier, markupPct, lineItems, t }: {
         {extras > 0 && (
           <div className="mt-1.5 text-xs text-muted">
             {t("proposal.totalBreakdown", { products: money(retail), extras: money(extras) })}
+          </div>
+        )}
+        {/* Freight gets its own line under the headline even when there are no extras, so a
+            homeowner is never surprised by a delivery charge they only find further down. */}
+        {freight > 0 && (
+          <div className="mt-1.5 text-xs text-muted">
+            {t("proposal.freightBreakdown", { amount: money(freight) })}
           </div>
         )}
       </div>
@@ -348,7 +370,7 @@ function TierBody({ tier, markupPct, lineItems, t }: {
         {/* Labour & extras. Listed after the products because they are what the contractor
             adds on top of them, and itemised rather than folded into one number so the
             homeowner can see what they are paying for. */}
-        {lineItems.length > 0 && (
+        {hasCharges && (
           <div className="rounded-xl border border-line bg-paper/60 p-4 sm:p-5">
             <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">{t("proposal.extrasTitle")}</div>
             <dl className="mt-3 space-y-2">
@@ -358,6 +380,14 @@ function TierBody({ tier, markupPct, lineItems, t }: {
                   <dd className="shrink-0 text-sm font-medium text-ink">{money(li.amount)}</dd>
                 </div>
               ))}
+              {/* Last in the list, after whatever the contractor added: freight is the one
+                  charge on here that is neither goods nor their labour. */}
+              {freight > 0 && (
+                <div className="flex items-baseline justify-between gap-4">
+                  <dt className="text-sm text-ink">{t("proposal.freightLine")}</dt>
+                  <dd className="shrink-0 text-sm font-medium text-ink">{money(freight)}</dd>
+                </div>
+              )}
             </dl>
             <div className="mt-3 flex items-baseline justify-between gap-4 border-t border-line pt-3">
               <span className="text-sm font-semibold text-ink">{t("proposal.grandTotal")}</span>

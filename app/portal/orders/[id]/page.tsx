@@ -28,6 +28,12 @@ const fmtDate = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString(
 // The snapshot is the frozen source of truth — we never read back to the live quote/project.
 type Snap = {
   retailTotal?: number;
+  /**
+   * What freight was charged, frozen at order time. ABSENT on every order placed before Phase
+   * D — and null on one that shipped nothing needing a truck — in which case no freight line
+   * renders and the order reads exactly as it always has. `retailTotal` already includes it.
+   */
+  freight?: { amount?: number; computed?: number | null; overridden?: boolean } | null;
   project?: { name?: string | null } | null;
   // `bathrooms` is present only on snapshots frozen from Phase C1 onward. Optional, because a
   // snapshot is an immutable document and the older shape is read forever.
@@ -244,6 +250,13 @@ export default function OrderDetailPage() {
           <div className="text-right">
             <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">{t("orders.orderTotal")}</div>
             <div className="font-display text-2xl font-bold text-ink">{money(snap?.retailTotal ?? 0)}</div>
+            {/* Named separately because the total includes it and a contractor reconciling an
+                invoice needs to see which part of the figure was delivery. */}
+            {typeof snap?.freight?.amount === "number" && snap.freight.amount > 0 && (
+              <div className="mt-0.5 text-[11px] text-muted">
+                {t("orders.freightIncluded", { amount: money(snap.freight.amount) })}
+              </div>
+            )}
           </div>
         </div>
         <div className="space-y-5">

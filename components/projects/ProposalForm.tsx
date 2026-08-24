@@ -5,6 +5,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { useLanguage } from "@/components/LanguageContext";
 import { saveProposal, labelForTier, toOptionNames, type Proposal, type ProposalLineItem, type Quote } from "@/lib/store";
 import type { OptionTier } from "@/lib/bathrooms";
+import { freightForQuote, resolveFreight } from "@/lib/freight";
 
 const INPUT =
   "w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm text-ink placeholder:text-muted focus:border-accent focus:outline-none";
@@ -72,6 +73,12 @@ export function ProposalForm({ ownerId, projectId, quotes, initial, onSaved, onC
   const [lineItems, setLineItems] = useState<{ id: string; description: string; amount: string }[]>(
     () => (initial?.customLineItems ?? []).map((li) => ({ id: li.id, description: li.description, amount: String(li.amount) })),
   );
+  // Held as a raw string, like markup and the line-item amounts. Empty means "use the computed
+  // estimate"; "0" is a real answer meaning charge no freight, which is why this cannot be
+  // normalised with a truthiness check on submit.
+  const [freightOverride, setFreightOverride] = useState(
+    initial?.freightOverride == null ? "" : String(initial.freightOverride),
+  );
   const [nameError, setNameError] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -115,6 +122,22 @@ export function ProposalForm({ ownerId, projectId, quotes, initial, onSaved, onC
 
   const lineItemsTotal = cleanLineItems().reduce((n, li) => n + li.amount, 0);
 
+  // ---- freight -------------------------------------------------------------
+  // Computed PER OPTION from that option's own quote, because an option that drops the second
+  // bathroom genuinely ships on a smaller truck. The override, when set, replaces all of them:
+  // it is a fact about this job's logistics, and the three options ship to one address.
+  const parsedOverride = freightOverride.trim() === "" ? null : Number(freightOverride);
+  const overrideValid = parsedOverride == null || Number.isFinite(parsedOverride);
+  const freightRows = ([
+    ["good", tierGood], ["better", tierBetter], ["best", tierBest],
+  ] as [OptionTier, string][])
+    .filter(([, qid]) => qid)
+    .map(([tier, qid]) => {
+      const q = quotes.find((x) => x.id === qid);
+      const computed = q ? freightForQuote(q) : null;
+      return { tier, computed, resolved: resolveFreight(computed, overrideValid ? parsedOverride : null) };
+    });
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) { setNameError(true); return; }
@@ -132,6 +155,9 @@ export function ProposalForm({ ownerId, projectId, quotes, initial, onSaved, onC
       tierBest: tierBest || null,
       status: initial?.status ?? "draft", // keep an existing status (e.g. 'shared') on edit
       customLineItems: cleanLineItems(),
+      // An unparseable entry saves as null rather than NaN — warn-don't-block: the field shows
+      // a note, the proposal still saves, and it falls back to the computed estimate.
+      freightOverride: overrideValid ? parsedOverride : null,
       // toOptionNames trims and collapses an all-blank set to null, so clearing every field
       // saves "unnamed" rather than three empty strings.
       optionNames: namesNow,
@@ -175,6 +201,66 @@ export function ProposalForm({ ownerId, projectId, quotes, initial, onSaved, onC
           </Field>
         </div>
         <p className="text-xs text-muted">{t("projects.markupHint")}</p>
+
+        {/* Freight. Computed from bathroom count, shown per option, and overridable — a dealer
+            who has phoned a carrier holds a better number than the table does. Rendered only
+            when at least one option actually ships something on a truck, or when an override
+            is already set, so a vanity-only proposal never sees a delivery charge it does not
+            have. */}
+        {(freightRows.some((r) => r.resolved) || freightOverride.trim() !== "") && (
+          <div className="mt-2 border-t border-line pt-4">
+            <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted">{t("projects.freightTitle")}</span>
+            <p className="mt-1 text-xs text-muted">{t("projects.freightHint")}</p>
+
+            <dl className="mt-3 space-y-1">
+              {freightRows.map((r) => (
+                <div key={r.tier} className="flex items-baseline justify-between gap-3 text-xs">
+                  <dt className="min-w-0 truncate text-muted">{optionLabel(r.tier)}</dt>
+                  <dd className="shrink-0 font-medium text-ink">
+                    {r.resolved ? money(r.resolved.amount) : t("projects.freightNone")}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+
+            <div className="mt-3 sm:max-w-[180px]">
+              <Field label={t("projects.freightOverrideLabel")}>
+                <div className="relative">
+                  <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-muted">$</span>
+                  <input
+                    type="number" inputMode="decimal" min={0} step="0.01"
+                    value={freightOverride}
+                    onChange={(e) => setFreightOverride(e.target.value)}
+                    placeholder={t("projects.freightOverridePlaceholder")}
+                    className={`${INPUT} pl-6`}
+                  />
+                </div>
+              </Field>
+            </div>
+
+            {/* Warn-don't-block: the override is honoured whatever it says, and the estimate it
+                replaced is stated rather than quietly discarded — including when it disagrees
+                by a lot, which is exactly when a dealer wants to see both numbers. */}
+            {parsedOverride != null && overrideValid && (
+              <p className="mt-2 rounded-md border border-amber/30 bg-amber/10 px-2 py-1.5 text-[11px] leading-relaxed text-amber">
+                {freightRows.some((r) => r.computed != null)
+                  ? t("projects.freightOverrideNote", {
+                      computed: freightRows
+                        .filter((r) => r.computed != null)
+                        .map((r) => money(r.computed as number))
+                        .filter((v, i, a) => a.indexOf(v) === i)
+                        .join(" / "),
+                    })
+                  : t("projects.freightOverrideNoEstimate")}
+              </p>
+            )}
+            {!overrideValid && (
+              <p className="mt-2 rounded-md border border-amber/30 bg-amber/10 px-2 py-1.5 text-[11px] leading-relaxed text-amber">
+                {t("projects.freightOverrideInvalid")}
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Labour & extras. One set for the whole proposal, not per tier — demolition and
             permits cost the same whichever package the homeowner picks, and duplicating them

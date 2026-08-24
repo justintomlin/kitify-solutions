@@ -17,6 +17,7 @@ import { NextResponse } from "next/server";
 // From lib/bathrooms, which is import-free: nothing server-only, and nothing that would drag
 // the browser Supabase client into a route that must never see it.
 import { toOptionNames } from "@/lib/bathrooms";
+import { freightForQuote, resolveFreight } from "@/lib/freight";
 
 // Force a dynamic, Node.js server execution (never statically prerendered, never edge) so
 // the service_role key stays on the server.
@@ -36,6 +37,8 @@ type ProposalRow = {
   contractor_branding: Record<string, string | null> | null;
   // Added by 0019. Absent on a pre-migration read, which reads as unnamed.
   option_names?: unknown;
+  // Added by 0020. Absent, or null, reads as "use the computed estimate".
+  freight_override?: number | string | null;
 };
 type QuoteRow = {
   id: string;
@@ -77,7 +80,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tok
   // does not exist is a hard 400 from PostgREST, so a public page that homeowners already
   // hold links to would go dark the moment this deployed ahead of the SQL.
   const BASE_COLUMNS = "name, markup_pct, status, share_token, tier_good, tier_better, tier_best";
-  const FULL_COLUMNS = `${BASE_COLUMNS}, custom_line_items, contractor_branding, option_names`;
+  const FULL_COLUMNS = `${BASE_COLUMNS}, custom_line_items, contractor_branding, option_names, freight_override`;
 
   const readProposal = (columns: string) =>
     admin
@@ -136,10 +139,19 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tok
   // correctly, and `bathrooms` is what the current client resolves through. Undefined rather
   // than null when the column is absent, so the client's accessor falls back to the flat
   // slots instead of treating an empty array as "no bathrooms".
+  // Freight is the one figure here that is NOT marked up, so it crosses as a finished dollar
+  // amount rather than as an input the client multiplies. Computed per option from that
+  // option's own bathroom count, then overridden by the proposal's single dealer figure if one
+  // is set. `computed` rides along only so the homeowner's page never has to guess — it is not
+  // rendered to them; the dealer's estimate-vs-override gap is a dealer concern.
+  const freightOverride =
+    proposal.freight_override == null || proposal.freight_override === "" ? null : Number(proposal.freight_override);
+
   const tierView = (id: string | null) => {
     if (!id) return null;
     const q = quotesById.get(id);
     if (!q) return null;
+    const freight = resolveFreight(freightForQuote(q), freightOverride);
     return {
       room: q.room ?? null,
       shower: q.shower ?? null,
@@ -147,6 +159,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tok
       plumbing: q.plumbing ?? null,
       bathrooms: q.bathrooms ?? undefined,
       dealerTotal: Number(q.total),
+      // Null when this option ships nothing that needs a truck — a vanity-only option — in
+      // which case the homeowner sees no freight line at all.
+      freight: freight ? freight.amount : null,
     };
   };
 

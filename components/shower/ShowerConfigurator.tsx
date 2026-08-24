@@ -41,6 +41,7 @@ import {
   type HplShowerType,
   type HplWallSpec,
 } from "@/lib/hpl-shower-takeoff";
+import { setToolQty, toToolPicks, toolOfferFor, type HplToolPick } from "@/lib/hpl-tools";
 import { getAllDuraseinColors, duraseinSheetTexture } from "@/lib/durasein-catalog";
 import { resolveDefault, DEFAULT_FINISH_ID, INCLUDED_QTY, OPT_IN_QTY } from "@/lib/defaults";
 import { useLanguage } from "@/components/LanguageContext";
@@ -152,6 +153,13 @@ export type ShowerSelections = {
    * shower never populates this.
    */
   hplUpsells?: string[];
+  /**
+   * Installation tools and replenishment the dealer took, with quantities. Same reasoning as
+   * hplUpsells — a decision, so it lives in the selections and survives save-and-reopen —
+   * but quantities are part of it, so it is picks rather than ids. Optional: a quote saved
+   * before Phase D reopens with none, which is what it was sold as.
+   */
+  hplTools?: HplToolPick[];
 };
 
 // A price line carries a dictionary key + interpolation params rather than a finished
@@ -663,9 +671,10 @@ export type ShowerPrice = {
   /** Null unless the walls are SPC. `exact: false` means the kit does not match the enclosure. */
   spcKit: SpcKitLine | null;
   /**
-   * True when an HPL TRIM or CONSUMABLE line is still on the $1 sentinel. Narrowed from the
-   * old "any HPL line" now that the panels themselves price for real — the banner has to name
-   * what is actually outstanding, or a dealer learns to ignore it.
+   * True when an HPL TRIM, CONSUMABLE or TOOL line is still on the $1 sentinel. Narrowed from
+   * the old "any HPL line" now that the panels themselves price for real — the banner has to
+   * name what is actually outstanding, or a dealer learns to ignore it. Phase D widened it
+   * back by exactly one category: the two tool SKUs have no supplier pricing either.
    */
   hasPlaceholderPricing: boolean;
   /**
@@ -788,10 +797,41 @@ export function computeShowerPrice(catalog: ShowerCatalog, s: ShowerSelections):
     });
   }
 
+  // ---- tools & replenishment ---------------------------------------------
+  // Opt-in add-ons, never computed from the shower. They come last so they read as what they
+  // are — things added on top of the job — and they are the only lines here that exist purely
+  // because a dealer pressed +. Full price: the 25% mechanic belongs to the odd-panel offer,
+  // which is paid for by pack integrity. Both tool SKUs are still on the $1 sentinel, so they
+  // set `estimated` and light the same banner the trim does.
+  let toolPlaceholder = false;
+  for (const pick of toToolPicks(s.hplTools)) {
+    const offer = toolOfferFor(pick.skuCode);
+    if (!offer) continue; // a code retired from the offer list stops being quoted
+    toolPlaceholder = true;
+    lines.push({
+      key: offer.labelKey,
+      params: { n: String(pick.qty) },
+      amount: round2(pick.qty * HPL_PLACEHOLDER_UNIT_PRICE),
+      sku: pick.skuCode,
+      estimated: true,
+    });
+    // …and onto the BOM as well, which is what actually gets picked. The inventory extractor
+    // reads quote → shower → hplBom → lines and deliberately SKIPS the shower's price lines
+    // when a BOM is present (0017), so a tool that lived only in the price would be invisible
+    // to whoever packs the pallet. Appended by the caller rather than emitted by the takeoff:
+    // a tool is not something a shower needs, so no compute function there produces one.
+    if (hplBom) {
+      hplBom.lines.push({
+        kind: "tool", skuCode: pick.skuCode, labelKey: offer.labelKey,
+        params: undefined, qty: pick.qty, upsell: true,
+      } as (typeof hplBom.lines)[number]);
+    }
+  }
+
   const total = round2(lines.reduce((x, l) => x + l.amount, 0));
   return {
     total, lines, hplBom, spcKit,
-    hasPlaceholderPricing: hplTrimPlaceholder,
+    hasPlaceholderPricing: hplTrimPlaceholder || toolPlaceholder,
     hasAmbiguousPanelPricing: hplPanelAmbiguous,
   };
 }
@@ -1118,6 +1158,11 @@ export function ShowerConfigurator({
     const cur = s.hplUpsells ?? [];
     set({ hplUpsells: cur.includes(offerId) ? cur.filter((x) => x !== offerId) : [...cur, offerId] });
   }
+  // Same rule for tools: a quantity is a decision, so it lives in `s`. setToolQty drops a line
+  // at zero rather than storing one, so an offer the dealer touched and undid leaves no trace.
+  function setTool(skuCode: string, qty: number) {
+    set({ hplTools: setToolQty(toToolPicks(s.hplTools), skuCode, qty) });
+  }
   function startOver() { setS(initial); }
   function addToQuote() { if (complete) onComplete?.({ selections: s, media: buildShowerMedia(catalog, s), price, hplBom: price.hplBom, isComplete: true, label: buildLabel(catalog, s, t) }); }
 
@@ -1200,6 +1245,8 @@ export function ShowerConfigurator({
                 accepted={s.hplUpsells ?? []}
                 onToggle={toggleUpsell}
                 onDismissAll={() => setUpsellsDismissed(true)}
+                tools={toToolPicks(s.hplTools)}
+                onToolQty={setTool}
               />
             )}
 
