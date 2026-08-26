@@ -1709,6 +1709,14 @@ export const dictionary: Record<Lang, Record<string, any>> = {
       noContact: "No contact info",
       deleteProject: "Delete project",
       confirmDelete: "Delete this project and its quotes?",
+      // Delete from the projects LIST. Only ever offered on a project with no accepted
+      // proposal and no order — see lib/project-deletable — so the copy does not hedge about
+      // orders it cannot be reached from.
+      deleteProjectNamed: "Delete {name}",
+      confirmDeleteTitle: "Delete {name}?",
+      confirmDeleteBody: "Its quotes and any unaccepted proposals go with it. This can't be undone.",
+      confirmDeleteAction: "Delete project",
+      deleteFailed: "{name} couldn't be deleted. It may now have an order or an accepted proposal — it has been put back.",
       quotesTitle: "Quotes",
       quotesEmpty: "Quotes saved from the configurator will appear here.",
       openInConfigurator: "Open in configurator",
@@ -3615,6 +3623,11 @@ export const dictionary: Record<Lang, Record<string, any>> = {
       noContact: "Sin datos de contacto",
       deleteProject: "Eliminar proyecto",
       confirmDelete: "¿Eliminar este proyecto y sus cotizaciones?",
+      deleteProjectNamed: "Eliminar {name}",
+      confirmDeleteTitle: "¿Eliminar {name}?",
+      confirmDeleteBody: "Se eliminan también sus cotizaciones y las propuestas no aceptadas. Esta acción no se puede deshacer.",
+      confirmDeleteAction: "Eliminar proyecto",
+      deleteFailed: "No se pudo eliminar {name}. Es posible que ahora tenga un pedido o una propuesta aceptada — se ha restaurado.",
       quotesTitle: "Cotizaciones",
       quotesEmpty: "Las cotizaciones guardadas desde el configurador aparecerán aquí.",
       openInConfigurator: "Abrir en el configurador",
