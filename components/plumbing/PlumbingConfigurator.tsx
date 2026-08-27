@@ -327,14 +327,24 @@ export function PlumbingConfigurator({
   primaryLabel?: string;
 }) {
   const { t } = useLanguage();
-  // Seed faucet qty + bathing trim from shared state at mount. Faucet type is fixed when a
-  // drilling is locked; bathing trim is fixed when a bathing kind is locked.
-  const [s, setS] = useState<PlumbingSelections>(() => ({
+  /**
+   * A fresh set of selections, carrying whatever the hub has locked: faucet qty and bathing
+   * trim seeded from shared state, faucet TYPE fixed when a drilling is locked.
+   *
+   * Used by the mount seed AND by Start over, which is the point of it being a function.
+   * Start over used to reset to a bare `initial`, which drops faucetType and bathTrim — and
+   * the effects below only re-run when the LOCKED VALUE changes, which it hasn't. So nothing
+   * put them back: the faucet step went on claiming "1cc · from your vanity top" while
+   * holding no faucet at all, and isComplete() stayed false, leaving the module unable to be
+   * added to the quote until the dealer went and changed the vanity.
+   */
+  const seeded = (): PlumbingSelections => ({
     ...initial,
     faucetType: lockedDrilling ? faucetForDrilling(lockedDrilling) : undefined,
     faucetQty: clampFaucetQty(initialFaucetQty),
     bathTrim: lockedBathKind === "tub" ? "tubShowerTrim" : lockedBathKind === "shower" ? "showerTrim" : undefined,
-  }));
+  });
+  const [s, setS] = useState<PlumbingSelections>(seeded);
   // Once the user touches a seeded field, stop adopting shared-state changes for it.
   const qtyTouched = useRef(false);
 
@@ -393,7 +403,8 @@ export function PlumbingConfigurator({
   const chooseTrim = (bt: BathTrimType) => set({ bathTrim: bt });
   const stepAcc = (k: PlumbingComponentKey, d: number) => setS((prev) => ({ ...prev, accessories: { ...prev.accessories, [k]: Math.max(0, (prev.accessories[k] ?? 0) + d) } }));
 
-  function startOver() { qtyTouched.current = false; setS(initial); }
+  // Start over clears what the DEALER chose, not what the vanity and shower physically fix.
+  function startOver() { qtyTouched.current = false; setS(seeded()); }
   function addToQuote() { if (complete) onComplete?.(buildConfig()); }
 
   const finishHex = finishById(s.finishId)?.hex ?? "#c9ccd1";
