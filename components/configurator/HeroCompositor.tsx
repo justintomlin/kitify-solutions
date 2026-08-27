@@ -212,10 +212,14 @@ export type HeroCompositorProps = {
  * fall out of the arithmetic rather than being chosen. Every wall tier on the catalogue is
  * panelled, so this default is the shape of the real product; a legacy quote carrying the
  * retired solid-surface tier overrides it with its own 30" x 144" sheet and no joints.
- * Floor: the Durato swatch photography is about five 7" planks across and one plank long.
+ * Floor: the Vista Tile swatch is a square crop of a stagger layout, four 12"-wide tiles
+ * across and two 24"-long tiles down — 48" square. MEASURED off the swatches rather than
+ * assumed: the seams fall on a regular 1/4-width grid in all four colours, and the tiles
+ * read 1:2 with the long axis vertical. It replaces the Durato figure of 35" x 48", which
+ * was five 7" planks across by one 48" plank long.
  */
 const DEFAULT_WALL_TILE = { w: 24, h: 94.5 };
-const DEFAULT_FLOOR_TILE = { w: 35, h: 48 };
+const DEFAULT_FLOOR_TILE = { w: 48, h: 48 };
 /**
  * A countertop's default tile is ONE SOLID-SURFACE SHEET, laid down: 144" along the run by
  * 30.75" deep, measured off Durasein's own full-sheet scans (see DURASEIN_SHEET_IN).

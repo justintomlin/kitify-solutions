@@ -971,7 +971,7 @@ export const dictionary: Record<Lang, Record<string, any>> = {
       // Product lines
       plFibo: "Fibo Wall Panels",
       plNuvo: "NuVo / ThermaGlass",
-      plDurato: "Durato Flooring",
+      plVista: "Vista Tile Flooring",
       plCsFactory: "CS Factory Vanities",
       plDelta: "Delta Plumbing",
       plShowerBases: "Shower Bases",
@@ -2939,7 +2939,7 @@ export const dictionary: Record<Lang, Record<string, any>> = {
       // Líneas de producto
       plFibo: "Paneles de pared Fibo",
       plNuvo: "NuVo / ThermaGlass",
-      plDurato: "Pisos Durato",
+      plVista: "Pisos Vista Tile",
       plCsFactory: "Tocadores CS Factory",
       plDelta: "Plomería Delta",
       plShowerBases: "Bases de ducha",
@@ -4818,7 +4818,7 @@ export const dictionary: Record<Lang, Record<string, any>> = {
 
       plFibo: "Стеновые панели Fibo",
       plNuvo: "NuVo / ThermaGlass",
-      plDurato: "Напольные покрытия Durato",
+      plVista: "Напольные покрытия Vista Tile",
       plCsFactory: "Тумбы CS Factory",
       plDelta: "Сантехника Delta",
       plShowerBases: "Душевые поддоны",

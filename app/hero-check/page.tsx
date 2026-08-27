@@ -61,7 +61,7 @@ const WALL_MID = {
 // can be asked to draw carries a seam. The seamless path did not go away with it: it is what
 // the COUNTERTOP renders through, and its acceptance check lives on the counter crops below
 // (L4, and the grain-scale reference in 1d).
-const FLOOR = FLOORING_COLORS.find((c) => c.id === "vmd-01") ?? FLOORING_COLORS[0];
+const FLOOR = FLOORING_COLORS.find((c) => c.id === "ocean-view") ?? FLOORING_COLORS[0];
 
 /**
  * A countertop, resolved the way HeroPreview resolves one.
@@ -120,14 +120,19 @@ function useFixtures() {
   ].filter((f) => f.url);
 }
 
-// The darkest and lightest planks in the Durato range, PICKED BY MEASUREMENT rather than by
-// name. These twelve are named after buildings — Florence, Gherkin, Petronas — so the tone
+// The darkest and lightest floors in the range, PICKED BY MEASUREMENT rather than by name.
+// The Durato colours were named after buildings — Florence, Gherkin, Petronas — so the tone
 // regex this used to run ("char|graph|slate|espress|walnut") matched nothing and both ends
 // fell through to their defaults, which is how a panel labelled "dark everything" came to be
-// rendered on the second-lightest floor in the catalogue. Mean luminance of each swatch:
-// Buckingham 33.6 is the darkest by a wide margin and Baymont 180.0 the lightest.
-const FLOOR_DARK = FLOORING_COLORS.find((c) => c.id === "vmd-06") ?? FLOORING_COLORS[FLOORING_COLORS.length - 1];
-const FLOOR_LIGHT = FLOORING_COLORS.find((c) => c.id === "vmd-03") ?? FLOORING_COLORS[0];
+// rendered on the second-lightest floor in the catalogue. Vista's names are places and would
+// read no better, so this stays measured. Mean luminance of the four swatches: Lookout Point
+// 81.1, Scenic Byway 161.7, Ocean View 163.0, Rattlesnake Ridge 166.0.
+//
+// Note how much narrower that is than Durato's 33.6-180.0. Only Lookout Point is meaningfully
+// dark; the other three are one grey. The dark/light pair still brackets the range, but this
+// harness now proves less about tone extremes than it used to.
+const FLOOR_DARK = FLOORING_COLORS.find((c) => c.id === "lookout-point") ?? FLOORING_COLORS[FLOORING_COLORS.length - 1];
+const FLOOR_LIGHT = FLOORING_COLORS.find((c) => c.id === "rattlesnake-ridge") ?? FLOORING_COLORS[0];
 
 /**
  * The five selections the plate has to survive, config (a) first because it is the one the

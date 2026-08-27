@@ -55,7 +55,7 @@ export type RoomVanity = { edge: number; side: string; t: number; w: number; sin
 export type WallTreatment = "panel" | "paint" | "none";
 export type WallTreatments = Record<string, WallTreatment>;
 
-// Flooring selection: a Durato V-EVO MAX color plus the waste factor used for the
+// Flooring selection: a Vista Tile colour plus the waste factor used for the
 // carton takeoff. Absent = no flooring chosen.
 export type RoomFlooring = { colorId: string; wastePct: number };
 

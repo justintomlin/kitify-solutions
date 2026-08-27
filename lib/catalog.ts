@@ -524,37 +524,47 @@ export const SHOWER_CHAIR: AccessorySku = { id: "shower-chair", variants: [
 export const VANITY_SIZES: number[] = [18, 24, 30, 36, 42, 48, 60];
 export const VANITY_DEPTH = 21;
 
-// Durato V-EVO MAX — 6mm SPC rigid core, 20mil wear layer, click-lock.
-// PLACEHOLDER PRICING — all values nominal ($1). Real pricing to be loaded from
-// supplier spreadsheets. Do not ship to dealers with these values.
+/**
+ * Vista Tile Rigid Core LVT — 12" × 24" SPC tile, 5mm (4mm core + 1mm IXPE acoustic pad),
+ * 12 mil wear layer. Waterproof, radiant-heat approved, FloorScore SCS certified,
+ * 25-year residential warranty.
+ *
+ * Replaced Durato V-EVO MAX (7" × 48" planks, 12 colours, 14.1825 sf/ctn). Four curated
+ * stone looks, deliberately: the wider range is deferred to the kitchen configurator.
+ *
+ * The spec sheet also names two layouts, Ashlar and Stagger. NOT MODELLED — the takeoff is
+ * straight-lay and carton-based, and neither layout changes how many cartons a floor takes.
+ * They matter to a pattern feature, which does not exist yet.
+ *
+ * PLACEHOLDER PRICING — all values nominal ($1). Real pricing to be loaded from
+ * supplier spreadsheets. Do not ship to dealers with these values.
+ */
 export const FLOORING_SF_PRICE = 1;
 export const FLOORING_LINE = {
-  id: "durato-vevo-max",
-  brand: "Durato",
-  name: "V-EVO MAX",
-  plankSize: '7" × 48"',
-  sfPerCarton: 14.1825,
-  planksPerCarton: 6,
-  sfPerPallet: 850.95,
+  id: "vista-tile-rigid-core",
+  brand: "Vista Tile",
+  name: "Rigid Core LVT",
+  // Renamed from plankSize/planksPerCarton, which described the Durato planks. Neither has
+  // a consumer; a field called plankSize holding a tile size is a lie waiting to be read.
+  tileSize: '12" × 24"',
+  sfPerCarton: 24.03,
+  piecesPerCarton: 12,
   sfPrice: FLOORING_SF_PRICE,
 };
 
 export type FlooringColor = { id: string; name: string; image: string };
-// Image paths point at the exact files in public/durato_vevo_max/. Filenames contain
-// spaces (encoded as %20) and two are .jpeg rather than .jpg.
+/**
+ * Four stone looks. Ids are the image slugs, so a colour and its swatch cannot drift apart.
+ *
+ * These ids are PERSISTED in a saved room's `flooring.colorId`, and no Durato id resolves any
+ * more. Every read site already guards (`?.name ?? "—"`), so an old quote keeps its carton
+ * count and price and shows no colour name — visibly incomplete rather than quietly wrong.
+ */
 export const FLOORING_COLORS: FlooringColor[] = [
-  { id: "vmd-01", name: "Florence", image: "/durato_vevo_max/VMD-01%20Florence.jpg" },
-  { id: "vmd-02", name: "Woolworth", image: "/durato_vevo_max/VMD-02%20Woolworth.jpg" },
-  { id: "vmd-03", name: "Baymont", image: "/durato_vevo_max/VMD-03%20Baymont.jpeg" },
-  { id: "vmd-04", name: "Wentworth", image: "/durato_vevo_max/VMD-04%20Wentworth.jpg" },
-  { id: "vmd-05", name: "Blenheim", image: "/durato_vevo_max/VMD-05%20Blenheim.jpeg" },
-  { id: "vmd-06", name: "Buckingham", image: "/durato_vevo_max/VMD-06%20Buckingham.jpg" },
-  { id: "vmd-07", name: "Dresden", image: "/durato_vevo_max/VMD-07%20Dresden.jpg" },
-  { id: "vmd-08", name: "Sistine", image: "/durato_vevo_max/VMD-08%20Sistine.jpg" },
-  { id: "vmd-09", name: "Gherkin", image: "/durato_vevo_max/VMD-09%20Gherkin.jpg" },
-  { id: "vmd-10", name: "Savoye", image: "/durato_vevo_max/VMD-10%20Savoye.jpg" },
-  { id: "vmd-11", name: "Petronas", image: "/durato_vevo_max/VMD-11%20Petronas.jpg" },
-  { id: "vmd-12", name: "Cayan", image: "/durato_vevo_max/VMD-12%20Cayan.jpg" },
+  { id: "lookout-point", name: "Lookout Point", image: "/vista_tile/lookout-point.jpeg" },
+  { id: "ocean-view", name: "Ocean View", image: "/vista_tile/ocean-view.jpeg" },
+  { id: "rattlesnake-ridge", name: "Rattlesnake Ridge", image: "/vista_tile/rattlesnake-ridge.jpeg" },
+  { id: "scenic-byway", name: "Scenic Byway", image: "/vista_tile/scenic-byway.jpeg" },
 ];
 
 // Carton-based flooring takeoff. Cartons are whole units — partial cartons can't be

@@ -39,7 +39,7 @@ const PLUMBING_SKU_COUNT = PLUMBING_PACKAGES.reduce(
 const PRODUCT_LINES = [
   { key: "fibo", labelKey: "training.plFibo" },
   { key: "nuvo", labelKey: "training.plNuvo" },
-  { key: "durato", labelKey: "training.plDurato" },
+  { key: "vista", labelKey: "training.plVista" },
   { key: "csFactory", labelKey: "training.plCsFactory" },
   { key: "delta", labelKey: "training.plDelta" },
   { key: "showerBases", labelKey: "training.plShowerBases" },
