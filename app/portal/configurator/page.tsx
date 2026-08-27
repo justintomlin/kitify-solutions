@@ -3,7 +3,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import { Check, ChevronUp, Plus, X } from "lucide-react";
+import { AlertCircle, Check, ChevronUp, Plus, X } from "lucide-react";
 import { useLanguage } from "@/components/LanguageContext";
 import { useAuth } from "@/components/AuthContext";
 import { useMediaQuery } from "@/lib/useMediaQuery";
@@ -24,6 +24,7 @@ import {
   omitKey, mergeSharedBath, mergeSharedVanity, markSectionOpened, isSectionOpen,
   type ByBathroom, type ConfigKind, type OpenedSections, type SharedBath, type SharedVanity,
 } from "@/lib/hub-state";
+import { moduleStatus, moduleStatusLabelKey, type ModuleStatus } from "@/lib/module-status";
 import { BathroomStrip } from "@/components/configurator/BathroomStrip";
 import { ConfirmDialog } from "@/components/configurator/ConfirmDialog";
 import { SaveQuotePanel } from "@/components/configurator/SaveQuotePanel";
@@ -59,6 +60,19 @@ function relativeSaved(t: (k: string, v?: Record<string, string>) => string, sav
  * comparison below (a JSON string) doesn't see a difference that isn't there.
  */
 const emptyBathroom = (id: string): Bathroom => ({ id, name: null, room: null, shower: null, vanity: null, plumbing: null });
+
+/**
+ * The step badge's tone, by how finished that module is.
+ *
+ * Amber, not red: every warning in this app is amber — the IRC minimums, the clearance
+ * conflicts, the placeholder-pricing banner — and an unfinished module is a nudge, not a fault.
+ * A red badge here would outrank warnings that genuinely matter more.
+ */
+const STEP_TONE: Record<ModuleStatus, string> = {
+  complete: "border-success/40 bg-success/10 text-success",
+  incomplete: "border-amber/40 bg-amber/10 text-amber",
+  unstarted: "border-line text-muted",
+};
 
 /** Which tab to open, preferring the one asked for and falling back to the first. */
 const resolveActive = (baths: Bathroom[], wanted: string | null | undefined) =>
@@ -719,14 +733,21 @@ export default function Page() {
           overview, which is the only way back to the read-only plan + product strip. */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {(
+          // Numbered in dependency order, which is why the order is fixed rather than sorted:
+          // the room sets the geometry, the shower picks the base, the vanity fixes the
+          // drilling, and the plumbing follows all three.
           [
-            { key: "room" as const, title: t("configurator.roomTitle"), desc: t("configurator.roomDesc"), filled: !!room },
-            { key: "shower" as const, title: t("configurator.showerTitle"), desc: t("configurator.showerDesc"), filled: !!shower },
-            { key: "vanity" as const, title: t("configurator.vanityTitle"), desc: t("configurator.vanityDesc"), filled: !!vanity },
-            { key: "plumbing" as const, title: t("configurator.plumbingTitle"), desc: t("configurator.plumbingDesc"), filled: !!plumbing },
+            { key: "room" as const, title: t("configurator.roomTitle"), desc: t("configurator.roomDesc"), slot: room },
+            { key: "shower" as const, title: t("configurator.showerTitle"), desc: t("configurator.showerDesc"), slot: shower },
+            { key: "vanity" as const, title: t("configurator.vanityTitle"), desc: t("configurator.vanityDesc"), slot: vanity },
+            { key: "plumbing" as const, title: t("configurator.plumbingTitle"), desc: t("configurator.plumbingDesc"), slot: plumbing },
           ]
-        ).map((c) => {
+        ).map((c, i) => {
           const active = activeKind === c.key;
+          const step = i + 1;
+          // Per ACTIVE bathroom, both halves: the slot is that bathroom's, and so is `opened`.
+          const status = moduleStatus(c.slot, isSectionOpen(opened, activeId, c.key));
+          const statusKey = moduleStatusLabelKey(status);
           return (
             <button
               key={c.key}
@@ -737,10 +758,30 @@ export default function Page() {
               }`}
             >
               <div className="flex items-center gap-1.5">
+                {/* The step number carries the state as well as the order, so the 1→2→3→4 run
+                    can be read at a glance without landing on the icons one at a time. */}
+                <span
+                  aria-hidden
+                  className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border font-mono text-[10px] font-semibold leading-none ${STEP_TONE[status]}`}
+                >
+                  {step}
+                </span>
                 <span className="truncate font-display text-sm font-semibold">{c.title}</span>
-                {c.filled && <Check className="ml-auto h-3.5 w-3.5 shrink-0 text-accent" />}
+                {/* Never colour alone: each icon carries its own label, so the state survives
+                    a screen reader and a monochrome print. Unstarted shows nothing at all. */}
+                {status === "complete" && (
+                  <Check aria-label={t("configurator.status.complete")} className="ml-auto h-3.5 w-3.5 shrink-0 text-success" />
+                )}
+                {status === "incomplete" && (
+                  <AlertCircle aria-label={t("configurator.status.incomplete")} className="ml-auto h-3.5 w-3.5 shrink-0 text-amber" />
+                )}
               </div>
               <div className="mt-0.5 hidden text-xs leading-snug text-muted sm:block">{c.desc}</div>
+              {/* The step and status in words, for the button's accessible name. */}
+              <span className="sr-only">
+                {t("configurator.stepLabel", { n: String(step) })}
+                {statusKey ? ` · ${t(statusKey)}` : ""}
+              </span>
             </button>
           );
         })}

@@ -1131,6 +1131,16 @@ export const dictionary: Record<Lang, Record<string, any>> = {
         // fixtures are shown in the selected finish but not in the selected style.
         disclaimer: "Conceptual rendering — materials shown are actual selections; fixture styles representative",
       },
+      // The four module cards are numbered in dependency order — the room sets the geometry,
+      // the shower picks the base, the vanity fixes the drilling, the plumbing follows. The
+      // number is shown as a badge; this is the same thing in words, for a screen reader.
+      stepLabel: "Step {n}",
+      status: {
+        complete: "Complete",
+        // Not "Error" — an unfinished module is a nudge, not a fault. Nothing is broken and
+        // nothing is blocked; the dealer simply has not pressed Add to quote yet.
+        incomplete: "Needs finishing",
+      },
       roomTitle: "Room",
       roomDesc: "Lay out the room and measure walls & floor.",
       showerTitle: "Shower",
@@ -3063,6 +3073,11 @@ export const dictionary: Record<Lang, Record<string, any>> = {
       },
       openRoomEditor: "Abrir el editor del cuarto",
       openConfigurator: "Abrir configurador de {item}",
+      stepLabel: "Paso {n}",
+      status: {
+        complete: "Completo",
+        incomplete: "Falta terminar",
+      },
       roomTitle: "Cuarto",
       roomDesc: "Distribuya el cuarto y mida paredes y piso.",
       showerTitle: "Ducha",
