@@ -1135,6 +1135,19 @@ export const dictionary: Record<Lang, Record<string, any>> = {
       // the shower picks the base, the vanity fixes the drilling, the plumbing follows. The
       // number is shown as a badge; this is the same thing in words, for a screen reader.
       stepLabel: "Step {n}",
+      // The module rollovers on the selected-products strip: a compact proforma of what is
+      // configured, read straight off the saved config. Labels only — every VALUE in them is
+      // either a number, a catalogue name, or one of the module's own existing strings.
+      rollover: {
+        details: "{item} details",
+        dimensions: "Size",
+        fixtures: "Fixtures",
+        panels: "Panels",
+        decor: "Decor",
+        size: "Width",
+        mount: "Mount",
+        sinks: "Basins",
+      },
       status: {
         complete: "Complete",
         // Not "Error" — an unfinished module is a nudge, not a fault. Nothing is broken and
@@ -3074,6 +3087,16 @@ export const dictionary: Record<Lang, Record<string, any>> = {
       openRoomEditor: "Abrir el editor del cuarto",
       openConfigurator: "Abrir configurador de {item}",
       stepLabel: "Paso {n}",
+      rollover: {
+        details: "Detalles de {item}",
+        dimensions: "Medidas",
+        fixtures: "Piezas",
+        panels: "Paneles",
+        decor: "Decorado",
+        size: "Ancho",
+        mount: "Montaje",
+        sinks: "Lavabos",
+      },
       status: {
         complete: "Completo",
         incomplete: "Falta terminar",

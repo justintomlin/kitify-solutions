@@ -3,7 +3,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import { AlertCircle, Check, ChevronUp, Plus, X } from "lucide-react";
+import { AlertCircle, Check, ChevronUp, Info, Plus, X } from "lucide-react";
 import { useLanguage } from "@/components/LanguageContext";
 import { useAuth } from "@/components/AuthContext";
 import { useMediaQuery } from "@/lib/useMediaQuery";
@@ -914,20 +914,25 @@ export default function Page() {
                     <div className="mb-3 font-mono text-[10px] uppercase tracking-[0.12em] text-muted">{t("configurator.selectedProducts")}</div>
                     <div className="flex flex-wrap gap-4">
                       {flooringColor && flooringLabel && (
-                        <ProductTile category={t("configurator.flooringTitle")} label={flooringLabel} onClick={() => open("room")}>
+                        <ProductTile category={t("configurator.flooringTitle")} label={flooringLabel} onClick={() => open("room")}
+                          rollover={room ? <RoomProforma config={room} flooringName={flooringColor.name} flooringImage={flooringColor.image} /> : undefined}>
                           <FloorTileImage src={flooringColor.image} alt={flooringColor.name} />
                         </ProductTile>
                       )}
                       {shower && (
-                        <ProductTile category={t("configurator.showerTitle")} label={shower.label} onClick={() => open("shower")}>
+                        <ProductTile category={t("configurator.showerTitle")} label={shower.label} onClick={() => open("shower")}
+                          rollover={<ShowerProforma config={shower} />}>
                           <ShowerWallPreview config={shower} />
                         </ProductTile>
                       )}
                       {vanity && (
-                        <ProductTile category={t("configurator.vanityTitle")} label={vanity.label} onClick={() => open("vanity")}>
+                        <ProductTile category={t("configurator.vanityTitle")} label={vanity.label} onClick={() => open("vanity")}
+                          rollover={<VanityProforma config={vanity} qty={vanityCount(activeBathroom)} />}>
                           <VanityPreviewFromConfig config={vanity} />
                         </ProductTile>
                       )}
+                      {/* Plumbing passes NO rollover: its previews are the per-SKU hover cards
+                          inside the tile, and a whole-tile card would fire alongside them. */}
                       {plumbing && (
                         <ProductTile category={t("configurator.plumbingTitle")} label={plumbing.label} onClick={() => open("plumbing")}>
                           <PlumbingProductStrip config={plumbing} />
@@ -1052,16 +1057,220 @@ export default function Page() {
 
 // A single product tile: the configurator's own live SVG preview (passed as children),
 // a category label and the truncated slot label. Clicking opens that configurator.
-function ProductTile({ category, label, onClick, children }: {
-  category: string; label: string; onClick: () => void; children: ReactNode;
+function ProductTile({ category, label, onClick, rollover, children }: {
+  category: string; label: string; onClick: () => void; rollover?: ReactNode; children: ReactNode;
 }) {
   const { t } = useLanguage();
-  return (
-    <button type="button" onClick={onClick} title={t("configurator.openConfigurator", { item: category })} className="w-[200px] text-left">
+  // Called unconditionally so hook order is stable whether or not this tile has a rollover.
+  const roll = useRollover(PROFORMA_W);
+  const tile = (
+    <button type="button" onClick={onClick} title={t("configurator.openConfigurator", { item: category })} className="w-full text-left">
       <div className="overflow-hidden rounded-2xl border border-line bg-paper p-2 transition hover:border-accent">{children}</div>
       <div className="mt-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-muted">{category}</div>
       <div className="truncate text-xs text-ink">{label}</div>
     </button>
+  );
+  // PLUMBING TAKES THIS PATH and is byte-identical to before: its rollovers live on the
+  // individual SKU thumbnails inside the tile (ProductHoverCard), and a second card covering
+  // the whole tile would fire at the same time as those.
+  if (!rollover) return <div className="w-[200px]">{tile}</div>;
+
+  return (
+    <span
+      ref={roll.anchorRef}
+      onPointerEnter={roll.onPointerEnter}
+      onPointerLeave={roll.onPointerLeave}
+      className="relative block w-[200px]"
+    >
+      {tile}
+      {/* MOUSE hovers the tile; TOUCH taps this dot. The tile's own tap has to keep opening
+          the module — that is the existing click-to-edit and it is not up for grabs — so touch
+          needs a target of its own. Exactly how plumbing already works, where the rollover
+          belongs to a sub-region of the tile rather than the whole of it. */}
+      <button
+        type="button"
+        onPointerDown={roll.onPointerDown}
+        onClick={roll.onClick}
+        aria-label={t("configurator.rollover.details", { item: category })}
+        className="absolute right-3 top-3 grid h-7 w-7 place-items-center rounded-full border border-line bg-card/90 text-muted transition hover:border-accent hover:text-accent"
+      >
+        <Info className="h-3.5 w-3.5" />
+      </button>
+      {roll.open && roll.box && typeof document !== "undefined" && (
+        <RolloverCard box={roll.box} shown={roll.shown} width={PROFORMA_W}>{rollover}</RolloverCard>
+      )}
+    </span>
+  );
+}
+
+/** Whole inches as feet-and-inches, which is how a dealer reads a wall. */
+const ftIn = (inches: number) => `${Math.floor(inches / 12)}'${Math.round(inches % 12)}"`;
+
+/**
+ * One module's rollover: a few key specs, any product imagery the config actually carries, and
+ * the module's own price lines as a receipt.
+ *
+ * The price lines are the substance and they are the SAME shape in all four modules —
+ * { key, params, amount }, translated at render — so the receipt half needs no per-module code
+ * at all. Only the specs and the thumbnails differ, and both are read straight off the saved
+ * config: nothing here fetches, and nothing invents an image a module did not record.
+ */
+function Proforma({ title, specs, thumbs, lines, total }: {
+  title: string;
+  specs: { label: string; value: string }[];
+  thumbs?: { src: string; alt: string }[];
+  lines: { key: string; params?: Record<string, string>; amount: number }[];
+  total: number;
+}) {
+  const { t } = useLanguage();
+  return (
+    <div className="text-left">
+      <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-accent">{title}</div>
+
+      {thumbs && thumbs.length > 0 && (
+        <div className="mt-1.5 flex flex-wrap gap-1">
+          {thumbs.map((th, i) => (
+            <ProformaThumb key={i} src={th.src} alt={th.alt} />
+          ))}
+        </div>
+      )}
+
+      {specs.length > 0 && (
+        <dl className="mt-1.5 space-y-0.5">
+          {specs.map((sp, i) => (
+            <div key={i} className="flex items-baseline justify-between gap-2">
+              <dt className="shrink-0 text-[10px] uppercase tracking-wide text-muted">{sp.label}</dt>
+              <dd className="min-w-0 truncate text-[11px] text-ink">{sp.value}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+
+      {lines.length > 0 && (
+        <div className="mt-2 space-y-0.5 border-t border-line pt-1.5">
+          {lines.map((l, i) => (
+            <div key={i} className="flex items-baseline justify-between gap-2">
+              <span className="min-w-0 text-[10px] leading-snug text-muted">{t(l.key, l.params)}</span>
+              <span className="shrink-0 font-mono text-[10px] text-muted">{money(l.amount)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="mt-1.5 flex items-baseline justify-between gap-2 border-t border-line pt-1.5">
+        <span className="text-[10px] font-semibold uppercase tracking-wide text-ink">{t("configurator.total")}</span>
+        <span className="font-display text-sm font-bold text-ink">{money(total)}</span>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * ROOM — the shell it is, the fixtures in it, and the floor.
+ *
+ * Dimensions come off `selections.dims` rather than the label, because the label is prose and
+ * this is a spec sheet. Fixture names are listed rather than counted: "Door, toilet, vanity"
+ * tells a dealer what is missing at a glance, where "3 fixtures" does not.
+ */
+function RoomProforma({ config, flooringName, flooringImage }: {
+  config: RoomConfig; flooringName?: string; flooringImage?: string;
+}) {
+  const { t } = useLanguage();
+  const sel = config.selections;
+  const fixtures = [
+    sel.door ? t("configurator.room.fixtureDoor") : null,
+    sel.toilet ? t("configurator.room.fixtureToilet") : null,
+    sel.bath ? t("configurator.showerTitle") : null,
+    // The twin is one more cabinet on the plan, so it is one more thing listed here.
+    sel.vanity ? t("configurator.vanityTitle") + (sel.vanity2 ? " ×2" : "") : null,
+  ].filter(Boolean).join(", ");
+
+  const specs = [
+    { label: t("configurator.rollover.dimensions"), value: `${ftIn(sel.dims.w)} × ${ftIn(sel.dims.d)}` },
+    ...(fixtures ? [{ label: t("configurator.rollover.fixtures"), value: fixtures }] : []),
+    ...(flooringName ? [{ label: t("configurator.flooringTitle"), value: flooringName }] : []),
+  ];
+  return (
+    <Proforma
+      title={t("configurator.roomTitle")}
+      specs={specs}
+      thumbs={flooringImage ? [{ src: flooringImage, alt: flooringName ?? "" }] : []}
+      lines={config.price.lines}
+      total={config.price.total}
+    />
+  );
+}
+
+/**
+ * SHOWER — the panel count and the decor it is clad in.
+ *
+ * Panel count is the one number a dealer cannot read off the tile and cannot work out from the
+ * label, and it is what an HPL order actually turns on. Absent for SPC, which has no takeoff.
+ */
+function ShowerProforma({ config }: { config: ShowerConfig }) {
+  const { t } = useLanguage();
+  const panel = showerWallPanel(config);
+  const panels = config.hplBom?.panels.total ?? 0;
+  const specs = [
+    ...(panels > 0 ? [{ label: t("configurator.rollover.panels"), value: String(panels) }] : []),
+    ...(panel ? [{ label: t("configurator.rollover.decor"), value: panel.name }] : []),
+  ];
+  // getPanelImage first — the local decor swatch — falling back to whatever the catalogue
+  // recorded. Nothing is fetched that the config did not already name.
+  const src = panel ? (getPanelImage(panel.id, 80, 80) ?? panel.imageUrl) : undefined;
+  return (
+    <Proforma
+      title={t("configurator.showerTitle")}
+      specs={specs}
+      thumbs={src && panel ? [{ src, alt: panel.name }] : []}
+      lines={config.price.lines}
+      total={config.price.total}
+    />
+  );
+}
+
+/**
+ * VANITY — size, mount, basins, and the three finish swatches the module records.
+ *
+ * `qty` is the bathroom's cabinet count, so a his-and-hers pair says ×2 on the size and the
+ * total reflects both. It comes from the quote rather than the config: the config describes
+ * ONE cabinet, and how many of it the job takes is not its business.
+ */
+function VanityProforma({ config, qty }: { config: VanityConfig; qty: number }) {
+  const { t } = useLanguage();
+  const sel = config.selections;
+  const media = config.media ?? {};
+  const twin = qty > 1;
+  const specs = [
+    ...(sel.size != null ? [{ label: t("configurator.rollover.size"), value: `${sel.size}"${twin ? " ×2" : ""}` }] : []),
+    ...(sel.mount ? [{ label: t("configurator.rollover.mount"), value: t(sel.mount === "floating" ? "configurator.vanity.floating" : "configurator.vanity.floorMount") }] : []),
+    { label: t("configurator.rollover.sinks"), value: String((sel.sinks ?? 1) * Math.max(1, qty)) },
+  ];
+  const thumbs = [
+    media.doorImage ? { src: media.doorImage, alt: t("configurator.vanity.stepDoorStyle") } : null,
+    media.finishImage ? { src: media.finishImage, alt: t("configurator.vanityTitle") } : null,
+    media.topImage ? { src: media.topImage, alt: t("configurator.vanityTitle") } : null,
+  ].filter(Boolean) as { src: string; alt: string }[];
+  return (
+    <Proforma
+      title={t("configurator.vanityTitle")}
+      specs={specs}
+      thumbs={thumbs}
+      // The receipt is for ONE cabinet; the total is what the quote charges for the pair.
+      lines={config.price.lines}
+      total={config.price.total * Math.max(1, qty)}
+    />
+  );
+}
+
+/** A 40px product thumbnail. Falls away silently when the image will not load. */
+function ProformaThumb({ src, alt }: { src: string; alt: string }) {
+  const [err, setErr] = useState(false);
+  if (err) return null;
+  return (
+    <span className="block h-10 w-10 overflow-hidden rounded-md border border-line bg-white">
+      <img src={src} alt={alt} loading="lazy" onError={() => setErr(true)} className="h-full w-full object-cover" />
+    </span>
   );
 }
 
@@ -1121,22 +1330,31 @@ function PlumbingProductStrip({ config }: { config: PlumbingConfig }) {
 }
 
 const HOVER_CARD_W = 232;
+/** The module proforma is a receipt, not a photo — it needs room a photo does not. */
+const PROFORMA_W = 264;
 
 /**
- * A 64px product thumbnail that reveals a larger card — 200px photo, title, SKU and
- * Internet price — on hover, or on tap for touch.
+ * The rollover mechanics, lifted VERBATIM out of ProductHoverCard so the module proformas can
+ * use the same ones rather than a second, subtly different copy. Nothing here changed in the
+ * move; every line was already load-bearing:
  *
- * The card is portalled to <body> with fixed positioning: the tile it sits in is
- * `overflow-hidden`, so an absolutely-positioned popup would simply be clipped. Fixed
- * coordinates go stale on scroll, so the card closes rather than chases the anchor.
+ *   • The card is PORTALLED to <body> with fixed positioning. The tile it sits in is
+ *     `overflow-hidden`, so an absolutely-positioned popup is simply clipped.
+ *   • Fixed coordinates go stale on scroll, so the card CLOSES rather than chases its anchor.
+ *   • It prefers to open ABOVE, anchored by `bottom`, which lets it grow upward however tall
+ *     its content turns out to be instead of needing that measured first.
+ *   • Hover and tap are split by POINTER TYPE, not by mouse-vs-pointer events. A tap also
+ *     emits compatibility mouse events, so an onMouseEnter would fire in the same batch as the
+ *     tap's toggle and immediately cancel it — the card would never open on touch.
+ *   • preventDefault() on pointerdown suppresses those compatibility events but NOT the
+ *     click, so the click is swallowed separately — otherwise the tap reaches the tile
+ *     underneath and opens the configurator, unmounting the card it just opened.
  */
-function ProductHoverCard({ item }: { item: PlumbingCatalogItem }) {
-  const { t } = useLanguage();
+function useRollover(width: number) {
   const anchorRef = useRef<HTMLSpanElement>(null);
   const [open, setOpen] = useState(false);
   const [shown, setShown] = useState(false);   // drives the 150ms fade
   const [box, setBox] = useState<{ left: number; top?: number; bottom?: number } | null>(null);
-  const [imgErr, setImgErr] = useState(false);
   const fromTouch = useRef(false);   // set on pointerdown, read by the click swallower
 
   useEffect(() => {
@@ -1144,16 +1362,12 @@ function ProductHoverCard({ item }: { item: PlumbingCatalogItem }) {
     const el = anchorRef.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
-    const left = Math.max(8, Math.min(r.left + r.width / 2 - HOVER_CARD_W / 2, window.innerWidth - HOVER_CARD_W - 8));
-    // Prefer above. Anchoring by `bottom` there lets the card grow upward however far the
-    // title wraps, instead of needing its height measured first.
+    const left = Math.max(8, Math.min(r.left + r.width / 2 - width / 2, window.innerWidth - width - 8));
     const above = r.top >= 300;
     setBox(above ? { left, bottom: window.innerHeight - r.top + 8 } : { left, top: r.bottom + 8 });
-    // Fade in on the next frame so the transition has a starting opacity to animate from.
     const raf = requestAnimationFrame(() => setShown(true));
 
     const close = () => setOpen(false);
-    // A tap anywhere else dismisses — the touch counterpart of mouseleave.
     const onDocDown = (e: PointerEvent) => { if (!anchorRef.current?.contains(e.target as Node)) setOpen(false); };
     window.addEventListener("scroll", close, true);
     window.addEventListener("resize", close);
@@ -1164,30 +1378,51 @@ function ProductHoverCard({ item }: { item: PlumbingCatalogItem }) {
       window.removeEventListener("resize", close);
       document.removeEventListener("pointerdown", onDocDown);
     };
-  }, [open]);
+  }, [open, width]);
 
-  // Hover and tap are split by pointer type rather than by mouse-vs-pointer events. A tap
-  // also emits compatibility mouse events, so an onMouseEnter here would fire in the same
-  // batch as the tap's toggle and immediately cancel it — the card would never open on
-  // touch. Gating on pointerType keeps the two paths from ever fighting.
   const onPointerEnter = (e: React.PointerEvent) => { if (e.pointerType === "mouse") setOpen(true); };
   const onPointerLeave = (e: React.PointerEvent) => { if (e.pointerType === "mouse") setOpen(false); };
-  // Touch taps toggle the card instead of opening the configurator underneath.
   const onPointerDown = (e: React.PointerEvent) => {
     fromTouch.current = e.pointerType === "touch";
     if (!fromTouch.current) return;   // mouse: leave click-to-open alone
     e.stopPropagation();
     setOpen((o) => !o);
   };
-  // The click has to be swallowed separately: preventDefault() on pointerdown suppresses
-  // the compatibility mouse events but NOT the click, so without this the tap would still
-  // reach the tile and open the configurator — unmounting the card it just opened.
   const onClick = (e: React.MouseEvent) => {
     if (!fromTouch.current) return;
     e.preventDefault();
     e.stopPropagation();
     fromTouch.current = false;
   };
+
+  return { anchorRef, open, shown, box, onPointerEnter, onPointerLeave, onPointerDown, onClick };
+}
+
+/** Shared chrome for a portalled rollover, so both kinds sit in the same card. */
+function RolloverCard({ box, shown, width, children }: {
+  box: { left: number; top?: number; bottom?: number }; shown: boolean; width: number; children: ReactNode;
+}) {
+  return createPortal(
+    <div
+      role="tooltip"
+      style={{ position: "fixed", left: box.left, top: box.top, bottom: box.bottom, width, zIndex: 60 }}
+      // pointer-events-none: the card must never steal the hover that keeps it open.
+      className={`pointer-events-none rounded-xl border border-line bg-white p-2 shadow-lg transition-opacity duration-150 ${shown ? "opacity-100" : "opacity-0"}`}
+    >
+      {children}
+    </div>,
+    document.body,
+  );
+}
+
+/**
+ * A 64px product thumbnail that reveals a larger card — 200px photo, title, SKU and
+ * Internet price — on hover, or on tap for touch. Plumbing only, and behaviourally unchanged.
+ */
+function ProductHoverCard({ item }: { item: PlumbingCatalogItem }) {
+  const { t } = useLanguage();
+  const { anchorRef, open, shown, box, onPointerEnter, onPointerLeave, onPointerDown, onClick } = useRollover(HOVER_CARD_W);
+  const [imgErr, setImgErr] = useState(false);
 
   const large = getProductImage(item.sku, 200, 200);
   const price = getProductPrice(item.sku);
@@ -1209,13 +1444,8 @@ function ProductHoverCard({ item }: { item: PlumbingCatalogItem }) {
       {item.qty > 1 && (
         <span className="absolute bottom-0 right-0 rounded-tl-md bg-ink/80 px-1 font-mono text-[9px] leading-4 text-white">×{item.qty}</span>
       )}
-      {open && box && typeof document !== "undefined" && createPortal(
-        <div
-          role="tooltip"
-          style={{ position: "fixed", left: box.left, top: box.top, bottom: box.bottom, width: HOVER_CARD_W, zIndex: 60 }}
-          // pointer-events-none: the card must never steal the hover that keeps it open.
-          className={`pointer-events-none rounded-xl border border-line bg-white p-2 shadow-lg transition-opacity duration-150 ${shown ? "opacity-100" : "opacity-0"}`}
-        >
+      {open && box && typeof document !== "undefined" && (
+        <RolloverCard box={box} shown={shown} width={HOVER_CARD_W}>
           {large && <img src={large} alt={item.title} className="mx-auto block h-[200px] w-[200px] object-contain" />}
           <div className="mt-1.5 text-xs font-medium leading-snug text-ink">{item.title}</div>
           <div className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-muted">{item.sku}</div>
@@ -1225,8 +1455,7 @@ function ProductHoverCard({ item }: { item: PlumbingCatalogItem }) {
               <span className="font-mono text-[9px] font-normal uppercase tracking-wide text-accent">{t("configurator.plumbing.msrpTag")}</span>
             </div>
           )}
-        </div>,
-        document.body,
+        </RolloverCard>
       )}
     </span>
   );
