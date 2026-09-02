@@ -2,14 +2,30 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/components/AuthContext";
+import { AuthProvider, useAuth } from "@/components/AuthContext";
 import { Sidebar } from "@/components/Sidebar";
 import { Header } from "@/components/Header";
 import { OnboardingGate } from "@/components/OnboardingGate";
 import { SidebarProvider, useSidebar } from "@/components/SidebarContext";
 import { SIDEBAR_GRID_COLS } from "@/lib/sidebar-mode";
 
+/**
+ * Every portal route requires a session, so this is where AuthProvider is mounted —
+ * it used to sit in the root layout, which forced Supabase onto the public pages too.
+ *
+ * The guard is a separate component because it calls useAuth(): a component cannot
+ * consume a context that it itself renders, so PortalGuard has to sit one level below
+ * the provider.
+ */
 export default function PortalLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <AuthProvider>
+      <PortalGuard>{children}</PortalGuard>
+    </AuthProvider>
+  );
+}
+
+function PortalGuard({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const router = useRouter();
 
