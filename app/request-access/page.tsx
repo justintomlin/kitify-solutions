@@ -48,7 +48,7 @@ export default function RequestAccessPage() {
             </h1>
             <p className="mt-3 text-ink/70">{t("request.thanksBody")}</p>
             <Link
-              href="/"
+              href="/login"
               className="mt-8 inline-flex items-center gap-2 text-sm font-medium text-accent hover:underline"
             >
               <ArrowLeft className="h-4 w-4" />
@@ -83,7 +83,7 @@ export default function RequestAccessPage() {
               </button>
 
               <Link
-                href="/"
+                href="/login"
                 className="mt-2 inline-flex items-center gap-2 text-sm font-medium text-muted hover:text-ink"
               >
                 <ArrowLeft className="h-4 w-4" />

@@ -16,7 +16,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
   // Guard: portal routes require a session. Bounce to the login screen once the session
   // has resolved and there's no user. The loading state prevents a logged-out flicker.
   useEffect(() => {
-    if (!loading && !user) router.replace("/");
+    if (!loading && !user) router.replace("/login");
   }, [loading, user, router]);
 
   if (loading || !user) {
