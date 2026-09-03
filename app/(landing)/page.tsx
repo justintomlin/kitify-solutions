@@ -1,6 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import {
   Boxes,
   ChevronDown,
@@ -9,6 +11,7 @@ import {
   FileText,
   GraduationCap,
   Grid2x2,
+  Layers,
   PencilRuler,
   Presentation,
   Quote,
@@ -19,9 +22,11 @@ import {
   Truck,
   Users,
   Wrench,
+  X,
   type LucideIcon,
 } from "lucide-react";
 import { useLanguage } from "@/components/LanguageContext";
+import { useMediaQuery } from "@/lib/useMediaQuery";
 import { scrollToAnchor } from "@/components/landing/anchors";
 
 /* ===========================================================================
@@ -132,27 +137,64 @@ function FloorPlanSketch({ className = "" }: { className?: string }) {
 export default function LandingPage() {
   const { t } = useLanguage();
 
+  /* Partner "why we chose them" reveal.
+     There is no existing rollover card in the app to copy, so this is the pattern: one
+     open card at a time, opened by hover on pointer devices and by tap on touch ones.
+     `(hover: hover)` is what separates them — attaching mouseenter on a touchscreen makes
+     the first tap open the card and the click that follows immediately close it again.
+     serverValue true so the pre-hydration HTML reads as the pointer case; useSyncExternalStore
+     gives the real answer on the first client render. */
+  const canHover = useMediaQuery("(hover: hover)", true);
+  const [openPartner, setOpenPartner] = useState<string | null>(null);
+  const closePartner = (key: string) => setOpenPartner((cur) => (cur === key ? null : cur));
+
   const steps: { icon: LucideIcon; n: string; title: string; body: string }[] = [
     { icon: PencilRuler, n: "01", title: t("landing.how.drawTitle"), body: t("landing.how.drawBody") },
     { icon: Truck, n: "02", title: t("landing.how.deliverTitle"), body: t("landing.how.deliverBody") },
     { icon: CircleCheckBig, n: "03", title: t("landing.how.doneTitle"), body: t("landing.how.doneBody") },
   ];
 
+  // Seven line items: the wall-panel card split into its two systems (HPL and SPC), and
+  // ThermaGlass's doors/bases became a card of its own. Flooring stays unbranded — it ships
+  // as a white-box product, so no consumer brand is named here.
   const kit: { icon: LucideIcon; title: string; body: string }[] = [
-    { icon: Rows3, title: t("landing.kit.panelsTitle"), body: t("landing.kit.panelsBody") },
-    { icon: ShowerHead, title: t("landing.kit.baseTitle"), body: t("landing.kit.baseBody") },
-    { icon: Boxes, title: t("landing.kit.vanityTitle"), body: t("landing.kit.vanityBody") },
-    { icon: Wrench, title: t("landing.kit.plumbingTitle"), body: t("landing.kit.plumbingBody") },
+    { icon: Rows3, title: t("landing.kit.naturePanelTitle"), body: t("landing.kit.naturePanelBody") },
+    { icon: Layers, title: t("landing.kit.nuvoTitle"), body: t("landing.kit.nuvoBody") },
+    { icon: ShowerHead, title: t("landing.kit.thermaGlassTitle"), body: t("landing.kit.thermaGlassBody") },
+    { icon: Boxes, title: t("landing.kit.csTitle"), body: t("landing.kit.csBody") },
+    { icon: Wrench, title: t("landing.kit.deltaTitle"), body: t("landing.kit.deltaBody") },
     { icon: Grid2x2, title: t("landing.kit.flooringTitle"), body: t("landing.kit.flooringBody") },
     { icon: Ruler, title: t("landing.kit.wallBaseTitle"), body: t("landing.kit.wallBaseBody") },
   ];
 
-  // Supplier names are proper nouns and stay untranslated; what they supply does not.
+  /* Supplier names are proper nouns and stay untranslated; what they supply and why we
+     picked them do not. `w`/`h` are each file's INTRINSIC pixel size (the SVG's viewBox),
+     which is what next/image needs to reserve the right box before the file loads — the
+     rendered height is capped by CSS, and `w-auto` keeps the aspect ratio.
+     Every logo sits on a white plate: the art in all six is dark (the NuVo vector is solid
+     black, and the three JPEGs carry their own white background), so a dark card would
+     swallow them. */
   const partners = [
-    { name: "CS Factory", role: t("landing.partners.csRole"), note: t("landing.partners.csNote") },
-    { name: "Delta Faucet", role: t("landing.partners.deltaRole"), note: t("landing.partners.deltaNote") },
-    { name: "Vista Tile", role: t("landing.partners.vistaRole"), note: t("landing.partners.vistaNote") },
-    { name: "Nature Panel / ThermaGlass", role: t("landing.partners.panelRole"), note: t("landing.partners.panelNote") },
+    { key: "naturePanel", name: "Nature Panel", logo: "/partner_brands/nature_panel_logo.png", w: 447, h: 447,
+      role: t("landing.partners.naturePanelRole"), why: t("landing.partners.naturePanelWhy") },
+    // The only SVG in the set, so the only one that skips the image optimizer — Next refuses
+    // to process SVG unless `dangerouslyAllowSVG` is on, and a 15 KB vector gains nothing by it.
+    { key: "nuvo", name: "NuVo", logo: "/partner_brands/nuvo-logo.svg", w: 3125, h: 800, vector: true,
+      role: t("landing.partners.nuvoRole"), why: t("landing.partners.nuvoWhy") },
+    // therma_glass.jpg is a 900x900 canvas whose wordmark fills 8% of it; scaled to fit a
+    // logo row that renders illegibly small. -trim.png is the same art cropped to its bounds.
+    { key: "thermaGlass", name: "ThermaGlass", logo: "/partner_brands/therma_glass-trim.png", w: 771, h: 130,
+      role: t("landing.partners.thermaGlassRole"), why: t("landing.partners.thermaGlassWhy") },
+    { key: "cs", name: "CS Factory", logo: "/partner_brands/csfactory_logo.jpeg", w: 1280, h: 680,
+      role: t("landing.partners.csRole"), why: t("landing.partners.csWhy") },
+    // delta_logo.png is a JPEG despite the .png name (harmless — the optimizer sniffs the real
+    // format) but it also has a transparency CHECKERBOARD baked into its pixels, from a
+    // screenshot of a transparent original. -trim.png flattens that to white and crops the
+    // 79% empty canvas. Replace both with a clean vendor file when one is available.
+    { key: "delta", name: "Delta Faucet", logo: "/partner_brands/delta_logo-trim.png", w: 320, h: 86,
+      role: t("landing.partners.deltaRole"), why: t("landing.partners.deltaWhy") },
+    { key: "durato", name: "Durato", logo: "/partner_brands/durato-logo.png", w: 3300, h: 772,
+      role: t("landing.partners.duratoRole"), why: t("landing.partners.duratoWhy") },
   ];
 
   const platform: { icon: LucideIcon; title: string; body: string }[] = [
@@ -297,23 +339,78 @@ export default function LandingPage() {
             sub={t("landing.partners.sub")}
           />
 
-          <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {partners.map((p) => (
-              <article key={p.name} className={`${CARD} flex flex-col`}>
-                {/* PLACEHOLDER LOGO AREA — drop the supplier's mark in here at the
-                    same height once we have permission and assets. */}
-                <div className="flex h-16 items-center justify-center rounded-lg border border-dashed border-white/15 bg-white/[0.02]">
-                  <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/30">
-                    {t("landing.partners.logoPlaceholder")}
-                  </span>
-                </div>
-                <h3 className="mt-5 font-display text-lg font-bold tracking-tight">{p.name}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-white/65">{p.role}</p>
-                <p className="mt-auto pt-3 font-mono text-[11px] leading-relaxed text-white/55">
-                  {p.note}
-                </p>
-              </article>
-            ))}
+          <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {partners.map((p) => {
+              const open = openPartner === p.key;
+              return (
+                <article
+                  key={p.key}
+                  className={`${CARD} relative flex min-h-[19rem] flex-col p-0`}
+                  onMouseEnter={canHover ? () => setOpenPartner(p.key) : undefined}
+                  onMouseLeave={canHover ? () => closePartner(p.key) : undefined}
+                >
+                  {/* The whole card is the control, so a tap anywhere on it reveals the blurb
+                      and it reaches the keyboard as one stop rather than six. */}
+                  <button
+                    type="button"
+                    aria-expanded={open}
+                    aria-controls={`partner-why-${p.key}`}
+                    onClick={() => setOpenPartner((cur) => (cur === p.key ? null : p.key))}
+                    onFocus={() => setOpenPartner(p.key)}
+                    onBlur={() => closePartner(p.key)}
+                    className="flex flex-1 flex-col items-start p-6 text-left"
+                  >
+                    <div className="flex h-24 w-full items-center justify-center rounded-lg bg-white p-4">
+                      {/* Bounded by the plate on BOTH axes rather than by a fixed height:
+                          these six logos run from square (447x447) to 4:1 (3300x772), and
+                          capping height alone shrinks the square ones to a thumbnail.
+                          width/height:auto is what next/image asks for when CSS resizes it. */}
+                      <Image
+                        src={p.logo}
+                        alt={p.name}
+                        width={p.w}
+                        height={p.h}
+                        unoptimized={p.vector}
+                        style={{ width: "auto", height: "auto" }}
+                        className="max-h-full max-w-full object-contain"
+                      />
+                    </div>
+                    <h3 className="mt-5 font-display text-lg font-bold tracking-tight">{p.name}</h3>
+                    <p className="mt-2 text-sm leading-relaxed text-white/65">{p.role}</p>
+                    <span className="mt-auto pt-4 font-mono text-[11px] uppercase tracking-[0.16em] text-accent-soft/70">
+                      {canHover ? t("landing.partners.whyHint") : t("landing.partners.whyHintTouch")}
+                    </span>
+                  </button>
+
+                  {open ? (
+                    <div
+                      id={`partner-why-${p.key}`}
+                      // Covers the card rather than floating beside it: a popover anchored to
+                      // the bottom row of a six-card grid would open off the bottom of the
+                      // viewport, and this needs no collision handling to stay on screen.
+                      className="absolute inset-0 z-10 flex animate-[fadeIn_140ms_ease-out] flex-col rounded-2xl border border-accent/40 bg-ink/95 p-6 backdrop-blur-sm"
+                    >
+                      <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-accent-soft">
+                        {t("landing.partners.whyLabel")}
+                      </p>
+                      <p className="mt-3 overflow-y-auto text-sm leading-relaxed text-white/80">
+                        {p.why}
+                      </p>
+                      {!canHover ? (
+                        <button
+                          type="button"
+                          onClick={() => setOpenPartner(null)}
+                          className="mt-auto flex items-center gap-1.5 self-start pt-4 font-mono text-[11px] uppercase tracking-[0.16em] text-white/50"
+                        >
+                          <X className="h-3.5 w-3.5" aria-hidden />
+                          {t("landing.partners.close")}
+                        </button>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </article>
+              );
+            })}
           </div>
         </div>
       </section>
