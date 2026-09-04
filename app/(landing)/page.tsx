@@ -67,9 +67,13 @@ function SectionHead({
 
    Four slides — three portal screenshots, then a short clip — crossfading on a
    loop with no controls. The stills and the video are all ~2:1, so they share
-   one frame; the frame sits inside a box with the same aspect ratio the plan
-   sketch it replaced had (420x340), which is what keeps the hero from resizing
-   when the slides change or before the first image decodes.
+   one frame, and that frame's own `aspect-[1915/942]` is what holds the hero
+   still: every slide is absolutely positioned inside it, so the box is sized
+   before the first image decodes and does not move when the slide changes.
+
+   The frame fills its grid column rather than capping at a fixed width. These
+   are screenshots of a dense portal UI, and every pixel of width is a pixel of
+   legibility — see the column split on the hero grid below.
    --------------------------------------------------------------------------- */
 
 const HERO_STILLS = [
@@ -132,42 +136,40 @@ function HeroSlideshow({
   }, [showingVideo, reducedMotion]);
 
   return (
-    // Outer box: the plan sketch's footprint, so the hero grid is unchanged.
-    <div className="mx-auto grid aspect-[420/340] w-full max-w-lg place-items-center">
-      {/* Inner frame: the screenshots' own 1915x942 ratio, so object-cover crops nothing. */}
-      <div className="relative aspect-[1915/942] w-full overflow-hidden rounded-xl border border-white/10 bg-ink-soft shadow-2xl shadow-black/40">
-        {HERO_STILLS.map((src, i) => (
-          <Image
-            key={src}
-            src={src}
-            alt={alts[i] ?? ""}
-            fill
-            sizes="(min-width: 1024px) 32rem, 100vw"
-            // Slide 1 is above the fold and is what a reduced-motion visitor sees.
-            priority={i === 0}
-            className={`object-cover transition-opacity duration-300 ${
-              index === i ? "opacity-100" : "opacity-0"
-            }`}
-          />
-        ))}
+    // The frame's own ratio is the whole box — the source files' 1915x942, so
+    // object-cover crops nothing and the height follows the width exactly.
+    <div className="relative aspect-[1915/942] w-full overflow-hidden rounded-xl border border-white/10 bg-ink-soft shadow-2xl shadow-black/40">
+      {HERO_STILLS.map((src, i) => (
+        <Image
+          key={src}
+          src={src}
+          alt={alts[i] ?? ""}
+          fill
+          sizes="(min-width: 1024px) 42rem, 100vw"
+          // Slide 1 is above the fold and is what a reduced-motion visitor sees.
+          priority={i === 0}
+          className={`object-cover transition-opacity duration-300 ${
+            index === i ? "opacity-100" : "opacity-0"
+          }`}
+        />
+      ))}
 
-        {/* Skipped entirely under reduced motion — nothing to play, nothing to fetch. */}
-        {reducedMotion ? null : (
-          <video
-            ref={videoRef}
-            src={HERO_VIDEO}
-            aria-label={videoLabel}
-            muted
-            playsInline
-            preload="metadata"
-            onEnded={advance}
-            onError={advance}
-            className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${
-              showingVideo ? "opacity-100" : "opacity-0"
-            }`}
-          />
-        )}
-      </div>
+      {/* Skipped entirely under reduced motion — nothing to play, nothing to fetch. */}
+      {reducedMotion ? null : (
+        <video
+          ref={videoRef}
+          src={HERO_VIDEO}
+          aria-label={videoLabel}
+          muted
+          playsInline
+          preload="metadata"
+          onEnded={advance}
+          onError={advance}
+          className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${
+            showingVideo ? "opacity-100" : "opacity-0"
+          }`}
+        />
+      )}
     </div>
   );
 }
@@ -176,12 +178,17 @@ function HeroSlideshow({
    How-it-works card
 
    Default state is the plain card. When it becomes active — hover on a pointer
-   device, tap on a touch one — its clip fades in behind the copy and the icon
-   fades out. The clip covers the whole card rather than the 28px icon slot:
-   the brief asked for the icon area to swap, but a video that size reads as
-   noise, and growing the slot would change how the card looks at rest, which
-   the brief also ruled out. A full-bleed layer does both — the resting card is
-   untouched and the clip is actually watchable.
+   device, tap on a touch one — the whole content block fades out and the clip
+   fades in behind it, so the card becomes the video and nothing else. That is
+   why there is no scrim: with no copy left to keep legible, dimming a bright
+   screen recording would only make it harder to read.
+
+   The step number goes with the rest. It is `text-white/10`, which is a ghost
+   on the card's near-black ground and simply invisible over a white UI frame —
+   holding it back would leave a smudge, not a label.
+
+   Card height comes from the copy, and the copy keeps its box while faded, so
+   nothing reflows on the way in or out.
    --------------------------------------------------------------------------- */
 
 function StepCard({
@@ -233,39 +240,30 @@ function StepCard({
       onClick={canHover ? undefined : active ? onDeactivate : onActivate}
     >
       {reducedMotion ? null : (
-        <>
-          <video
-            ref={videoRef}
-            src={video}
-            muted
-            loop
-            playsInline
-            preload="metadata"
-            aria-hidden
-            className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${
-              playing ? "opacity-100" : "opacity-0"
-            }`}
-          />
-          {/* Scrim — the copy stays readable over whatever frame is on screen. All three
-              clips are screen recordings of a light UI, so this has to be heavy; at 75% the
-              body text washed out against the white configurator behind it. */}
-          <div
-            aria-hidden
-            className={`absolute inset-0 bg-ink/85 transition-opacity duration-300 ${
-              playing ? "opacity-100" : "opacity-0"
-            }`}
-          />
-        </>
+        <video
+          ref={videoRef}
+          src={video}
+          muted
+          loop
+          playsInline
+          preload="metadata"
+          aria-hidden
+          className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${
+            playing ? "opacity-100" : "opacity-0"
+          }`}
+        />
       )}
 
-      <div className="relative">
+      {/* Everything the card says, fading as one block. `aria-hidden` while it is
+          faded so a screen reader is not offered text nobody can see. */}
+      <div
+        className={`relative transition-opacity duration-300 ${
+          playing ? "opacity-0" : "opacity-100"
+        }`}
+        aria-hidden={playing || undefined}
+      >
         <div className="flex items-center justify-between">
-          <Icon
-            className={`h-7 w-7 text-accent-soft transition-opacity duration-300 ${
-              playing ? "opacity-0" : "opacity-100"
-            }`}
-            aria-hidden
-          />
+          <Icon className="h-7 w-7 text-accent-soft" aria-hidden />
           <span aria-hidden className="font-display text-4xl font-bold text-white/10">
             {n}
           </span>
@@ -274,15 +272,7 @@ function StepCard({
           {stepLabel}
         </p>
         <h3 className="mt-2 font-display text-2xl font-bold tracking-tight">{title}</h3>
-        {/* The body copy lifts while the clip runs: even under the scrim, a bright frame
-            behind it eats enough contrast that white/60 stops being comfortable. */}
-        <p
-          className={`mt-3 text-sm leading-relaxed transition-colors duration-300 ${
-            playing ? "text-white/85" : "text-white/60"
-          }`}
-        >
-          {body}
-        </p>
+        <p className="mt-3 text-sm leading-relaxed text-white/60">{body}</p>
       </div>
     </li>
   );
@@ -317,17 +307,16 @@ export default function LandingPage() {
   ];
 
   /* Six line items — flooring and wall base ship and install together, so they read as one
-     card. Flooring stays unbranded in the copy (it is a white-box product); `position` is
-     what keeps the crop honest, since these are portrait and square plates going into a 4:3
-     box. Delta's is pinned to the top because its wordmark sits in the top-left corner and a
-     centred crop would slice through it. */
-  const kit: { image: string; position: string; title: string; body: string; alt: string }[] = [
-    { image: "/whats-in-the-kit/nature-panel.png", position: "object-center", title: t("landing.kit.naturePanelTitle"), body: t("landing.kit.naturePanelBody"), alt: t("landing.kit.naturePanelAlt") },
-    { image: "/whats-in-the-kit/nuvo-spc.png", position: "object-center", title: t("landing.kit.nuvoTitle"), body: t("landing.kit.nuvoBody"), alt: t("landing.kit.nuvoAlt") },
-    { image: "/whats-in-the-kit/therma-glass.png", position: "object-center", title: t("landing.kit.thermaGlassTitle"), body: t("landing.kit.thermaGlassBody"), alt: t("landing.kit.thermaGlassAlt") },
-    { image: "/whats-in-the-kit/cs-factory.png", position: "object-center", title: t("landing.kit.csTitle"), body: t("landing.kit.csBody"), alt: t("landing.kit.csAlt") },
-    { image: "/whats-in-the-kit/delta-plumbing.png", position: "object-top", title: t("landing.kit.deltaTitle"), body: t("landing.kit.deltaBody"), alt: t("landing.kit.deltaAlt") },
-    { image: "/whats-in-the-kit/flooring-base.png", position: "object-center", title: t("landing.kit.flooringTitle"), body: t("landing.kit.flooringBody"), alt: t("landing.kit.flooringAlt") },
+     card. Flooring stays unbranded in the copy (it is a white-box product), but the plate it
+     ships with is not: showing it whole puts the Durato wordmark back on screen, which the
+     old crop had removed. Worth knowing if that policy still stands. */
+  const kit: { image: string; title: string; body: string; alt: string }[] = [
+    { image: "/whats-in-the-kit/nature-panel.png", title: t("landing.kit.naturePanelTitle"), body: t("landing.kit.naturePanelBody"), alt: t("landing.kit.naturePanelAlt") },
+    { image: "/whats-in-the-kit/nuvo-spc.png", title: t("landing.kit.nuvoTitle"), body: t("landing.kit.nuvoBody"), alt: t("landing.kit.nuvoAlt") },
+    { image: "/whats-in-the-kit/therma-glass.png", title: t("landing.kit.thermaGlassTitle"), body: t("landing.kit.thermaGlassBody"), alt: t("landing.kit.thermaGlassAlt") },
+    { image: "/whats-in-the-kit/cs-factory.png", title: t("landing.kit.csTitle"), body: t("landing.kit.csBody"), alt: t("landing.kit.csAlt") },
+    { image: "/whats-in-the-kit/delta-plumbing.png", title: t("landing.kit.deltaTitle"), body: t("landing.kit.deltaBody"), alt: t("landing.kit.deltaAlt") },
+    { image: "/whats-in-the-kit/flooring-base.png", title: t("landing.kit.flooringTitle"), body: t("landing.kit.flooringBody"), alt: t("landing.kit.flooringAlt") },
   ];
 
   /* Supplier names are proper nouns and stay untranslated; what they supply and why we
@@ -393,12 +382,17 @@ export default function LandingPage() {
           className="pointer-events-none absolute -right-40 top-0 h-[38rem] w-[38rem] rounded-full bg-accent/20 blur-3xl"
         />
 
-        <div className="relative mx-auto grid max-w-6xl items-center gap-14 lg:grid-cols-[1.05fr_0.95fr]">
+        {/* The media column takes the larger share now: the slides are screenshots of a
+            dense portal UI, and at the old even split their text was a smudge. The copy
+            column gives up ~90px and the gap ~16px, which the headline absorbs by staying
+            at text-6xl instead of stepping up to 7xl — the tagline still breaks over two
+            lines, and the frame gains a third of its width. */}
+        <div className="relative mx-auto grid max-w-6xl items-center gap-14 lg:grid-cols-[0.86fr_1.14fr] lg:gap-12">
           <div>
             <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-accent-soft">
               {t("landing.hero.eyebrow")}
             </p>
-            <h1 className="mt-5 font-display text-[2.75rem] font-bold leading-[1.05] tracking-tight sm:text-6xl lg:text-7xl">
+            <h1 className="mt-5 font-display text-[2.75rem] font-bold leading-[1.05] tracking-tight sm:text-6xl">
               {t("landing.hero.headline")}
             </h1>
             <p className="mt-6 max-w-xl text-lg leading-relaxed text-white/65">
@@ -485,13 +479,18 @@ export default function LandingPage() {
           <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {kit.map((k) => (
               <article key={k.title} className={CARD}>
-                <div className="relative aspect-[4/3] overflow-hidden rounded-xl border border-white/10 bg-ink-soft">
+                {/* Square, not 4:3. Three of the six plates are square, two are 3:4 and one
+                    is 4:3, so a square box is the ratio that leaves the least dead space once
+                    nothing is cropped — it wastes ~12% of the box across the set against ~27%
+                    for 4:3. White ground because all six were shot on white or near-white, so
+                    the bars the letterboxing leaves read as part of the plate. */}
+                <div className="relative aspect-square overflow-hidden rounded-xl border border-white/10 bg-white">
                   <Image
                     src={k.image}
                     alt={k.alt}
                     fill
                     sizes="(min-width: 1024px) 22rem, (min-width: 640px) 45vw, 90vw"
-                    className={`object-cover ${k.position}`}
+                    className="object-contain"
                   />
                 </div>
                 <h3 className="mt-5 font-display text-lg font-bold tracking-tight">{k.title}</h3>
