@@ -1,27 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
-  Boxes,
   ChevronDown,
   ClipboardList,
   CircleCheckBig,
   FileText,
   GraduationCap,
-  Grid2x2,
-  Layers,
   PencilRuler,
   Presentation,
   Quote,
-  Rows3,
-  Ruler,
-  ShowerHead,
   SlidersHorizontal,
   Truck,
   Users,
-  Wrench,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -69,68 +62,229 @@ function SectionHead({
   );
 }
 
+/* ---------------------------------------------------------------------------
+   Hero slideshow
+
+   Four slides — three portal screenshots, then a short clip — crossfading on a
+   loop with no controls. The stills and the video are all ~2:1, so they share
+   one frame; the frame sits inside a box with the same aspect ratio the plan
+   sketch it replaced had (420x340), which is what keeps the hero from resizing
+   when the slides change or before the first image decodes.
+   --------------------------------------------------------------------------- */
+
+const HERO_STILLS = [
+  "/hero-slideshow/still-1.png",
+  "/hero-slideshow/still-2.png",
+  "/hero-slideshow/still-3.png",
+];
+const HERO_VIDEO = "/hero-slideshow/hero-still-video.mp4";
+/** The video is the last slide; the sequence wraps from it back to still 1. */
+const HERO_VIDEO_INDEX = HERO_STILLS.length;
+const HERO_SLIDE_COUNT = HERO_STILLS.length + 1;
+
+/** How long each still holds before advancing. */
+const HERO_STILL_MS = 3500;
 /**
- * Decorative bathroom plan, in place of a stock photo. It is the "Drawn" half
- * of the tagline made literal — the same thing a dealer produces in the
- * configurator — and being line art it stays crisp at any size and adds no
- * image weight to the page.
+ * Safety net for the video slide. Normally `onEnded` advances it (the clip runs
+ * ~3.2s), but if the browser blocks autoplay or the decode fails, `ended` never
+ * fires and the carousel would stall on a black frame forever. This advances
+ * anyway, comfortably after the clip should have finished.
  */
-function FloorPlanSketch({ className = "" }: { className?: string }) {
+const HERO_VIDEO_MAX_MS = 8000;
+
+function HeroSlideshow({
+  alts,
+  videoLabel,
+  reducedMotion,
+}: {
+  alts: string[];
+  videoLabel: string;
+  reducedMotion: boolean;
+}) {
+  const [index, setIndex] = useState(0);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const showingVideo = index === HERO_VIDEO_INDEX;
+
+  const advance = () => setIndex((i) => (i + 1) % HERO_SLIDE_COUNT);
+
+  // The clock. Stills get a fixed hold; the video gets its fallback ceiling.
+  useEffect(() => {
+    if (reducedMotion) return;
+    const id = window.setTimeout(
+      () => setIndex((i) => (i + 1) % HERO_SLIDE_COUNT),
+      showingVideo ? HERO_VIDEO_MAX_MS : HERO_STILL_MS,
+    );
+    return () => window.clearTimeout(id);
+  }, [index, showingVideo, reducedMotion]);
+
+  // Play only on the video's turn, and rewind on the way out so the loop always
+  // replays the clip from the top rather than resuming its last frame.
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v || reducedMotion) return;
+    if (showingVideo) {
+      v.currentTime = 0;
+      // Autoplay can still be refused; the fallback timer above covers that.
+      void v.play().catch(() => {});
+    } else {
+      v.pause();
+    }
+  }, [showingVideo, reducedMotion]);
+
   return (
-    <svg viewBox="0 0 420 340" fill="none" aria-hidden className={className}>
-      <defs>
-        <pattern id="kf-plan-grid" width="20" height="20" patternUnits="userSpaceOnUse">
-          <circle cx="1" cy="1" r="1" fill="currentColor" opacity="0.3" />
-        </pattern>
-      </defs>
-      <rect width="420" height="340" fill="url(#kf-plan-grid)" />
+    // Outer box: the plan sketch's footprint, so the hero grid is unchanged.
+    <div className="mx-auto grid aspect-[420/340] w-full max-w-lg place-items-center">
+      {/* Inner frame: the screenshots' own 1915x942 ratio, so object-cover crops nothing. */}
+      <div className="relative aspect-[1915/942] w-full overflow-hidden rounded-xl border border-white/10 bg-ink-soft shadow-2xl shadow-black/40">
+        {HERO_STILLS.map((src, i) => (
+          <Image
+            key={src}
+            src={src}
+            alt={alts[i] ?? ""}
+            fill
+            sizes="(min-width: 1024px) 32rem, 100vw"
+            // Slide 1 is above the fold and is what a reduced-motion visitor sees.
+            priority={i === 0}
+            className={`object-cover transition-opacity duration-300 ${
+              index === i ? "opacity-100" : "opacity-0"
+            }`}
+          />
+        ))}
 
-      <g stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
-        {/* Overall dimension line across the top */}
-        <g opacity="0.45" strokeWidth="1.25">
-          <path d="M32 16h356" />
-          <path d="M32 10v12M388 10v12" />
-        </g>
+        {/* Skipped entirely under reduced motion — nothing to play, nothing to fetch. */}
+        {reducedMotion ? null : (
+          <video
+            ref={videoRef}
+            src={HERO_VIDEO}
+            aria-label={videoLabel}
+            muted
+            playsInline
+            preload="metadata"
+            onEnded={advance}
+            onError={advance}
+            className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${
+              showingVideo ? "opacity-100" : "opacity-0"
+            }`}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
 
-        {/* Room */}
-        <rect x="32" y="34" width="356" height="272" rx="3" strokeWidth="2.5" opacity="0.85" />
+/* ---------------------------------------------------------------------------
+   How-it-works card
 
-        {/* Door + swing, bottom left */}
-        <g opacity="0.5" strokeWidth="1.5">
-          <path d="M32 236v70" strokeWidth="3" stroke="var(--color-ink)" />
-          <path d="M32 236l52 8" />
-          <path d="M32 306a70 70 0 0 0 52-62" strokeDasharray="4 5" />
-        </g>
+   Default state is the plain card. When it becomes active — hover on a pointer
+   device, tap on a touch one — its clip fades in behind the copy and the icon
+   fades out. The clip covers the whole card rather than the 28px icon slot:
+   the brief asked for the icon area to swap, but a video that size reads as
+   noise, and growing the slot would change how the card looks at rest, which
+   the brief also ruled out. A full-bleed layer does both — the resting card is
+   untouched and the clip is actually watchable.
+   --------------------------------------------------------------------------- */
 
-        {/* Shower — square base with a centre drain */}
-        <g strokeWidth="2" opacity="0.8">
-          <rect x="54" y="56" width="128" height="128" rx="2" />
-          <rect x="64" y="66" width="108" height="108" rx="2" opacity="0.4" />
-          <circle cx="118" cy="120" r="7" />
-          <path d="M118 66v37M118 137v37M64 120h37M135 120h37" opacity="0.35" strokeDasharray="3 6" />
-        </g>
+function StepCard({
+  icon: Icon,
+  video,
+  n,
+  stepLabel,
+  title,
+  body,
+  active,
+  reducedMotion,
+  onActivate,
+  onDeactivate,
+  canHover,
+}: {
+  icon: LucideIcon;
+  video: string;
+  n: string;
+  stepLabel: string;
+  title: string;
+  body: string;
+  active: boolean;
+  reducedMotion: boolean;
+  onActivate: () => void;
+  onDeactivate: () => void;
+  canHover: boolean;
+}) {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const playing = active && !reducedMotion;
 
-        {/* Vanity — cabinet run with two basins */}
-        <g strokeWidth="2" opacity="0.8">
-          <rect x="230" y="56" width="138" height="66" rx="2" />
-          <ellipse cx="264" cy="89" rx="18" ry="14" />
-          <ellipse cx="334" cy="89" rx="18" ry="14" />
-          <path d="M299 56v66" opacity="0.35" />
-        </g>
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    if (playing) {
+      void v.play().catch(() => {});
+    } else {
+      v.pause();
+      v.currentTime = 0;
+    }
+  }, [playing]);
 
-        {/* Toilet — sits clear of the door swing to the left of it */}
-        <g strokeWidth="2" opacity="0.7">
-          <rect x="128" y="226" width="48" height="20" rx="2" />
-          <ellipse cx="152" cy="270" rx="21" ry="26" />
-        </g>
+  return (
+    <li
+      className={`${CARD} relative overflow-hidden`}
+      // Same split as the partner cards: mouseenter on a touchscreen makes the
+      // first tap open and the click that follows immediately close again.
+      onMouseEnter={canHover ? onActivate : undefined}
+      onMouseLeave={canHover ? onDeactivate : undefined}
+      onClick={canHover ? undefined : active ? onDeactivate : onActivate}
+    >
+      {reducedMotion ? null : (
+        <>
+          <video
+            ref={videoRef}
+            src={video}
+            muted
+            loop
+            playsInline
+            preload="metadata"
+            aria-hidden
+            className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${
+              playing ? "opacity-100" : "opacity-0"
+            }`}
+          />
+          {/* Scrim — the copy stays readable over whatever frame is on screen. All three
+              clips are screen recordings of a light UI, so this has to be heavy; at 75% the
+              body text washed out against the white configurator behind it. */}
+          <div
+            aria-hidden
+            className={`absolute inset-0 bg-ink/85 transition-opacity duration-300 ${
+              playing ? "opacity-100" : "opacity-0"
+            }`}
+          />
+        </>
+      )}
 
-        {/* Flooring field — 12x24 tile run */}
-        <g strokeWidth="1.25" opacity="0.4">
-          <rect x="212" y="200" width="156" height="96" rx="2" />
-          <path d="M212 232h156M212 264h156M290 200v32M251 232v32M329 232v32M290 264v32" />
-        </g>
-      </g>
-    </svg>
+      <div className="relative">
+        <div className="flex items-center justify-between">
+          <Icon
+            className={`h-7 w-7 text-accent-soft transition-opacity duration-300 ${
+              playing ? "opacity-0" : "opacity-100"
+            }`}
+            aria-hidden
+          />
+          <span aria-hidden className="font-display text-4xl font-bold text-white/10">
+            {n}
+          </span>
+        </div>
+        <p className="mt-6 font-mono text-[11px] uppercase tracking-[0.2em] text-accent-soft/70">
+          {stepLabel}
+        </p>
+        <h3 className="mt-2 font-display text-2xl font-bold tracking-tight">{title}</h3>
+        {/* The body copy lifts while the clip runs: even under the scrim, a bright frame
+            behind it eats enough contrast that white/60 stops being comfortable. */}
+        <p
+          className={`mt-3 text-sm leading-relaxed transition-colors duration-300 ${
+            playing ? "text-white/85" : "text-white/60"
+          }`}
+        >
+          {body}
+        </p>
+      </div>
+    </li>
   );
 }
 
@@ -148,23 +302,32 @@ export default function LandingPage() {
   const [openPartner, setOpenPartner] = useState<string | null>(null);
   const closePartner = (key: string) => setOpenPartner((cur) => (cur === key ? null : cur));
 
-  const steps: { icon: LucideIcon; n: string; title: string; body: string }[] = [
-    { icon: PencilRuler, n: "01", title: t("landing.how.drawTitle"), body: t("landing.how.drawBody") },
-    { icon: Truck, n: "02", title: t("landing.how.deliverTitle"), body: t("landing.how.deliverBody") },
-    { icon: CircleCheckBig, n: "03", title: t("landing.how.doneTitle"), body: t("landing.how.doneBody") },
+  /* Anyone who has asked their OS to calm animations down gets the page as it was before the
+     media landed: a single still in the hero, icons on the step cards, no clips at all.
+     serverValue false so the server markup is the animated case, which is the common one. */
+  const reducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)", false);
+
+  // Same one-at-a-time pattern as the partner cards above.
+  const [openStep, setOpenStep] = useState<string | null>(null);
+
+  const steps: { icon: LucideIcon; video: string; n: string; title: string; body: string }[] = [
+    { icon: PencilRuler, video: "/three-steps/draw.mp4", n: "01", title: t("landing.how.drawTitle"), body: t("landing.how.drawBody") },
+    { icon: Truck, video: "/three-steps/deliver.mp4", n: "02", title: t("landing.how.deliverTitle"), body: t("landing.how.deliverBody") },
+    { icon: CircleCheckBig, video: "/three-steps/done.mp4", n: "03", title: t("landing.how.doneTitle"), body: t("landing.how.doneBody") },
   ];
 
-  // Seven line items: the wall-panel card split into its two systems (HPL and SPC), and
-  // ThermaGlass's doors/bases became a card of its own. Flooring stays unbranded — it ships
-  // as a white-box product, so no consumer brand is named here.
-  const kit: { icon: LucideIcon; title: string; body: string }[] = [
-    { icon: Rows3, title: t("landing.kit.naturePanelTitle"), body: t("landing.kit.naturePanelBody") },
-    { icon: Layers, title: t("landing.kit.nuvoTitle"), body: t("landing.kit.nuvoBody") },
-    { icon: ShowerHead, title: t("landing.kit.thermaGlassTitle"), body: t("landing.kit.thermaGlassBody") },
-    { icon: Boxes, title: t("landing.kit.csTitle"), body: t("landing.kit.csBody") },
-    { icon: Wrench, title: t("landing.kit.deltaTitle"), body: t("landing.kit.deltaBody") },
-    { icon: Grid2x2, title: t("landing.kit.flooringTitle"), body: t("landing.kit.flooringBody") },
-    { icon: Ruler, title: t("landing.kit.wallBaseTitle"), body: t("landing.kit.wallBaseBody") },
+  /* Six line items — flooring and wall base ship and install together, so they read as one
+     card. Flooring stays unbranded in the copy (it is a white-box product); `position` is
+     what keeps the crop honest, since these are portrait and square plates going into a 4:3
+     box. Delta's is pinned to the top because its wordmark sits in the top-left corner and a
+     centred crop would slice through it. */
+  const kit: { image: string; position: string; title: string; body: string; alt: string }[] = [
+    { image: "/whats-in-the-kit/nature-panel.png", position: "object-center", title: t("landing.kit.naturePanelTitle"), body: t("landing.kit.naturePanelBody"), alt: t("landing.kit.naturePanelAlt") },
+    { image: "/whats-in-the-kit/nuvo-spc.png", position: "object-center", title: t("landing.kit.nuvoTitle"), body: t("landing.kit.nuvoBody"), alt: t("landing.kit.nuvoAlt") },
+    { image: "/whats-in-the-kit/therma-glass.png", position: "object-center", title: t("landing.kit.thermaGlassTitle"), body: t("landing.kit.thermaGlassBody"), alt: t("landing.kit.thermaGlassAlt") },
+    { image: "/whats-in-the-kit/cs-factory.png", position: "object-center", title: t("landing.kit.csTitle"), body: t("landing.kit.csBody"), alt: t("landing.kit.csAlt") },
+    { image: "/whats-in-the-kit/delta-plumbing.png", position: "object-top", title: t("landing.kit.deltaTitle"), body: t("landing.kit.deltaBody"), alt: t("landing.kit.deltaAlt") },
+    { image: "/whats-in-the-kit/flooring-base.png", position: "object-center", title: t("landing.kit.flooringTitle"), body: t("landing.kit.flooringBody"), alt: t("landing.kit.flooringAlt") },
   ];
 
   /* Supplier names are proper nouns and stay untranslated; what they supply and why we
@@ -272,7 +435,11 @@ export default function LandingPage() {
             </div>
           </div>
 
-          <FloorPlanSketch className="mx-auto w-full max-w-lg text-accent-soft" />
+          <HeroSlideshow
+            alts={[t("landing.hero.slide1Alt"), t("landing.hero.slide2Alt"), t("landing.hero.slide3Alt")]}
+            videoLabel={t("landing.hero.videoLabel")}
+            reducedMotion={reducedMotion}
+          />
         </div>
       </section>
 
@@ -287,19 +454,20 @@ export default function LandingPage() {
 
           <ol className="mt-14 grid gap-6 md:grid-cols-3">
             {steps.map((s, i) => (
-              <li key={s.n} className={CARD}>
-                <div className="flex items-center justify-between">
-                  <s.icon className="h-7 w-7 text-accent-soft" aria-hidden />
-                  <span aria-hidden className="font-display text-4xl font-bold text-white/10">
-                    {s.n}
-                  </span>
-                </div>
-                <p className="mt-6 font-mono text-[11px] uppercase tracking-[0.2em] text-accent-soft/70">
-                  {t("landing.how.step", { n: String(i + 1) })}
-                </p>
-                <h3 className="mt-2 font-display text-2xl font-bold tracking-tight">{s.title}</h3>
-                <p className="mt-3 text-sm leading-relaxed text-white/60">{s.body}</p>
-              </li>
+              <StepCard
+                key={s.n}
+                icon={s.icon}
+                video={s.video}
+                n={s.n}
+                stepLabel={t("landing.how.step", { n: String(i + 1) })}
+                title={s.title}
+                body={s.body}
+                active={openStep === s.n}
+                reducedMotion={reducedMotion}
+                canHover={canHover}
+                onActivate={() => setOpenStep(s.n)}
+                onDeactivate={() => setOpenStep((cur) => (cur === s.n ? null : cur))}
+              />
             ))}
           </ol>
         </div>
@@ -317,10 +485,14 @@ export default function LandingPage() {
           <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {kit.map((k) => (
               <article key={k.title} className={CARD}>
-                {/* PLACEHOLDER IMAGE FRAME — replace this block with real product
-                    photography (next/image, same 4:3 box) when shots are ready. */}
-                <div className="flex aspect-[4/3] items-center justify-center rounded-xl border border-white/10 bg-gradient-to-b from-accent/20 to-transparent">
-                  <k.icon className="h-10 w-10 text-accent-soft/80" aria-hidden />
+                <div className="relative aspect-[4/3] overflow-hidden rounded-xl border border-white/10 bg-ink-soft">
+                  <Image
+                    src={k.image}
+                    alt={k.alt}
+                    fill
+                    sizes="(min-width: 1024px) 22rem, (min-width: 640px) 45vw, 90vw"
+                    className={`object-cover ${k.position}`}
+                  />
                 </div>
                 <h3 className="mt-5 font-display text-lg font-bold tracking-tight">{k.title}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-white/60">{k.body}</p>
