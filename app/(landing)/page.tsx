@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
+  Check,
   ChevronDown,
   ClipboardList,
   CircleCheckBig,
@@ -279,7 +280,7 @@ function StepCard({
 }
 
 export default function LandingPage() {
-  const { t } = useLanguage();
+  const { t, tList } = useLanguage();
 
   /* Partner "why we chose them" reveal.
      There is no existing rollover card in the app to copy, so this is the pattern: one
@@ -300,6 +301,35 @@ export default function LandingPage() {
   // Same one-at-a-time pattern as the partner cards above.
   const [openStep, setOpenStep] = useState<string | null>(null);
 
+  /* Kit "what's included" reveal — the partner pattern again, so the two grids behave the
+     same way, plus the two things the partner cards never got: Escape, and a tap outside
+     the grid. Both are scoped to the kit tiles rather than shared, because the partner
+     section is off-limits in this change. */
+  const [openKit, setOpenKit] = useState<string | null>(null);
+  const closeKit = (key: string) => setOpenKit((cur) => (cur === key ? null : cur));
+
+  useEffect(() => {
+    if (openKit === null) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpenKit(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [openKit]);
+
+  /* Touch only: a tap anywhere that is not a kit tile closes the open one. On a pointer
+     device mouseleave already does this, and a stray listener would fight it. `pointerdown`
+     rather than `click` so the dismissal lands before the tap's own click can re-toggle. */
+  useEffect(() => {
+    if (openKit === null || canHover) return;
+    const onDown = (e: PointerEvent) => {
+      const el = e.target instanceof Element ? e.target : null;
+      if (!el?.closest("[data-kit-tile]")) setOpenKit(null);
+    };
+    document.addEventListener("pointerdown", onDown);
+    return () => document.removeEventListener("pointerdown", onDown);
+  }, [openKit, canHover]);
+
   const steps: { icon: LucideIcon; video: string; n: string; title: string; body: string }[] = [
     { icon: PencilRuler, video: "/three-steps/draw.mp4", n: "01", title: t("landing.how.drawTitle"), body: t("landing.how.drawBody") },
     { icon: Truck, video: "/three-steps/deliver.mp4", n: "02", title: t("landing.how.deliverTitle"), body: t("landing.how.deliverBody") },
@@ -310,13 +340,15 @@ export default function LandingPage() {
      card. Flooring stays unbranded in the copy (it is a white-box product), but the plate it
      ships with is not: showing it whole puts the Durato wordmark back on screen, which the
      old crop had removed. Worth knowing if that policy still stands. */
-  const kit: { image: string; title: string; body: string; alt: string }[] = [
-    { image: "/whats-in-the-kit/nature-panel.png", title: t("landing.kit.naturePanelTitle"), body: t("landing.kit.naturePanelBody"), alt: t("landing.kit.naturePanelAlt") },
-    { image: "/whats-in-the-kit/nuvo-spc.png", title: t("landing.kit.nuvoTitle"), body: t("landing.kit.nuvoBody"), alt: t("landing.kit.nuvoAlt") },
-    { image: "/whats-in-the-kit/therma-glass.png", title: t("landing.kit.thermaGlassTitle"), body: t("landing.kit.thermaGlassBody"), alt: t("landing.kit.thermaGlassAlt") },
-    { image: "/whats-in-the-kit/cs-factory.png", title: t("landing.kit.csTitle"), body: t("landing.kit.csBody"), alt: t("landing.kit.csAlt") },
-    { image: "/whats-in-the-kit/delta-plumbing.png", title: t("landing.kit.deltaTitle"), body: t("landing.kit.deltaBody"), alt: t("landing.kit.deltaAlt") },
-    { image: "/whats-in-the-kit/flooring-base.png", title: t("landing.kit.flooringTitle"), body: t("landing.kit.flooringBody"), alt: t("landing.kit.flooringAlt") },
+  /* `key` doubles as the i18n prefix for the rollover list — `<key>Included` — and as the
+     open/closed identity, so the two never drift apart. */
+  const kit: { key: string; image: string; title: string; body: string; alt: string }[] = [
+    { key: "naturePanel", image: "/whats-in-the-kit/nature-panel.png", title: t("landing.kit.naturePanelTitle"), body: t("landing.kit.naturePanelBody"), alt: t("landing.kit.naturePanelAlt") },
+    { key: "nuvo", image: "/whats-in-the-kit/nuvo-spc.png", title: t("landing.kit.nuvoTitle"), body: t("landing.kit.nuvoBody"), alt: t("landing.kit.nuvoAlt") },
+    { key: "thermaGlass", image: "/whats-in-the-kit/therma-glass.png", title: t("landing.kit.thermaGlassTitle"), body: t("landing.kit.thermaGlassBody"), alt: t("landing.kit.thermaGlassAlt") },
+    { key: "cs", image: "/whats-in-the-kit/cs-factory.png", title: t("landing.kit.csTitle"), body: t("landing.kit.csBody"), alt: t("landing.kit.csAlt") },
+    { key: "delta", image: "/whats-in-the-kit/delta-plumbing.png", title: t("landing.kit.deltaTitle"), body: t("landing.kit.deltaBody"), alt: t("landing.kit.deltaAlt") },
+    { key: "flooring", image: "/whats-in-the-kit/flooring-base.png", title: t("landing.kit.flooringTitle"), body: t("landing.kit.flooringBody"), alt: t("landing.kit.flooringAlt") },
   ];
 
   /* Supplier names are proper nouns and stay untranslated; what they supply and why we
@@ -477,26 +509,95 @@ export default function LandingPage() {
           />
 
           <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {kit.map((k) => (
-              <article key={k.title} className={CARD}>
-                {/* Square, not 4:3. Three of the six plates are square, two are 3:4 and one
-                    is 4:3, so a square box is the ratio that leaves the least dead space once
-                    nothing is cropped — it wastes ~12% of the box across the set against ~27%
-                    for 4:3. White ground because all six were shot on white or near-white, so
-                    the bars the letterboxing leaves read as part of the plate. */}
-                <div className="relative aspect-square overflow-hidden rounded-xl border border-white/10 bg-white">
-                  <Image
-                    src={k.image}
-                    alt={k.alt}
-                    fill
-                    sizes="(min-width: 1024px) 22rem, (min-width: 640px) 45vw, 90vw"
-                    className="object-contain"
+            {kit.map((k) => {
+              const open = openKit === k.key;
+              return (
+                <article
+                  key={k.key}
+                  data-kit-tile
+                  className={`${CARD} relative`}
+                  onMouseEnter={canHover ? () => setOpenKit(k.key) : undefined}
+                  onMouseLeave={canHover ? () => closeKit(k.key) : undefined}
+                >
+                  {/* Square, not 4:3. Three of the six plates are square, two are 3:4 and one
+                      is 4:3, so a square box is the ratio that leaves the least dead space once
+                      nothing is cropped — it wastes ~12% of the box across the set against ~27%
+                      for 4:3. White ground because all six were shot on white or near-white, so
+                      the bars the letterboxing leaves read as part of the plate. */}
+                  <div className="relative aspect-square overflow-hidden rounded-xl border border-white/10 bg-white">
+                    <Image
+                      src={k.image}
+                      alt={k.alt}
+                      fill
+                      sizes="(min-width: 1024px) 22rem, (min-width: 640px) 45vw, 90vw"
+                      className="object-contain"
+                    />
+                  </div>
+                  <h3 className="mt-5 font-display text-lg font-bold tracking-tight">{k.title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-white/60">{k.body}</p>
+
+                  {/* The control is a transparent sheet over the tile rather than a wrapper
+                      around the copy: it leaves the resting card exactly as it was, keeps the
+                      heading and paragraph out of a <button> (they are flow content, which a
+                      button may not legally contain), and still reaches the keyboard as a
+                      single stop. */}
+                  <button
+                    type="button"
+                    aria-expanded={open}
+                    aria-controls={`kit-included-${k.key}`}
+                    aria-label={`${k.title} — ${t("landing.kit.includedHeading")}`}
+                    onClick={() => setOpenKit((cur) => (cur === k.key ? null : k.key))}
+                    // Keyboard focus opens; a tap's focus must not, or the click that follows
+                    // it would toggle straight back to closed and the first tap would look dead.
+                    onFocus={(e) => {
+                      if (e.currentTarget.matches(":focus-visible")) setOpenKit(k.key);
+                    }}
+                    onBlur={() => closeKit(k.key)}
+                    className="absolute inset-0 z-10 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
                   />
-                </div>
-                <h3 className="mt-5 font-display text-lg font-bold tracking-tight">{k.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-white/60">{k.body}</p>
-              </article>
-            ))}
+
+                  {open ? (
+                    <div
+                      id={`kit-included-${k.key}`}
+                      // Covers the tile, like the partner blurb — a popover hung off the
+                      // bottom row of the grid would open below the fold, and this needs no
+                      // collision handling to stay on screen at any width.
+                      // The fade is neutralised for reduced motion by the global rule in
+                      // globals.css, which zeroes every animation-duration.
+                      // Fully opaque, unlike the partner blurb's bg-ink/95: that one covers a
+                      // dark card, this one covers a white image plate, and at 95% the plate
+                      // and the copy underneath ghost through as a milky rectangle.
+                      className="absolute inset-0 z-20 flex animate-[fadeIn_140ms_ease-out] flex-col rounded-2xl border border-accent/40 bg-ink p-6"
+                      // Touch has no mouseleave, so a second tap anywhere on the open panel
+                      // closes it. On a pointer device this would fight the hover.
+                      onClick={canHover ? undefined : () => setOpenKit(null)}
+                    >
+                      <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-accent-soft">
+                        {t("landing.kit.includedHeading")}
+                      </p>
+                      <ul className="mt-4 space-y-2.5 overflow-y-auto">
+                        {tList(`landing.kit.${k.key}Included`).map((item) => (
+                          <li key={item} className="flex gap-2.5 text-sm leading-relaxed text-white/80">
+                            <Check className="mt-[5px] h-3.5 w-3.5 shrink-0 text-accent-soft" aria-hidden />
+                            <span>{item}</span>
+                          </li>
+                        ))}
+                      </ul>
+                      {!canHover ? (
+                        <button
+                          type="button"
+                          onClick={() => setOpenKit(null)}
+                          className="mt-auto flex items-center gap-1.5 self-start pt-4 font-mono text-[11px] uppercase tracking-[0.16em] text-white/50"
+                        >
+                          <X className="h-3.5 w-3.5" aria-hidden />
+                          {t("landing.kit.close")}
+                        </button>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </article>
+              );
+            })}
           </div>
         </div>
       </section>

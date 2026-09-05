@@ -80,6 +80,44 @@ export const dictionary: Record<Lang, Record<string, any>> = {
         flooringTitle: "Flooring & Wall Base",
         flooringBody: "12×24 stone-look SPC rigid core flooring with color-matched baseboard trim. Waterproof, durable, click-lock installation with a clean finished edge.",
         flooringAlt: "Stone-look SPC floor planks in four colorways with matching baseboard trim.",
+        // Rollover: the take-off for each line, revealed on hover/tap over the tile.
+        // Each *Included list must stay the same LENGTH in all three languages.
+        includedHeading: "What's included",
+        close: "Close",
+        naturePanelIncluded: [
+          "6–8 panels, 24\" × 94.5\"",
+          "Sealant",
+          "Hidden corner profiles",
+          "Base profiles",
+          "Decorative finish trims",
+        ],
+        nuvoIncluded: [
+          "8 panels, 22\" × 80\"",
+          "All trims and finish pieces",
+          "Sealant",
+          "Installation strips",
+        ],
+        thermaGlassIncluded: [
+          "Choose: acrylic/composite shower base or deep soaking skirted acrylic tub",
+          "Choose your shower door style",
+          "Choose your metal trim color",
+        ],
+        csIncluded: [
+          "7 door styles, 14 color choices",
+          "Premium anti-microbial countertops",
+          "32 countertop colors available",
+        ],
+        deltaIncluded: [
+          "Premium hydro-static shower valve",
+          "Diamond Seal ceramic technology",
+          "Color-matched fixtures and bathroom accessories",
+        ],
+        flooringIncluded: [
+          "12\" × 24\" planks",
+          "4 color choices",
+          "Waterproof",
+          "Square sculpted rubber base in matching colors",
+        ],
       },
       partners: {
         eyebrow: "Our Partners",
@@ -2202,6 +2240,42 @@ export const dictionary: Record<Lang, Record<string, any>> = {
         flooringTitle: "Piso y zócalo",
         flooringBody: "Piso SPC de núcleo rígido 12×24 con apariencia de piedra y zócalo a juego de color. Impermeable, resistente, instalación con sistema de clic y un remate limpio y terminado.",
         flooringAlt: "Tablones de piso SPC con apariencia de piedra en cuatro colores, con zócalo a juego.",
+        includedHeading: "Qué incluye",
+        close: "Cerrar",
+        naturePanelIncluded: [
+          "6–8 paneles, 24\" × 94.5\"",
+          "Sellador",
+          "Perfiles de esquina ocultos",
+          "Perfiles de base",
+          "Molduras decorativas de acabado",
+        ],
+        nuvoIncluded: [
+          "8 paneles, 22\" × 80\"",
+          "Todas las molduras y piezas de acabado",
+          "Sellador",
+          "Tiras de instalación",
+        ],
+        thermaGlassIncluded: [
+          "Elija: base de ducha de acrílico/compuesto o bañera acrílica profunda con faldón",
+          "Elija el estilo de su puerta de ducha",
+          "Elija el color del herraje metálico",
+        ],
+        csIncluded: [
+          "7 estilos de puerta, 14 opciones de color",
+          "Encimeras premium antimicrobianas",
+          "32 colores de encimera disponibles",
+        ],
+        deltaIncluded: [
+          "Válvula de ducha hidrostática premium",
+          "Tecnología cerámica Diamond Seal",
+          "Grifería y accesorios de baño a juego de color",
+        ],
+        flooringIncluded: [
+          "Tablones de 12\" × 24\"",
+          "4 opciones de color",
+          "Impermeable",
+          "Zócalo de caucho esculpido cuadrado en colores a juego",
+        ],
       },
       partners: {
         eyebrow: "Nuestros socios",
@@ -4260,6 +4334,42 @@ export const dictionary: Record<Lang, Record<string, any>> = {
         flooringTitle: "Покрытие и плинтус",
         flooringBody: "Покрытие SPC с жёстким сердечником 12×24 дюйма, фактура камня, с плинтусом в цвет. Влагостойкое, прочное, замковый монтаж и аккуратно завершённый край.",
         flooringAlt: "Планки покрытия SPC с фактурой камня в четырёх расцветках и подходящий по цвету плинтус.",
+        includedHeading: "Что входит",
+        close: "Закрыть",
+        naturePanelIncluded: [
+          "6–8 панелей, 24 × 94,5 дюйма",
+          "Герметик",
+          "Скрытые угловые профили",
+          "Стартовые профили",
+          "Декоративные финишные молдинги",
+        ],
+        nuvoIncluded: [
+          "8 панелей, 22 × 80 дюймов",
+          "Все молдинги и финишные элементы",
+          "Герметик",
+          "Монтажные планки",
+        ],
+        thermaGlassIncluded: [
+          "На выбор: акриловый или композитный душевой поддон либо глубокая акриловая ванна с панелью",
+          "Выберите стиль душевой двери",
+          "Выберите цвет металлической фурнитуры",
+        ],
+        csIncluded: [
+          "7 вариантов фасадов, 14 цветов на выбор",
+          "Премиальные антимикробные столешницы",
+          "32 цвета столешниц в наличии",
+        ],
+        deltaIncluded: [
+          "Премиальный гидростатический душевой смеситель",
+          "Керамическая технология Diamond Seal",
+          "Смесители и аксессуары для ванной в едином цвете",
+        ],
+        flooringIncluded: [
+          "Планки 12 × 24 дюйма",
+          "4 цвета на выбор",
+          "Влагостойкое",
+          "Квадратный профилированный резиновый плинтус в тон",
+        ],
       },
       partners: {
         eyebrow: "Наши партнёры",
