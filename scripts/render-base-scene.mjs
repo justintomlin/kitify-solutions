@@ -49,6 +49,34 @@ const OUT_PNG = path.join(OUT_DIR, "base-modern.png");
 const OUT_MASK = path.join(OUT_DIR, "base-modern-mask.png");
 const OUT_JSON = path.join(ROOT, "lib", "data", "hero-scene.json");
 
+/* ===========================================================================
+   TWO OUTPUT MODES — `node scripts/render-base-scene.mjs [--v2]`
+
+   v1 (default) is the original compositor plate: 1800x860, the seven paintable
+   region IDs, written to base-modern*.png + lib/data/hero-scene.json.
+
+   v2 (--v2) is the structure factory for the next photo plate: 1920x1080 at the
+   SAME camera and the SAME horizontal field of view, so the centre 1920x918
+   band is the v1 composition at 1920-wide scale and the full frame is that
+   composition with headroom above and below for an image model to work into.
+   It writes four PNGs (full frame + band crop, clay + ID) and its own JSON.
+
+   ONE SCENE, ONE LEGEND. The rubber base, the expanded ID legend and the fixed
+   ID pass are NOT gated on the mode — there is a single scene description and
+   both modes render it. That is deliberate: branching geometry is where this
+   kind of script rots. The consequence is that re-running v1 today would
+   regenerate base-modern.* WITH the rubber base and the corrected IDs, so it
+   would no longer reproduce the committed v1 bytes. The committed files are
+   left alone; v1 is a frozen fallback plate, not a thing to re-derive.
+   =========================================================================== */
+const V2 = !!process.argv.includes("--v2");
+
+const OUT_V2_CLAY_FULL = path.join(OUT_DIR, "scene-shower.clay-16x9.png");
+const OUT_V2_ID_FULL = path.join(OUT_DIR, "scene-shower.id-16x9.png");
+const OUT_V2_CLAY = path.join(OUT_DIR, "scene-shower.clay.png");
+const OUT_V2_ID = path.join(OUT_DIR, "scene-shower.id.png");
+const OUT_V2_JSON = path.join(ROOT, "lib", "data", "hero-scene-v2.json");
+
 /**
  * Output size, and it is wide on purpose.
  *
@@ -58,7 +86,35 @@ const OUT_JSON = path.join(ROOT, "lib", "data", "hero-scene.json");
  * bottom — which is what was cropping the floor away and making the room look tight. Match
  * the scene's shape to the slot it lands in and almost all of it survives.
  */
-const W = 1800, H = 860;
+const V1_W = 1800, V1_H = 860;
+const W = V2 ? 1920 : V1_W, H = V2 ? 1080 : V1_H;
+
+/**
+ * The v2 band: the slice of the 16:9 frame that reproduces the v1 composition.
+ *
+ * Same camera and same HORIZONTAL fov means the two frames agree pixel-for-pixel along a
+ * scanline once you account for the width change. v1 is 1800 wide; v2 is 1920, a factor of
+ * 1920/1800, so v1's 860 rows become 860 x 1920/1800 = 917.33. Rounded to 918 it stays
+ * centre-symmetric in 1080 (81 rows off the top, 81 off the bottom) at a cost of two thirds
+ * of one pixel of extra vertical coverage — under a tenth of a percent, and invisible.
+ */
+const BAND_H = 918;
+const BAND_Y0 = Math.round((1080 - BAND_H) / 2);   // 81
+
+/**
+ * The v2 vertical fov, DERIVED so the horizontal fov is untouched.
+ *
+ * Three's `fov` is vertical, so widening the frame while holding the camera still means
+ * solving for the vertical angle that leaves the horizontal one alone:
+ *   hFov = 2 atan( tan(vFov_v1 / 2) x aspect_v1 )
+ *   vFov = 2 atan( tan(hFov / 2) / aspect_v2 )
+ * Nothing here is a magic number; change CAM.fov or either aspect and this follows.
+ */
+const RAD = Math.PI / 180, DEG = 180 / Math.PI;
+function verticalFovFor(v1FovDeg, v1Aspect, v2Aspect) {
+  const hFov = 2 * Math.atan(Math.tan((v1FovDeg * RAD) / 2) * v1Aspect);
+  return 2 * Math.atan(Math.tan(hFov / 2) / v2Aspect) * DEG;
+}
 
 /**
  * The room, in inches: 10' wide x 8' high, with the fourth wall behind the camera.
@@ -130,14 +186,30 @@ const WINDOW = { z0: 4, z1: 26, y0: 44, y1: 74 };      // right wall, behind the
 // into frame; the previous near-level framing put the wall-to-floor line at 83% of the
 // picture and left barely a strip of floor. `fov` is vertical, so against the wide output
 // above it opens to roughly a 96 degree horizontal view and takes in the whole room.
-const CAM = { pos: [40, 62, 128], target: [66, 29, 8], fov: 54 };
+const CAM_V1 = { pos: [40, 62, 128], target: [66, 29, 8], fov: 54 };
+// Position and target are shared; only the vertical angle moves, and only because the frame
+// got taller underneath a fixed horizontal angle.
+const CAM = V2
+  ? { ...CAM_V1, fov: verticalFovFor(CAM_V1.fov, V1_W / V1_H, 1920 / 1080) }
+  : CAM_V1;
 
 /**
- * Mask colours. Pure, well separated and never near-black, so the decoder can classify a
- * pixel by nearest match and treat everything unclaimed — fixtures, glass, the ceiling — as
- * "not paintable". Kept in sync with RegionId in lib/hero-regions.ts.
+ * ID colours for the mask pass. Pure, well separated and never near-black, so the decoder can
+ * classify a pixel by nearest match and treat everything unclaimed — glass, the ceiling, the
+ * mirror — as "not paintable" black.
+ *
+ * The first seven are the paintable REGIONS and carry projected quads in the JSON; the rest
+ * are FIXTURE classes, which have an ID so they can be isolated or masked out but no quad,
+ * because nothing paints a texture onto a toilet. RegionId in lib/hero-regions.ts still only
+ * knows the first seven — the rest get typed when a later phase consumes them.
+ *
+ * EVERY VALUE HERE MUST SURVIVE THE PASS BYTE-EXACT. That is what renderId() below is for:
+ * the beauty renderer's sRGB output transform mangles any channel that is not 0x00 or 0xff,
+ * which is why vanityTop (#ff8000) came out of the old pass as #ffbc00 and why nine of the
+ * fourteen values below would have been wrong on arrival.
  */
-const REGION_COLORS = {
+const ID_COLORS = {
+  // paintable regions
   backWall: "#ff0000",
   leftWall: "#00ff00",
   rightWall: "#0000ff",
@@ -145,7 +217,18 @@ const REGION_COLORS = {
   showerArea: "#ff00ff",
   vanityArea: "#00ffff",
   vanityTop: "#ff8000",
+  // trim: paintable in principle (it colour-matches the floor), quads included
+  rubberBase: "#8000ff",
+  // fixture classes
+  showerBase: "#808000",     // pan + curb
+  showerDoor: "#008080",     // frame, posts, header rail, handle — glass stays hidden
+  toilet: "#964b00",
+  showerFixtures: "#ff8060", // rain head + arm, valve escutcheon + handle
+  faucet: "#00ff80",         // spout, arc, both handles
+  vanityLight: "#c000c0",    // bar and stems only; the bulbs stay black
 };
+// Kept for the v1 JSON's `maskColors`, which describes paintable regions only.
+const REGION_COLORS = ID_COLORS;
 
 // --------------------------------- server ----------------------------------
 const MIME = { ".js": "text/javascript", ".html": "text/html" };
@@ -178,6 +261,8 @@ const PAGE = /* html */ `<!doctype html>
 <script src="/vendor/three.min.js"></script>
 <script>
 const W = ${W}, H = ${H};
+const V2 = ${V2};
+const BAND = { y0: ${BAND_Y0}, h: ${BAND_H} };
 const ROOM = ${JSON.stringify(ROOM)};
 const SHOWER = ${JSON.stringify(SHOWER)};
 const DIVIDER_W = ${DIVIDER_W};
@@ -208,8 +293,10 @@ const CTOP = {
   z1: VANITY.depth + VANITY.overhang,
   y: VANITY.body + VANITY.counter,
 };
-const REGION_COLORS = ${JSON.stringify(REGION_COLORS)};
+const ID_COLORS = ${JSON.stringify(ID_COLORS)};
 
+// ---- the two renderers ----------------------------------------------------
+// BEAUTY: unchanged. Antialiased, sRGB-encoded, shadow-mapped — everything a picture wants.
 const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
 renderer.setPixelRatio(1);
 renderer.setSize(W, H);
@@ -217,6 +304,28 @@ renderer.outputEncoding = THREE.sRGBEncoding;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
+
+/**
+ * ID: a second, deliberately dumb renderer. Everything the beauty pass wants is exactly what
+ * corrupts an ID map, so none of it is enabled here.
+ *
+ *   antialias: false  — MSAA averages two IDs into a third colour along every silhouette. The
+ *                       old pass shared the antialiased renderer, which is why 1.79% of the
+ *                       committed mask (27,709 px, 62 distinct colours) is edge blend.
+ *   LinearEncoding    — the sRGB output transform rewrites any mid-range channel. It is why
+ *                       #ff8000 arrived as #ffbc00 and appeared ZERO times in the old mask.
+ *                       Linear is a pass-through, so a flat colour lands as itself.
+ *   shadows off       — a shadow map darkens an ID into a near-match of a different ID.
+ *
+ * Sharing the scene between two renderers is fine; each keeps its own GPU-side state and
+ * re-uploads what it needs on first use.
+ */
+const idRenderer = new THREE.WebGLRenderer({ antialias: false, preserveDrawingBuffer: true, alpha: false });
+idRenderer.setPixelRatio(1);
+idRenderer.setSize(W, H);
+idRenderer.outputEncoding = THREE.LinearEncoding;
+idRenderer.shadowMap.enabled = false;
+document.body.appendChild(idRenderer.domElement);
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color("#f2f1ee");
@@ -475,7 +584,9 @@ function mesh(geo, color, pos, rot, opts) {
   if (rot) m.rotation.set(rot[0], rot[1], rot[2]);
   m.castShadow = !o.basic && !o.noShadow; m.receiveShadow = !o.basic;
   scene.add(m);
-  return register(m, null, { hideInMask: o.hideInMask });
+  // region was hardwired to null here when every lathe/box fixture was untintable black.
+  // Fixtures now carry ID classes of their own, so it comes from the caller like panel/box.
+  return register(m, o.region, { hideInMask: o.hideInMask });
 }
 
 // ---- palette --------------------------------------------------------------
@@ -520,8 +631,9 @@ panel([[0, ROOM.h, SHOWER.z1], [0, ROOM.h, ROOM.d], [0, 0, ROOM.d], [0, 0, SHOWE
 // Right wall.
 panel([[ROOM.w, ROOM.h, ROOM.d], [ROOM.w, ROOM.h, 0], [ROOM.w, 0, 0], [ROOM.w, 0, ROOM.d]], WALL, { map: sideAo, region: "rightWall" });
 
-// Floor: the shower pan is not flooring, so it is a separate unpainted surface.
-panel([[0, 0, 0], [SHOWER.x1, 0, 0], [SHOWER.x1, 0, SHOWER.z1], [0, 0, SHOWER.z1]], "#eceae6", {});
+// Floor: the shower pan is not flooring, so it is a separate surface. It is no longer
+// unclaimed black either — pan and curb share the showerBase ID, since they are one product.
+panel([[0, 0, 0], [SHOWER.x1, 0, 0], [SHOWER.x1, 0, SHOWER.z1], [0, 0, SHOWER.z1]], "#eceae6", { region: "showerBase" });
 panel([[SHOWER.x1, 0, 0], [ROOM.w, 0, 0], [ROOM.w, 0, ROOM.d], [SHOWER.x1, 0, ROOM.d]], FLOOR_C, { map: floorAo, region: "floor" });
 panel([[0, 0, SHOWER.z1], [SHOWER.x1, 0, SHOWER.z1], [SHOWER.x1, 0, ROOM.d], [0, 0, ROOM.d]], FLOOR_C, { region: "floor" });
 
@@ -563,13 +675,14 @@ panel([[ROOM.w, ROOM.h, ROOM.d], [0, ROOM.h, ROOM.d], [0, 0, ROOM.d], [ROOM.w, 0
 
   // Curb and pan. Non-casting like the rest of the alcove — its shadow fell across the pan
   // and the lower wall as another pale-edged shape with no obvious source.
-  box([0, 0, Z - SHOWER.curb], [X, 5, Z], "#eeece8", { noShadow: true });
+  box([0, 0, Z - SHOWER.curb], [X, 5, Z], "#eeece8", { noShadow: true, region: "showerBase" });
 
   // Neither shower fixture casts a shadow. Theirs fell as a second soft head-shaped blob a
   // little away from the real one, which at a glance reads as a duplicate fixture rather
   // than as shading — and the compositor multiplies that ghost into whatever tile the dealer
   // picks, so it survived all the way into the finished preview.
-  const noCast = { noShadow: true };
+  // Head and valve share one ID: they are one plumbing package, bought and finished together.
+  const noCast = { noShadow: true, region: "showerFixtures" };
 
   // Shower head, mounted high on the back wall: the arm leaves the wall at 79" and the head
   // hangs just below it, angled down. A 10" rain head.
@@ -589,14 +702,72 @@ panel([[ROOM.w, ROOM.h, ROOM.d], [0, ROOM.h, ROOM.d], [0, 0, ROOM.d], [ROOM.w, 0
   // None of the enclosure hardware casts either. The head rail in particular threw a long
   // diagonal band clean across the tiled wall — the single most conspicuous mark in the
   // alcove, and one the compositor multiplies into every wall material a dealer tries.
+  // The GLASS stays hidden from the ID pass — the tile behind it is genuinely visible and has
+  // to stay claimable. The HARDWARE no longer hides: frame, posts, header rail and handle are
+  // a product a dealer chooses a finish for, so they get an ID of their own and occlude the
+  // tile they actually cover.
   const glass = { basic: true, opacity: 0.17, hideInMask: true };
-  const glassHw = { hideInMask: true, noShadow: true };
+  const glassHw = { noShadow: true, region: "showerDoor" };
   panel([[0, SHOWER.h - 6, Z], [X, SHOWER.h - 6, Z], [X, 5, Z], [0, 5, Z]], "#dff0f4", glass);
   mesh(new THREE.CylinderGeometry(0.6, 0.6, SHOWER.h - 11, 12), METAL, [X - 0.6, (SHOWER.h - 1) / 2, Z], null, glassHw);
   mesh(new THREE.CylinderGeometry(0.6, 0.6, SHOWER.h - 11, 12), METAL, [0.6, (SHOWER.h - 1) / 2, Z], null, glassHw);
   mesh(new THREE.BoxGeometry(X, 1.2, 1.2), METAL, [X / 2, SHOWER.h - 6, Z], null, glassHw);
   // Door handle.
   mesh(new THREE.CylinderGeometry(0.5, 0.5, 9, 12), METAL, [X - 8, 44, Z + 1.4], null, glassHw);
+})();
+
+/* ---- rubber cove base -----------------------------------------------------
+ *
+ * Flat-profile rubber base, 5" tall, running the room the way trim actually runs it.
+ *
+ * HEIGHT. 5" against a 33.5" countertop (VANITY.body + VANITY.counter) is 1/6.7 of the
+ * floor-to-counter height — the 1/7 sanity check, and 4"/6" are the two stock heights it
+ * sits between.
+ *
+ * THICKNESS is 1/2", which is generous: real rubber base is nearer 1/8". At 1/8" the trim
+ * projects to about two pixels on the back wall and to less than one along the side walls
+ * running away from the lens, which is fine in a photograph and useless in an ID map — the
+ * whole point of giving it an ID is that a later phase can select it. 1/2" is still flat,
+ * still square-toe, still unmistakably trim rather than a plinth, and it survives the mask.
+ *
+ * WHERE IT DOES NOT GO. Not inside the enclosure: not the alcove back wall (x 0..48 at z=0),
+ * not the alcove's left return (x=0, z 0..36), not the divider's tiled inner face. Those are
+ * tiled to the pan. The runs stop dead at the curb line, z = SHOWER.z1.
+ *
+ * CORNERS. Every run is a solid box and adjacent runs overlap by the thickness at each
+ * corner, so inside and outside corners close with no mitre gap and nothing to line up.
+ *
+ * OCCLUSION comes free. The base is a solid standing proud of the wall, so the depth buffer
+ * hides the bottom 5" of whatever is behind it in BOTH passes — the wall regions lose their
+ * bottom 5" to #8000ff in the ID map exactly as real trim would hide them.
+ */
+const BASE_T = 0.5;                              // thickness, out from the wall
+const BASE_H_IN = 5;                             // 5" — see header
+(function rubberBase() {
+  const X = SHOWER.x1, Z = SHOWER.z1;            // 48, 36 — the enclosure's outer corner
+  const DX = X + DIVIDER_W;                      // 54 — the divider's outer face
+  const RUBBER = "#3f4145";                      // dark charcoal, the default stock colour
+  const run = (min, max) => box(min, max, RUBBER, { noShadow: true, region: "rubberBase" });
+
+  // Vanity wall (back wall, z=0), from the divider's outer face to the right wall. Starts at
+  // DX rather than X so it butts the divider's return instead of vanishing behind it.
+  run([DX, 0, 0], [ROOM.w, BASE_H_IN, BASE_T]);
+
+  // Right wall, behind the toilet. Full depth; overlaps the back-wall run at the corner.
+  run([ROOM.w - BASE_T, 0, 0], [ROOM.w, BASE_H_IN, ROOM.d]);
+
+  // Left wall, but only forward of the curb line — behind it is the enclosure.
+  run([0, 0, Z], [BASE_T, BASE_H_IN, ROOM.d]);
+
+  // Fourth wall, behind the camera. Never in frame, included so the trim is genuinely
+  // continuous rather than continuous-where-you-can-see-it.
+  run([0, 0, ROOM.d - BASE_T], [ROOM.w, BASE_H_IN, ROOM.d]);
+
+  // The two segments flanking the shower: the divider's outer face (x=DX, running back to the
+  // wall) and its front edge (z=Z, the sliver square-on to the camera). Together with the
+  // left-wall run above, these are what make the opening read as a finished doorway.
+  run([DX, 0, 0], [DX + BASE_T, BASE_H_IN, Z]);
+  run([X, 0, Z], [DX + BASE_T, BASE_H_IN, Z + BASE_T]);
 })();
 
 // ---- vanity ---------------------------------------------------------------
@@ -670,22 +841,27 @@ panel([[ROOM.w, ROOM.h, ROOM.d], [0, ROOM.h, ROOM.d], [0, 0, ROOM.d], [ROOM.w, 0
   // Faucet: a placeholder the compositor's product photo lands on top of, and which keeps
   // the scene complete when no plumbing package has been chosen. Roughly two thirds of its
   // first size — the original stood 10" over a 14" basin and read as a kitchen fitting.
+  // Spout, arc and both handles share the faucet ID — all pieces, as one selection.
+  const fid = { region: "faucet" };
   const fz = BASIN.cz - BASIN.rz - 2.5;
-  mesh(new THREE.CylinderGeometry(0.72, 0.92, 4.6, 18), METAL, [BASIN.cx, topY + 2.3, fz]);
-  mesh(new THREE.TorusGeometry(2.1, 0.55, 12, 24, Math.PI / 2), METAL, [BASIN.cx, topY + 4.6, fz], [0, Math.PI / 2, 0]);
-  for (const dx of [-4, 4]) mesh(new THREE.CylinderGeometry(0.46, 0.6, 2.2, 14), METAL, [BASIN.cx + dx, topY + 1.1, fz]);
+  mesh(new THREE.CylinderGeometry(0.72, 0.92, 4.6, 18), METAL, [BASIN.cx, topY + 2.3, fz], null, fid);
+  mesh(new THREE.TorusGeometry(2.1, 0.55, 12, 24, Math.PI / 2), METAL, [BASIN.cx, topY + 4.6, fz], [0, Math.PI / 2, 0], fid);
+  for (const dx of [-4, 4]) mesh(new THREE.CylinderGeometry(0.46, 0.6, 2.2, 14), METAL, [BASIN.cx + dx, topY + 1.1, fz], null, fid);
 
   // Mirror and its frame.
   box([MIRROR.x0 - 1.2, MIRROR.y0 - 1.2, 0], [MIRROR.x1 + 1.2, MIRROR.y1 + 1.2, 0.9], "#b6b3ad");
   panel([[MIRROR.x0, MIRROR.y1, 1.0], [MIRROR.x1, MIRROR.y1, 1.0], [MIRROR.x1, MIRROR.y0, 1.0], [MIRROR.x0, MIRROR.y0, 1.0]],
     "#ffffff", { basic: true, map: mirrorTexture() });
 
-  // Three-bulb bar light above the mirror.
+  // Three-bulb bar light above the mirror. The METALWORK carries the ID — the backplate bar
+  // and the three stems, which is what takes a finish. The bulbs stay unclaimed black: glass
+  // is not tintable, and it is the one part of this fixture nobody chooses a colour for.
   const bulbs = 3;
-  mesh(new THREE.BoxGeometry(BARLIGHT.x1 - BARLIGHT.x0, 1.4, 1.4), METAL, [(BARLIGHT.x0 + BARLIGHT.x1) / 2, BARLIGHT.y, 1.2]);
+  const lid_ = { region: "vanityLight" };
+  mesh(new THREE.BoxGeometry(BARLIGHT.x1 - BARLIGHT.x0, 1.4, 1.4), METAL, [(BARLIGHT.x0 + BARLIGHT.x1) / 2, BARLIGHT.y, 1.2], null, lid_);
   for (let i = 0; i < bulbs; i++) {
     const x = BARLIGHT.x0 + ((i + 0.5) / bulbs) * (BARLIGHT.x1 - BARLIGHT.x0);
-    mesh(new THREE.CylinderGeometry(0.5, 0.5, 2.2, 10), METAL, [x, BARLIGHT.y + 1.8, 1.2]);
+    mesh(new THREE.CylinderGeometry(0.5, 0.5, 2.2, 10), METAL, [x, BARLIGHT.y + 1.8, 1.2], null, lid_);
     mesh(new THREE.SphereGeometry(2.4, 20, 16), "#fff6e4", [x, BARLIGHT.y + 4, 1.2], null, { basic: true });
   }
 
@@ -701,22 +877,24 @@ panel([[ROOM.w, ROOM.h, ROOM.d], [0, ROOM.h, ROOM.d], [0, 0, ROOM.d], [ROOM.w, 0
 (function toilet() {
   const x = ROOM.w - TOILET.depth / 2 - 1;      // against the right wall
   const z = TOILET.z;
+  // Every piece is one fixture and carries one ID — tank, lid, pedestal, bowl and seat.
+  const id = { region: "toilet" };
   // Tank against the wall, bowl in front of it.
-  box([ROOM.w - 9, 15, z - TOILET.w / 2 + 1], [ROOM.w - 1, 32, z + TOILET.w / 2 - 1], PORCELAIN);
-  box([ROOM.w - 9.5, 30.6, z - TOILET.w / 2 + 0.4], [ROOM.w - 0.5, 32.4, z + TOILET.w / 2 - 0.4], "#f4f4f2");
+  box([ROOM.w - 9, 15, z - TOILET.w / 2 + 1], [ROOM.w - 1, 32, z + TOILET.w / 2 - 1], PORCELAIN, id);
+  box([ROOM.w - 9.5, 30.6, z - TOILET.w / 2 + 0.4], [ROOM.w - 0.5, 32.4, z + TOILET.w / 2 - 0.4], "#f4f4f2", id);
   // Pedestal, bowl and seat. A flattened sphere gives the bowl its rounded underside without
   // needing a lathe profile.
-  mesh(new THREE.BoxGeometry(9, 13, 11), PORCELAIN, [ROOM.w - 7, 6.5, z]);
+  mesh(new THREE.BoxGeometry(9, 13, 11), PORCELAIN, [ROOM.w - 7, 6.5, z], null, id);
   const bowl = new THREE.SphereGeometry(9.6, 26, 18);
   bowl.scale(0.82, 0.5, 1.0);
-  mesh(bowl, PORCELAIN, [ROOM.w - 11, 15.5, z]);
+  mesh(bowl, PORCELAIN, [ROOM.w - 11, 15.5, z], null, id);
   const seat = new THREE.CylinderGeometry(9.4, 9.4, 1.5, 30);
   seat.scale(0.84, 1, 1.0);
-  mesh(seat, "#f7f7f5", [ROOM.w - 11, 16.6, z]);
+  mesh(seat, "#f7f7f5", [ROOM.w - 11, 16.6, z], null, id);
   // Lid, tipped back against the tank.
   const lid = new THREE.CylinderGeometry(9.0, 9.0, 1.2, 30);
   lid.scale(0.84, 1, 1.0);
-  mesh(lid, "#f7f7f5", [ROOM.w - 4.2, 24, z], [0, 0, Math.PI / 2 - 0.24]);
+  mesh(lid, "#f7f7f5", [ROOM.w - 4.2, 24, z], [0, 0, Math.PI / 2 - 0.24], id);
 
   // No towel on the right wall. That wall runs almost edge-on to the lens, so anything hung
   // on it foreshortens into a vertical stick — a full-size bath towel there read worse than
@@ -818,6 +996,28 @@ const REGIONS = {
       widthIn: CTOP.x1 - CTOP.x0, heightIn: SPLASH.h,
     },
   ],
+  /**
+   * The rubber base, as the four faces the camera can actually see. The fourth-wall run is
+   * omitted — it exists in the geometry for continuity but sits behind the lens, and a quad
+   * projected from behind the camera is meaningless.
+   *
+   * Front faces only: each quad is the outward face of its run, at the thickness the box
+   * stands proud, so a material fitted to it lands on the face rather than inside the wall.
+   */
+  rubberBase: [
+    // Vanity wall, divider return to right wall.
+    { corners: [[SHOWER.x1 + DIVIDER_W, BASE_H_IN, BASE_T], [ROOM.w, BASE_H_IN, BASE_T], [ROOM.w, 0, BASE_T], [SHOWER.x1 + DIVIDER_W, 0, BASE_T]],
+      widthIn: ROOM.w - (SHOWER.x1 + DIVIDER_W), heightIn: BASE_H_IN },
+    // Right wall, forward to the floor cut.
+    { corners: [[ROOM.w - BASE_T, BASE_H_IN, CUT.side], [ROOM.w - BASE_T, BASE_H_IN, 0], [ROOM.w - BASE_T, 0, 0], [ROOM.w - BASE_T, 0, CUT.side]],
+      widthIn: CUT.side, heightIn: BASE_H_IN },
+    // Left wall, from the curb line forward.
+    { corners: [[BASE_T, BASE_H_IN, SHOWER.z1], [BASE_T, BASE_H_IN, CUT.side], [BASE_T, 0, CUT.side], [BASE_T, 0, SHOWER.z1]],
+      widthIn: CUT.side - SHOWER.z1, heightIn: BASE_H_IN },
+    // The divider's front edge, square-on to the camera.
+    { corners: [[SHOWER.x1, BASE_H_IN, SHOWER.z1 + BASE_T], [SHOWER.x1 + DIVIDER_W + BASE_T, BASE_H_IN, SHOWER.z1 + BASE_T], [SHOWER.x1 + DIVIDER_W + BASE_T, 0, SHOWER.z1 + BASE_T], [SHOWER.x1, 0, SHOWER.z1 + BASE_T]],
+      widthIn: DIVIDER_W + BASE_T, heightIn: BASE_H_IN },
+  ],
 };
 
 // Where a product cutout is pinned. Drawn upright in screen space rather than warped onto the
@@ -837,12 +1037,20 @@ const ANCHORS = {
   tubSpout: [2.5, 26, TRIM.z],
 };
 
+/**
+ * Project to normalised coordinates.
+ *
+ * In v2 these come out in BAND space, not full-frame space: x is unchanged (the band is the
+ * full width) and y is rescaled so 0 is the band's top row and 1 its bottom. The production
+ * pair is the band crop, so the JSON has to describe the crop or every quad sits 81 rows low.
+ */
 function project(p) {
   const v = new THREE.Vector3(p[0], p[1], p[2]).project(camera);
-  return [(v.x + 1) / 2, (1 - v.y) / 2];
+  const x = (v.x + 1) / 2, y = (1 - v.y) / 2;
+  return V2 ? [x, (y * H - BAND.y0) / BAND.h] : [x, y];
 }
 // Screen height of one inch at a point, so the compositor can size a fixture in real inches
-// and have it shrink correctly with distance.
+// and have it shrink correctly with distance. Band-relative in v2, like project().
 function unitPerIn(p) {
   const a = project(p), b = project([p[0], p[1] + 12, p[2]]);
   return Math.abs(b[1] - a[1]) / 12;
@@ -850,37 +1058,53 @@ function unitPerIn(p) {
 const round = (n) => Math.round(n * 100000) / 100000;
 
 /**
- * Re-render the same camera as a region ID map.
+ * Re-render the same camera as an ID map, through the ID renderer.
  *
- * Every material is swapped for an unlit flat colour — the region's ID, or black for
- * anything not paintable — and glass is hidden so the tile behind it stays claimable.
- * Antialiasing would blend two IDs into a third colour along every edge, so the pass renders
- * flat and the decoder classifies by nearest match with a tolerance.
+ * Every material is swapped for an unlit flat colour — the mesh's ID, or black for anything
+ * unclaimed — and the glass is hidden so the tile behind it stays claimable. Because this
+ * runs on idRenderer (no MSAA, linear output, no shadows) the result is exact: every pixel
+ * is a legend value, so a decoder can match on equality rather than nearest-with-tolerance.
  */
-function renderMask() {
+function renderId() {
   const saved = [];
   for (const entry of REGISTRY) {
     saved.push({ entry: entry, material: entry.mesh.material, visible: entry.mesh.visible });
     if (entry.hideInMask) { entry.mesh.visible = false; continue; }
-    const colour = entry.region ? REGION_COLORS[entry.region] : "#000000";
+    const colour = entry.region ? ID_COLORS[entry.region] : "#000000";
     entry.mesh.material = new THREE.MeshBasicMaterial({ color: colour, side: THREE.DoubleSide });
   }
   const bg = scene.background;
   scene.background = new THREE.Color("#000000");
-  const shadows = renderer.shadowMap.enabled;
-  renderer.shadowMap.enabled = false;
-  renderer.render(scene, camera);
-  const png = renderer.domElement.toDataURL("image/png");
+  idRenderer.render(scene, camera);
+  const png = idRenderer.domElement.toDataURL("image/png");
+  const band = V2 ? cropBand(idRenderer.domElement) : null;
   for (const s of saved) { s.entry.mesh.material.dispose?.(); s.entry.mesh.material = s.material; s.entry.mesh.visible = s.visible; }
   scene.background = bg;
-  renderer.shadowMap.enabled = shadows;
-  return png;
+  return { full: png, band: band };
+}
+
+/**
+ * The centre band, cut out at 1:1.
+ *
+ * A straight blit with no scaling and smoothing off, so an ID pixel copies as itself. Any
+ * resampling here would reintroduce exactly the blended values the ID renderer exists to
+ * avoid, which is why the audit checks the band and the full frame separately.
+ */
+function cropBand(srcCanvas) {
+  const c = document.createElement("canvas");
+  c.width = srcCanvas.width;
+  c.height = BAND.h;
+  const g = c.getContext("2d", { alpha: false });
+  g.imageSmoothingEnabled = false;
+  g.drawImage(srcCanvas, 0, BAND.y0, srcCanvas.width, BAND.h, 0, 0, srcCanvas.width, BAND.h);
+  return c.toDataURL("image/png");
 }
 
 window.renderScene = function () {
   renderer.render(scene, camera);
   const png = renderer.domElement.toDataURL("image/png");
-  const mask = renderMask();
+  const clayBand = V2 ? cropBand(renderer.domElement) : null;
+  const id = renderId();
 
   const regions = {};
   for (const key of Object.keys(REGIONS)) {
@@ -894,7 +1118,12 @@ window.renderScene = function () {
   for (const key of Object.keys(ANCHORS)) {
     anchors[key] = { at: project(ANCHORS[key]).map(round), unitPerIn: round(unitPerIn(ANCHORS[key])) };
   }
-  return { png: png, mask: mask, regions: regions, anchors: anchors };
+  return {
+    png: png, mask: id.full,
+    clayBand: clayBand, idBand: id.band,
+    regions: regions, anchors: anchors,
+    fov: camera.fov, aspect: camera.aspect,
+  };
 };
 window.__ready = true;
 </script>
@@ -951,27 +1180,69 @@ async function main() {
 
   await mkdir(OUT_DIR, { recursive: true });
   const buf = fromDataUrl(out.png), maskBuf = fromDataUrl(out.mask);
-  await writeFile(OUT_PNG, buf);
-  await writeFile(OUT_MASK, maskBuf);
 
-  const json = {
-    _generated: "scripts/render-base-scene.mjs — do not hand-edit; re-run the script instead",
-    scene: { id: "modern", image: "/hero/base-modern.png", mask: "/hero/base-modern-mask.png", width: W, height: H },
-    room: { widthIn: ROOM.w, heightIn: ROOM.h, depthIn: ROOM.d },
-    camera: CAM,
-    maskColors: REGION_COLORS,
-    regions: out.regions,
-    anchors: out.anchors,
-  };
-  await mkdir(path.dirname(OUT_JSON), { recursive: true });
-  await writeFile(OUT_JSON, JSON.stringify(json, null, 2) + "\n");
+  const outPng = V2 ? OUT_V2_CLAY_FULL : OUT_PNG;
+  const outMask = V2 ? OUT_V2_ID_FULL : OUT_MASK;
+  const outJson = V2 ? OUT_V2_JSON : OUT_JSON;
+  await writeFile(outPng, buf);
+  await writeFile(outMask, maskBuf);
+
+  let bandClayBuf = null, bandIdBuf = null;
+  if (V2) {
+    if (!out.clayBand || !out.idBand) throw new Error("v2 requested but the band crops came back empty");
+    bandClayBuf = fromDataUrl(out.clayBand);
+    bandIdBuf = fromDataUrl(out.idBand);
+    await writeFile(OUT_V2_CLAY, bandClayBuf);
+    await writeFile(OUT_V2_ID, bandIdBuf);
+  }
+
+  const json = V2
+    ? {
+        _generated: "scripts/render-base-scene.mjs --v2 — do not hand-edit; re-run the script instead",
+        _note:
+          "Coordinates are normalised to the BAND CROP (scene-shower.clay.png / .id.png), not " +
+          "to the 16:9 full frame. The full frame carries the same composition with " +
+          `${BAND_Y0}px of headroom above and below.`,
+        scene: {
+          id: "shower-v2",
+          image: "/hero/scene-shower.clay.png",
+          mask: "/hero/scene-shower.id.png",
+          width: W, height: BAND_H,
+          full: { image: "/hero/scene-shower.clay-16x9.png", mask: "/hero/scene-shower.id-16x9.png", width: W, height: H, bandY0: BAND_Y0 },
+        },
+        room: { widthIn: ROOM.w, heightIn: ROOM.h, depthIn: ROOM.d },
+        camera: { ...CAM, fovIsVertical: true, derivedFrom: { fov: CAM_V1.fov, width: V1_W, height: V1_H } },
+        maskColors: ID_COLORS,
+        regions: out.regions,
+        anchors: out.anchors,
+      }
+    : {
+        _generated: "scripts/render-base-scene.mjs — do not hand-edit; re-run the script instead",
+        scene: { id: "modern", image: "/hero/base-modern.png", mask: "/hero/base-modern-mask.png", width: W, height: H },
+        room: { widthIn: ROOM.w, heightIn: ROOM.h, depthIn: ROOM.d },
+        camera: CAM,
+        maskColors: REGION_COLORS,
+        regions: out.regions,
+        anchors: out.anchors,
+      };
+  await mkdir(path.dirname(outJson), { recursive: true });
+  await writeFile(outJson, JSON.stringify(json, null, 2) + "\n");
 
   try { await browser.close(); } catch (e) { console.log(`(browser cleanup warning: ${e.code ?? e.message})`); }
   server.close();
 
-  console.log(`Wrote ${path.relative(ROOT, OUT_PNG)}  (${(buf.length / 1024).toFixed(0)} KB, ${W}x${H})`);
-  console.log(`Wrote ${path.relative(ROOT, OUT_MASK)}  (${(maskBuf.length / 1024).toFixed(0)} KB)`);
-  console.log(`Wrote ${path.relative(ROOT, OUT_JSON)}  — ${Object.keys(out.regions).length} regions, ${Object.keys(out.anchors).length} anchors`);
+  console.log(`Mode: ${V2 ? "v2 (16:9 structure factory)" : "v1 (compositor plate)"}`);
+  if (V2) {
+    console.log(`Camera fov: ${CAM_V1.fov} vertical @ ${V1_W}x${V1_H}  ->  ${CAM.fov.toFixed(4)} vertical @ ${W}x${H} (same hFov)`);
+    console.log(`Reported by renderer: fov ${out.fov.toFixed(4)}, aspect ${out.aspect.toFixed(6)}`);
+  }
+  console.log(`Wrote ${path.relative(ROOT, outPng)}  (${(buf.length / 1024).toFixed(0)} KB, ${W}x${H})`);
+  console.log(`Wrote ${path.relative(ROOT, outMask)}  (${(maskBuf.length / 1024).toFixed(0)} KB)`);
+  if (V2) {
+    console.log(`Wrote ${path.relative(ROOT, OUT_V2_CLAY)}  (${(bandClayBuf.length / 1024).toFixed(0)} KB, ${W}x${BAND_H} band @ y${BAND_Y0})`);
+    console.log(`Wrote ${path.relative(ROOT, OUT_V2_ID)}  (${(bandIdBuf.length / 1024).toFixed(0)} KB)`);
+  }
+  console.log(`Wrote ${path.relative(ROOT, outJson)}  — ${Object.keys(out.regions).length} regions, ${Object.keys(out.anchors).length} anchors`);
   for (const [k, faces] of Object.entries(out.regions)) {
     const xs = faces.flatMap((f) => f.quad.map((p) => p[0]));
     const ys = faces.flatMap((f) => f.quad.map((p) => p[1]));

@@ -1,0 +1,414 @@
+{
+  "_generated": "scripts/render-base-scene.mjs --v2 — do not hand-edit; re-run the script instead",
+  "_note": "Coordinates are normalised to the BAND CROP (scene-shower.clay.png / .id.png), not to the 16:9 full frame. The full frame carries the same composition with 81px of headroom above and below.",
+  "scene": {
+    "id": "shower-v2",
+    "image": "/hero/scene-shower.clay.png",
+    "mask": "/hero/scene-shower.id.png",
+    "width": 1920,
+    "height": 918,
+    "full": {
+      "image": "/hero/scene-shower.clay-16x9.png",
+      "mask": "/hero/scene-shower.id-16x9.png",
+      "width": 1920,
+      "height": 1080,
+      "bandY0": 81
+    }
+  },
+  "room": {
+    "widthIn": 120,
+    "heightIn": 96,
+    "depthIn": 144
+  },
+  "camera": {
+    "pos": [
+      40,
+      62,
+      128
+    ],
+    "target": [
+      66,
+      29,
+      8
+    ],
+    "fov": 61.917177868148826,
+    "fovIsVertical": true,
+    "derivedFrom": {
+      "fov": 54,
+      "width": 1800,
+      "height": 860
+    }
+  },
+  "maskColors": {
+    "backWall": "#ff0000",
+    "leftWall": "#00ff00",
+    "rightWall": "#0000ff",
+    "floor": "#ffff00",
+    "showerArea": "#ff00ff",
+    "vanityArea": "#00ffff",
+    "vanityTop": "#ff8000",
+    "rubberBase": "#8000ff",
+    "showerBase": "#808000",
+    "showerDoor": "#008080",
+    "toilet": "#964b00",
+    "showerFixtures": "#ff8060",
+    "faucet": "#00ff80",
+    "vanityLight": "#c000c0"
+  },
+  "regions": {
+    "backWall": [
+      {
+        "quad": [
+          [
+            0.20101,
+            -0.09612
+          ],
+          [
+            0.6866,
+            -0.03254
+          ],
+          [
+            0.65626,
+            0.64721
+          ],
+          [
+            0.25889,
+            0.72552
+          ]
+        ],
+        "widthIn": 120,
+        "heightIn": 96
+      }
+    ],
+    "leftWall": [
+      {
+        "quad": [
+          [
+            0.20101,
+            -0.09612
+          ],
+          [
+            -0.57476,
+            -1.42744
+          ],
+          [
+            0.01167,
+            1.61504
+          ],
+          [
+            0.25889,
+            0.72552
+          ]
+        ],
+        "widthIn": 88,
+        "heightIn": 96
+      }
+    ],
+    "rightWall": [
+      {
+        "quad": [
+          [
+            1.22173,
+            -0.52585
+          ],
+          [
+            0.6866,
+            -0.03254
+          ],
+          [
+            0.65626,
+            0.64721
+          ],
+          [
+            0.96558,
+            1.13317
+          ]
+        ],
+        "widthIn": 88,
+        "heightIn": 96
+      }
+    ],
+    "floor": [
+      {
+        "quad": [
+          [
+            0.25889,
+            0.72552
+          ],
+          [
+            0.65626,
+            0.64721
+          ],
+          [
+            0.91015,
+            1.04609
+          ],
+          [
+            0.06604,
+            1.41944
+          ]
+        ],
+        "widthIn": 120,
+        "heightIn": 80
+      }
+    ],
+    "showerArea": [
+      {
+        "quad": [
+          [
+            0.20972,
+            0.02752
+          ],
+          [
+            0.42254,
+            0.04509
+          ],
+          [
+            0.43473,
+            0.69087
+          ],
+          [
+            0.25889,
+            0.72552
+          ]
+        ],
+        "widthIn": 48,
+        "heightIn": 84
+      },
+      {
+        "quad": [
+          [
+            0.20972,
+            0.02752
+          ],
+          [
+            0.12351,
+            -0.0698
+          ],
+          [
+            0.21014,
+            0.90091
+          ],
+          [
+            0.25889,
+            0.72552
+          ]
+        ],
+        "widthIn": 36,
+        "heightIn": 84
+      },
+      {
+        "quad": [
+          [
+            0.43393,
+            -0.03347
+          ],
+          [
+            0.42254,
+            0.04509
+          ],
+          [
+            0.43473,
+            0.69087
+          ],
+          [
+            0.4477,
+            0.83854
+          ]
+        ],
+        "widthIn": 36,
+        "heightIn": 84
+      }
+    ],
+    "vanityArea": [
+      {
+        "quad": [
+          [
+            0.47888,
+            0.50733
+          ],
+          [
+            0.70805,
+            0.47988
+          ],
+          [
+            0.69663,
+            0.68125
+          ],
+          [
+            0.48016,
+            0.72835
+          ]
+        ],
+        "widthIn": 62,
+        "heightIn": 28
+      }
+    ],
+    "vanityTop": [
+      {
+        "quad": [
+          [
+            0.46265,
+            0.45621
+          ],
+          [
+            0.66566,
+            0.43663
+          ],
+          [
+            0.71109,
+            0.4702
+          ],
+          [
+            0.47535,
+            0.49735
+          ]
+        ],
+        "widthIn": 63,
+        "heightIn": 22
+      },
+      {
+        "quad": [
+          [
+            0.46272,
+            0.42791
+          ],
+          [
+            0.66821,
+            0.41064
+          ],
+          [
+            0.667,
+            0.43761
+          ],
+          [
+            0.46302,
+            0.4574
+          ]
+        ],
+        "widthIn": 63,
+        "heightIn": 4
+      }
+    ],
+    "rubberBase": [
+      {
+        "quad": [
+          [
+            0.45476,
+            0.65587
+          ],
+          [
+            0.65842,
+            0.6185
+          ],
+          [
+            0.65707,
+            0.64848
+          ],
+          [
+            0.45518,
+            0.68841
+          ]
+        ],
+        "widthIn": 66,
+        "heightIn": 5
+      },
+      {
+        "quad": [
+          [
+            0.97172,
+            1.07763
+          ],
+          [
+            0.6562,
+            0.61757
+          ],
+          [
+            0.65487,
+            0.64749
+          ],
+          [
+            0.96299,
+            1.13448
+          ]
+        ],
+        "widthIn": 88,
+        "heightIn": 5
+      },
+      {
+        "quad": [
+          [
+            0.20889,
+            0.85514
+          ],
+          [
+            0.0037,
+            1.53794
+          ],
+          [
+            0.01777,
+            1.61196
+          ],
+          [
+            0.21287,
+            0.9002
+          ]
+        ],
+        "widthIn": 52,
+        "heightIn": 5
+      },
+      {
+        "quad": [
+          [
+            0.44729,
+            0.79951
+          ],
+          [
+            0.47657,
+            0.79232
+          ],
+          [
+            0.47685,
+            0.83364
+          ],
+          [
+            0.44794,
+            0.84127
+          ]
+        ],
+        "widthIn": 6.5,
+        "heightIn": 5
+      }
+    ]
+  },
+  "anchors": {
+    "faucet": {
+      "at": [
+        0.57403,
+        0.42526
+      ],
+      "unitPerIn": 0.00733
+    },
+    "showerTrim": {
+      "at": [
+        0.22232,
+        0.47895
+      ],
+      "unitPerIn": 0.00978
+    },
+    "showerHead": {
+      "at": [
+        0.3133,
+        0.07805
+      ],
+      "unitPerIn": 0.01098
+    },
+    "tubSpout": {
+      "at": [
+        0.23067,
+        0.58926
+      ],
+      "unitPerIn": 0.00919
+    }
+  }
+}
