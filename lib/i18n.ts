@@ -160,13 +160,14 @@ export const dictionary: Record<Lang, Record<string, any>> = {
       testimonials: {
         eyebrow: "From the Field",
         heading: "What contractors say.",
-        note: "Placeholder quotes — real partner testimonials coming soon.",
+        // c1..c3 are company names — proper nouns. They are byte-identical in every
+        // language and must stay that way; only the quotes translate.
         q1: "I used to spend a full evening pricing a bathroom across four suppliers. Now I configure it while I'm still standing in the customer's house.",
-        c1: "Nasty Brothers Contracting",
+        c1: "Circle J Construction",
         q2: "I put two new guys through the training portal before their first job. They installed the panels without calling me once.",
-        c2: "Premier Bath & Tile",
+        c2: "Ward Design and Renovation",
         q3: "One delivery, one pallet, everything on it. That alone took a week out of my schedule on every bathroom.",
-        c3: "Tank Renovations",
+        c3: "Skinner Construction",
       },
       about: {
         eyebrow: "About Us",
@@ -2318,13 +2319,12 @@ export const dictionary: Record<Lang, Record<string, any>> = {
       testimonials: {
         eyebrow: "Desde la obra",
         heading: "Lo que dicen los contratistas.",
-        note: "Testimonios de ejemplo: pronto publicaremos los de socios reales.",
         q1: "Antes pasaba una tarde entera cotizando un baño con cuatro proveedores. Ahora lo configuro mientras sigo parado en la casa del cliente.",
-        c1: "Nasty Brothers Contracting",
+        c1: "Circle J Construction",
         q2: "Pasé a dos muchachos nuevos por el portal de capacitación antes de su primer trabajo. Instalaron los paneles sin llamarme ni una vez.",
-        c2: "Premier Bath & Tile",
+        c2: "Ward Design and Renovation",
         q3: "Una entrega, una tarima, todo encima. Solo eso me quitó una semana del calendario en cada baño.",
-        c3: "Tank Renovations",
+        c3: "Skinner Construction",
       },
       about: {
         eyebrow: "Nosotros",
@@ -4412,13 +4412,12 @@ export const dictionary: Record<Lang, Record<string, any>> = {
       testimonials: {
         eyebrow: "С объекта",
         heading: "Что говорят подрядчики.",
-        note: "Отзывы-заглушки: настоящие отзывы партнёров появятся позже.",
         q1: "Раньше я тратил целый вечер, чтобы посчитать ванную по четырём поставщикам. Теперь я собираю её, ещё стоя в доме у клиента.",
-        c1: "Nasty Brothers Contracting",
+        c1: "Circle J Construction",
         q2: "Двух новых ребят я прогнал через портал обучения до первого объекта. Панели они смонтировали, не позвонив мне ни разу.",
-        c2: "Premier Bath & Tile",
+        c2: "Ward Design and Renovation",
         q3: "Одна поставка, один паллет, и на нём всё. Только это сняло по неделе с графика на каждой ванной.",
-        c3: "Tank Renovations",
+        c3: "Skinner Construction",
       },
       about: {
         eyebrow: "О нас",

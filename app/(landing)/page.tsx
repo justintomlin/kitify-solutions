@@ -390,13 +390,15 @@ export default function LandingPage() {
     { icon: FileText, title: t("landing.platform.proposalsTitle"), body: t("landing.platform.proposalsBody") },
   ];
 
-  /* PLACEHOLDER TESTIMONIALS — swap wholesale for real partner quotes.
-     The names are invented stand-ins (and proper nouns, hence not in i18n);
-     the quotes and company names live under landing.testimonials.*. */
+  /* Names are proper nouns and stay out of i18n. The company names are keys only for
+     historical reasons — they are proper nouns too, so c1..c3 hold the same string in all
+     three languages and must not be translated. The quotes DO translate.
+     NOTE: q1..q3 are still the drafted copy the placeholder attributions were written
+     against; only the attributions have been made real. */
   const testimonials = [
-    { name: "Buck Nasty", company: t("landing.testimonials.c1"), quote: t("landing.testimonials.q1") },
-    { name: "Sally Sheetrock", company: t("landing.testimonials.c2"), quote: t("landing.testimonials.q2") },
-    { name: "Hank the Tank", company: t("landing.testimonials.c3"), quote: t("landing.testimonials.q3") },
+    { name: "Jimmy Watson", company: t("landing.testimonials.c1"), quote: t("landing.testimonials.q1") },
+    { name: "Susan Ward", company: t("landing.testimonials.c2"), quote: t("landing.testimonials.q2") },
+    { name: "Paul Skinner", company: t("landing.testimonials.c3"), quote: t("landing.testimonials.q3") },
   ];
 
   const faqs = [1, 2, 3, 4, 5, 6].map((i) => ({
@@ -710,7 +712,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ==================== TESTIMONIALS (PLACEHOLDER CONTENT) ==================== */}
+      {/* ==================== TESTIMONIALS ==================== */}
       <section className={`${SECTION} bg-ink-soft`}>
         <div className="mx-auto max-w-6xl">
           <SectionHead
@@ -735,10 +737,6 @@ export default function LandingPage() {
               </figure>
             ))}
           </div>
-
-          <p className="mt-8 text-center font-mono text-[11px] uppercase tracking-[0.16em] text-white/30">
-            {t("landing.testimonials.note")}
-          </p>
         </div>
       </section>
 
