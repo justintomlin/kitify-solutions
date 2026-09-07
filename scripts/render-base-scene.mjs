@@ -143,10 +143,35 @@ const SHOWER = { x1: 48, z1: 36, h: 84, curb: 4 };
 // was a washed-out sliver. The alcove's inner face does not move; the wall thickens outward
 // into the 10" gap before the vanity starts.
 const DIVIDER_W = 6;
-// Shower head high, valve trim low — the real rough-in heights, and the separation is the
-// point: you reach the controls at waist height without standing under the water.
-const HEAD = { arm: 79, y: 77.5, z: 15, r: 5.0 };   // 10" rain head
+/**
+ * Head and valve, both on the LEFT RETURN, on one vertical centreline.
+ *
+ * TRIM is declared first because HEAD is plumbed off it: a shower is roughed in as one riser
+ * up one wall, valve low and head high on the same centreline, so `z: TRIM.z` is the
+ * constraint written down rather than two numbers that happen to match today. Move the valve
+ * along the wall and the head follows it.
+ *
+ * The head used to sit on the alcove's BACK wall, which meant two walls carrying plumbing and
+ * a riser that could not exist. It is now on the left return above the valve, which is both
+ * how it is actually built and what the photo plate shows.
+ *
+ * 72" is the arm's penetration height above the pan, and the pan surface here is y=0. That
+ * number is not invented for this scene: it is the height solved off the photo plate's own
+ * perspective (arm centreline at y=18.3 gives h/D = 1.7146, h = 72.0"), so the render and the
+ * photograph put the head at the same real height.
+ *
+ * Separation is the point of the pair: controls at waist height, water from overhead, so
+ * nobody reaches through the spray to start it.
+ */
 const TRIM = { y: 38, z: 20, r: 4.0 };              // 8" escutcheon, on the left return
+const HEAD = {
+  arm: 72,          // arm centreline, inches above the pan
+  armLen: 6,        // standard arm projection, perpendicular out from the wall (+x)
+  y: 70.5,          // head centre, hanging just under the arm
+  z: TRIM.z,        // same centreline as the valve — see above
+  r: 5.0,           // 10" rain head
+  tilt: 0.34,       // radians, aiming the face into the room rather than straight down
+};
 const NICHE = { x0: 9, x1: 31, y0: 42, y1: 58, depth: 3.5 };
 // counter: slab thickness, shown as a real edge profile rather than a paper-thin line.
 // x1 runs all the way to the right wall so the run dies into it, with no sliver of wall and
@@ -684,10 +709,18 @@ panel([[ROOM.w, ROOM.h, ROOM.d], [0, ROOM.h, ROOM.d], [0, 0, ROOM.d], [ROOM.w, 0
   // Head and valve share one ID: they are one plumbing package, bought and finished together.
   const noCast = { noShadow: true, region: "showerFixtures" };
 
-  // Shower head, mounted high on the back wall: the arm leaves the wall at 79" and the head
-  // hangs just below it, angled down. A 10" rain head.
-  mesh(new THREE.CylinderGeometry(1.0, 1.0, HEAD.z, 16), METAL, [24, HEAD.arm, HEAD.z / 2], [Math.PI / 2, 0, 0], noCast);
-  mesh(new THREE.CylinderGeometry(HEAD.r, HEAD.r, 1.5, 32), METAL, [24, HEAD.y, HEAD.z], [0.34, 0, 0], noCast);
+  // Shower head on the LEFT RETURN, directly over the valve — one wall, one riser.
+  //
+  // The arm leaves the wall at HEAD.arm (72" above the pan) and runs perpendicular into the
+  // room; rotating the cylinder a quarter turn about Z lays its axis along X, so the run is
+  // 0..armLen out from the x=0 face. The head hangs 1.5" under the arm at the arm's end.
+  //
+  // Both rotations moved a quarter turn round with the fixture: the arm was about X (running
+  // in z, off the back wall) and is now about Z, and the head's downward tilt was +0.34 about
+  // X (aiming at +z) and is now -0.34 about Z, which aims the face at +x — into the enclosure
+  // rather than along the wall it hangs on.
+  mesh(new THREE.CylinderGeometry(1.0, 1.0, HEAD.armLen, 16), METAL, [HEAD.armLen / 2, HEAD.arm, HEAD.z], [0, 0, Math.PI / 2], noCast);
+  mesh(new THREE.CylinderGeometry(HEAD.r, HEAD.r, 1.5, 32), METAL, [HEAD.armLen, HEAD.y, HEAD.z], [0, 0, -HEAD.tilt], noCast);
 
   // Valve trim on the LEFT RETURN WALL, not the back wall, at standard rough-in height.
   // That is where the controls actually go: reachable from outside the spray, so nobody has
@@ -1029,8 +1062,9 @@ const ANCHORS = {
   // Follows the valve trim onto the left return wall. Held slightly proud of the wall so the
   // pinned photo sits in front of the modelled placeholder rather than inside it.
   showerTrim: [2.5, TRIM.y, TRIM.z],
-  // Over the modelled rain head, out at the end of its arm rather than at the wall.
-  showerHead: [24, HEAD.y, HEAD.z],
+  // Over the modelled rain head, out at the end of its arm rather than at the wall. Moved
+  // with the fixture onto the left return, so it now shares the valve's centreline.
+  showerHead: [HEAD.armLen, HEAD.y, HEAD.z],
   // Tub spout: same wall as the valve and below it, which is where it goes when a valve and
   // spout share a wall. Only pinned for a tub/shower configuration — the scene's alcove has a
   // shower pan, so a shower-only quote must not grow a spout.

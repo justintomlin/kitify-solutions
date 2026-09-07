@@ -141,6 +141,34 @@ sameCam ? ok("camera position and target identical to v1") : bad("camera moved")
 worstX < 0.05 ? ok(`horizontal agreement over ${corners} corners: ${worstX.toFixed(4)}px`) : bad(`horizontal drift ${worstX.toFixed(3)}px — hFov is not preserved`);
 worstY < 0.05 ? ok(`vertical agreement over ${corners} corners: ${worstY.toFixed(4)}px`) : bad(`vertical drift ${worstY.toFixed(3)}px — vFov derivation is wrong`);
 
+/**
+ * Anchors, same comparison.
+ *
+ * MOVED lists anchors whose fixture has deliberately been repositioned since v1 was frozen.
+ * They are asserted to DIFFER — an anchor that quietly stopped moving would mean the geometry
+ * edit never reached the JSON. Everything not listed must still agree to sub-pixel, which is
+ * what proves a fixture move did not drag the camera with it.
+ */
+const MOVED = {
+  showerHead: "Phase 0.1 — off the alcove back wall onto the left return, above the valve",
+};
+for (const key of Object.keys(v1.anchors)) {
+  const a = v1.anchors[key], b = v2.anchors[key];
+  if (!b) { bad(`v2 has no ${key} anchor`); continue; }
+  const dx = Math.abs(a.at[0] - b.at[0]) * FULL_W;
+  const dy = Math.abs(FULL_H / 2 + (a.at[1] - 0.5) * EXACT_BAND - (b.at[1] * BAND_H + BAND_Y0));
+  const moved = dx > 1 || dy > 1;
+  if (MOVED[key]) {
+    moved
+      ? ok(`anchor ${key} moved as intended (dx ${dx.toFixed(1)}px, dy ${dy.toFixed(1)}px) — ${MOVED[key]}`)
+      : bad(`anchor ${key} is listed as moved but still matches v1 — did the edit reach the JSON?`);
+  } else {
+    moved
+      ? bad(`anchor ${key} drifted (dx ${dx.toFixed(2)}px, dy ${dy.toFixed(2)}px) and is not in MOVED`)
+      : ok(`anchor ${key} agrees with v1 (dx ${dx.toFixed(4)}px, dy ${dy.toFixed(4)}px)`);
+  }
+}
+
 // ---- 4. v1 outputs are untouched -------------------------------------------
 console.log("\nv1 left alone");
 const v1Png = await histogram("public/hero/base-modern.png");
