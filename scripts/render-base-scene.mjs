@@ -164,13 +164,31 @@ const DIVIDER_W = 6;
  * nobody reaches through the spray to start it.
  */
 const TRIM = { y: 38, z: 20, r: 4.0 };              // 8" escutcheon, on the left return
+/**
+ * CONFORMED TO THE PLATE (Phase 0.3). These are not design choices any more — they are
+ * solved from where the shipped photographic plate actually draws the fixture.
+ *
+ * Method: the plate's own pixels are segmented in a window around the fixture, and the 3D
+ * position whose projection lands on that centroid is solved for against a Node replica of
+ * the render camera (validated to 0.00px against all four anchors in hero-scene-v2.json).
+ * Residuals below.
+ *
+ *   wall flange centroid (347.0, 60.3)px  ->  x 0.75", y 77.25"   residual 1.29px
+ *   head disc  centroid (409.9, 94.5)px   ->  x 6.00", y 74.00"   residual 0.90px
+ *   disc is 48x47px at 10.71 px/inch      ->  4.5" across, i.e. a 4.5" head, not a 10" rain head
+ *
+ * So the arm penetrates at 77.25" and slopes DOWN to a head at 74", 6" out — which is why
+ * `armLen` did not move even though the head did. The brief's estimate of "+3in, +1in out"
+ * came from Phase 0.2's centroid metric, which that phase already flagged as unreliable for
+ * this fixture; the direct solve says +5.25" and no lateral change, and the solve is what is
+ * implemented here.
+ */
 const HEAD = {
-  arm: 72,          // arm centreline, inches above the pan
-  armLen: 6,        // standard arm projection, perpendicular out from the wall (+x)
-  y: 70.5,          // head centre, hanging just under the arm
+  arm: 77.25,       // arm centreline where it leaves the wall, inches above the pan
+  armLen: 6,        // head centre, perpendicular out from the wall (+x)
+  y: 74,            // head centre height — BELOW the penetration, so the arm slopes down
   z: TRIM.z,        // same centreline as the valve — see above
-  r: 5.0,           // 10" rain head
-  tilt: 0.34,       // radians, aiming the face into the room rather than straight down
+  r: 2.4,           // 4.8" head: the plate's 4.5" disc plus a little margin for coverage
 };
 const NICHE = { x0: 9, x1: 31, y0: 42, y1: 58, depth: 3.5 };
 // counter: slab thickness, shown as a real edge profile rather than a paper-thin line.
@@ -195,7 +213,14 @@ const BASIN = { cx: 89, cz: 11, rx: 8, rz: 6, depth: 5, shape: "oval", count: 1 
 // Both re-centred on the vanity run after it grew to meet the right wall; a mirror hung off
 // the centre of the cabinet beneath it reads as a mistake even when nothing else moved.
 const MIRROR = { x0: 68, x1: 110, y0: 42, y1: 74 };
-const BARLIGHT = { y: 79, x0: 80, x1: 98 };
+/* Conformed to the plate (Phase 0.3). Solved from the plate's light-fixture box
+   (1030,45)..(1177,93) against the camera replica:
+     left end  -> x 77.25", y 81.50"   residual 0.74px
+     right end -> x 98.75", y 82.00"   residual 0.86px
+   so the bar is 21.5" rather than 18". `y` is the BACKPLATE, which sits below the shades, and
+   was then trued by the registration check itself: at 7.815 px/inch there, a residual 15px of
+   "move up" is 1.92", taking the backplate from 80.5 to 82.42. */
+const BARLIGHT = { y: 82.42, x0: 77.25, x1: 98.75 };
 // The toilet sits well forward of the back wall on purpose. Tucked into the corner it was
 // squarely behind the vanity's right-hand end from this camera and read as a white lump
 // growing out of the cabinet; clear of the vanity it reads as a separate fixture. Pushed out
@@ -711,16 +736,24 @@ panel([[ROOM.w, ROOM.h, ROOM.d], [0, ROOM.h, ROOM.d], [0, 0, ROOM.d], [ROOM.w, 0
 
   // Shower head on the LEFT RETURN, directly over the valve — one wall, one riser.
   //
-  // The arm leaves the wall at HEAD.arm (72" above the pan) and runs perpendicular into the
-  // room; rotating the cylinder a quarter turn about Z lays its axis along X, so the run is
-  // 0..armLen out from the x=0 face. The head hangs 1.5" under the arm at the arm's end.
+  // The arm SLOPES: it leaves the wall at HEAD.arm and drops to the head at HEAD.y, which is
+  // what the plate draws. Its rotation is derived from the two endpoints rather than typed,
+  // so moving either end keeps the arm attached to both.
   //
-  // Both rotations moved a quarter turn round with the fixture: the arm was about X (running
-  // in z, off the back wall) and is now about Z, and the head's downward tilt was +0.34 about
-  // X (aiming at +z) and is now -0.34 about Z, which aims the face at +x — into the enclosure
-  // rather than along the wall it hangs on.
-  mesh(new THREE.CylinderGeometry(1.0, 1.0, HEAD.armLen, 16), METAL, [HEAD.armLen / 2, HEAD.arm, HEAD.z], [0, 0, Math.PI / 2], noCast);
-  mesh(new THREE.CylinderGeometry(HEAD.r, HEAD.r, 1.5, 32), METAL, [HEAD.armLen, HEAD.y, HEAD.z], [0, 0, -HEAD.tilt], noCast);
+  // The head is a SPHERE, not a disc. A disc has to be aimed, and the plate's head is very
+  // nearly face-on to the lens while a physically-aimed head is nearly edge-on to it — that
+  // mismatch is what left the old mask painting bare tile at 18% coverage. A sphere projects
+  // as a circle from every direction, so it covers a round head whatever the viewing angle,
+  // which is the property an ID mask needs and a beauty render can live with.
+  const armDX = HEAD.armLen, armDY = HEAD.y - HEAD.arm;
+  const armLen3 = Math.hypot(armDX, armDY);
+  // atan2(-dx, dy) is the rotation about Z that carries the cylinder's +Y axis onto (dx, dy).
+  const armRot = Math.atan2(-armDX, armDY);
+  mesh(new THREE.CylinderGeometry(0.85, 0.85, armLen3, 16), METAL,
+    [armDX / 2, (HEAD.arm + HEAD.y) / 2, HEAD.z], [0, 0, armRot], noCast);
+  // Wall flange, where the arm penetrates.
+  mesh(new THREE.CylinderGeometry(1.5, 1.5, 0.8, 24), METAL, [0.4, HEAD.arm, HEAD.z], [0, 0, Math.PI / 2], noCast);
+  mesh(new THREE.SphereGeometry(HEAD.r, 24, 18), METAL, [HEAD.armLen, HEAD.y, HEAD.z], null, noCast);
 
   // Valve trim on the LEFT RETURN WALL, not the back wall, at standard rough-in height.
   // That is where the controls actually go: reachable from outside the spray, so nobody has
@@ -745,8 +778,23 @@ panel([[ROOM.w, ROOM.h, ROOM.d], [0, ROOM.h, ROOM.d], [0, 0, ROOM.d], [ROOM.w, 0
   mesh(new THREE.CylinderGeometry(0.6, 0.6, SHOWER.h - 11, 12), METAL, [X - 0.6, (SHOWER.h - 1) / 2, Z], null, glassHw);
   mesh(new THREE.CylinderGeometry(0.6, 0.6, SHOWER.h - 11, 12), METAL, [0.6, (SHOWER.h - 1) / 2, Z], null, glassHw);
   mesh(new THREE.BoxGeometry(X, 1.2, 1.2), METAL, [X / 2, SHOWER.h - 6, Z], null, glassHw);
-  // Door handle.
-  mesh(new THREE.CylinderGeometry(0.5, 0.5, 9, 12), METAL, [X - 8, 44, Z + 1.4], null, glassHw);
+
+  /* Door pull — a long HORIZONTAL bar, conformed to the plate.
+   *
+   * It used to be a short vertical cylinder, which is a perfectly ordinary shower door handle
+   * and is not the one in the picture: the plate draws a 20" towel-bar pull, and the old mask
+   * covered 8% of it. Solved on the glass plane (z = SHOWER.z1) from the plate's own handle
+   * box (606,443)..(813,469):
+   *     left end  -> x 24.00", y 39.0"   residual 1.04px
+   *     right end -> x 44.25", y 38.0"   residual 0.78px
+   * so the bar runs x 24 -> 44.25 at y 38.5, held 0.6" proud of the glass on end mounts. */
+  const PULL = { x0: 24, x1: 44.25, y: 38.5, r: 0.6, standoff: 0.6 };
+  mesh(new THREE.CylinderGeometry(PULL.r, PULL.r, PULL.x1 - PULL.x0, 12), METAL,
+    [(PULL.x0 + PULL.x1) / 2, PULL.y, Z + PULL.standoff], [0, 0, Math.PI / 2], glassHw);
+  for (const x of [PULL.x0, PULL.x1]) {
+    mesh(new THREE.CylinderGeometry(0.85, 0.85, PULL.standoff + 0.6, 14), METAL,
+      [x, PULL.y, Z + PULL.standoff / 2], [Math.PI / 2, 0, 0], glassHw);
+  }
 })();
 
 /* ---- rubber cove base -----------------------------------------------------
@@ -874,28 +922,56 @@ const BASE_H_IN = 5;                             // 5" — see header
   // Faucet: a placeholder the compositor's product photo lands on top of, and which keeps
   // the scene complete when no plumbing package has been chosen. Roughly two thirds of its
   // first size — the original stood 10" over a 14" basin and read as a kitchen fitting.
-  // Spout, arc and both handles share the faucet ID — all pieces, as one selection.
+  /* Spout, arc and both handles share the faucet ID — all pieces, as one selection.
+   *
+   * Conformed to the plate. Two corrections, and only one of them is the one the brief
+   * expected:
+   *  - HEIGHT was already right. The plate's spout tops out at row 366; the modelled arc
+   *    crowns at 7.25" above the deck, which projects to row 365. Extending it, as the brief
+   *    suggested, would have overshot onto bare wall — so it stays.
+   *  - WIDTH was wrong in both directions. The plate's spout column is 23px across (~3.5"),
+   *    nearly twice the old 1.8" cylinder, while the old torus swung 2.1" sideways to where
+   *    the plate has no faucet at all — that arc was the blob measuring 18% coverage. The
+   *    column fattens and the arc tightens.
+   *  - HANDLES: the plate's lever tips reach about +/-6.8" from centre; the old cones stopped
+   *    at 4.6". Each cone now carries a lever out to 7". */
   const fid = { region: "faucet" };
   const fz = BASIN.cz - BASIN.rz - 2.5;
-  mesh(new THREE.CylinderGeometry(0.72, 0.92, 4.6, 18), METAL, [BASIN.cx, topY + 2.3, fz], null, fid);
-  mesh(new THREE.TorusGeometry(2.1, 0.55, 12, 24, Math.PI / 2), METAL, [BASIN.cx, topY + 4.6, fz], [0, Math.PI / 2, 0], fid);
-  for (const dx of [-4, 4]) mesh(new THREE.CylinderGeometry(0.46, 0.6, 2.2, 14), METAL, [BASIN.cx + dx, topY + 1.1, fz], null, fid);
+  mesh(new THREE.CylinderGeometry(1.3, 1.5, 4.6, 18), METAL, [BASIN.cx, topY + 2.3, fz], null, fid);
+  mesh(new THREE.TorusGeometry(1.5, 0.7, 12, 24, Math.PI / 2), METAL, [BASIN.cx, topY + 4.6, fz], [0, Math.PI / 2, 0], fid);
+  for (const dx of [-4, 4]) {
+    mesh(new THREE.CylinderGeometry(0.46, 0.75, 2.2, 14), METAL, [BASIN.cx + dx, topY + 1.1, fz], null, fid);
+    // Lever, running outboard from its escutcheon to the tip the plate draws.
+    mesh(new THREE.CylinderGeometry(0.35, 0.35, 3.2, 12), METAL,
+      [BASIN.cx + dx * 1.45, topY + 2.0, fz], [0, 0, Math.PI / 2], fid);
+  }
 
   // Mirror and its frame.
   box([MIRROR.x0 - 1.2, MIRROR.y0 - 1.2, 0], [MIRROR.x1 + 1.2, MIRROR.y1 + 1.2, 0.9], "#b6b3ad");
   panel([[MIRROR.x0, MIRROR.y1, 1.0], [MIRROR.x1, MIRROR.y1, 1.0], [MIRROR.x1, MIRROR.y0, 1.0], [MIRROR.x0, MIRROR.y0, 1.0]],
     "#ffffff", { basic: true, map: mirrorTexture() });
 
-  // Three-bulb bar light above the mirror. The METALWORK carries the ID — the backplate bar
-  // and the three stems, which is what takes a finish. The bulbs stay unclaimed black: glass
-  // is not tintable, and it is the one part of this fixture nobody chooses a colour for.
+  /* Three-shade bar light above the mirror, conformed to the plate.
+   *
+   * The METALWORK carries the ID and the glass does not — and on this fixture the SHADES are
+   * metalwork. They were modelled as glowing spheres sitting above the bar, which is neither
+   * what the plate draws nor what the rule meant: the plate has three opaque metal shades
+   * flaring upward off the backplate with the bulb down inside each one. Modelled as glass,
+   * they left the mask covering the backplate alone while three unclaimed discs sat on bare
+   * wall above the real shades.
+   *
+   * So the shades take vanityLight and only the bulb inside stays black. Nothing about the
+   * "bulbs and glass stay black" rule changes; what changed is which part is which. */
   const bulbs = 3;
   const lid_ = { region: "vanityLight" };
   mesh(new THREE.BoxGeometry(BARLIGHT.x1 - BARLIGHT.x0, 1.4, 1.4), METAL, [(BARLIGHT.x0 + BARLIGHT.x1) / 2, BARLIGHT.y, 1.2], null, lid_);
   for (let i = 0; i < bulbs; i++) {
     const x = BARLIGHT.x0 + ((i + 0.5) / bulbs) * (BARLIGHT.x1 - BARLIGHT.x0);
-    mesh(new THREE.CylinderGeometry(0.5, 0.5, 2.2, 10), METAL, [x, BARLIGHT.y + 1.8, 1.2], null, lid_);
-    mesh(new THREE.SphereGeometry(2.4, 20, 16), "#fff6e4", [x, BARLIGHT.y + 4, 1.2], null, { basic: true });
+    // Neck off the backplate, then the shade flaring open upward.
+    mesh(new THREE.CylinderGeometry(0.55, 0.55, 1.6, 10), METAL, [x, BARLIGHT.y + 1.0, 1.2], null, lid_);
+    mesh(new THREE.CylinderGeometry(2.6, 1.1, 3.2, 24, 1, true), METAL, [x, BARLIGHT.y + 3.4, 1.2], null, lid_);
+    // Bulb, down inside the shade. Unlit and unclaimed, as before.
+    mesh(new THREE.SphereGeometry(0.95, 16, 12), "#fff6e4", [x, BARLIGHT.y + 3.6, 1.2], null, { basic: true });
   }
 
   // The countertop carries nothing but the basin and the faucet.

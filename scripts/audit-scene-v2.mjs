@@ -150,7 +150,7 @@ worstY < 0.05 ? ok(`vertical agreement over ${corners} corners: ${worstY.toFixed
  * what proves a fixture move did not drag the camera with it.
  */
 const MOVED = {
-  showerHead: "Phase 0.1 — off the alcove back wall onto the left return, above the valve",
+  showerHead: "Phase 0.1 onto the left return; Phase 0.3 conformed to the plate (arm 77.25\", head 74\")",
 };
 for (const key of Object.keys(v1.anchors)) {
   const a = v1.anchors[key], b = v2.anchors[key];
