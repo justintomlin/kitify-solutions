@@ -556,12 +556,14 @@ select
   coalesce(t.tgname,'profiles_guard_privilege_columns'),
   'enabled=O before=t insert=t update=t',
   coalesce(
-    'enabled=' || t.tgenabled
+    'enabled=' || t.tgenabled::text
       || ' before=' || ((t.tgtype &  2) <> 0)::text
       || ' insert=' || ((t.tgtype &  4) <> 0)::text
       || ' update=' || ((t.tgtype & 16) <> 0)::text,
     'MISSING'),
-  coalesce(t.tgenabled,'X') = 'O'
+  -- tgenabled is pg_catalog "char", not text. Cast before comparing or coalescing,
+  -- or the planner has to match "char" against an unknown literal.
+  coalesce(t.tgenabled::text,'X') = 'O'
     and coalesce((t.tgtype &  2) <> 0, false)
     and coalesce((t.tgtype &  4) <> 0, false)
     and coalesce((t.tgtype & 16) <> 0, false)
