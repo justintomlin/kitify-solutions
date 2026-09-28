@@ -1,6 +1,18 @@
 -- ============================================================================
 -- 0008_auto_link_permits.sql
 --
+-- !! SUPERSEDED — see 0023_authorization_guards.sql, Part 3. !!
+-- The function definition below is NOT what runs in production and has not
+-- been for some time: production's Pass 2 uses a `distinct on` pre-aggregate
+-- where this uses a LATERAL. Both pick the lowest companies.id per
+-- lower-cased trimmed name, so they return the same answer, but the drift
+-- was real and was found by the baseline capture (Query D).
+--
+-- 0023 adopts PRODUCTION's body and adds a caller-authorization guard, so
+-- 0023 is now the authoritative definition of this function. This file is
+-- kept as history. Do not re-apply it on its own — doing so would replace
+-- the guarded version with this unguarded one.
+--
 -- auto_link_permits_to_companies(): batch-matches newly-ingested, still-unlinked
 -- permits (leads.permits.crm_company_id IS NULL) to existing public.companies,
 -- mirroring the matching logic of promote_permit_to_crm — license_num first

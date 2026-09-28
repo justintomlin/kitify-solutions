@@ -71,15 +71,24 @@ async function ensureProfile(u: SupabaseUser, extra?: { name?: string; company?:
   if (existing) return rowToProfile(existing as ProfileRow);
 
   const meta = (u.user_metadata ?? {}) as { name?: string; company?: string };
+  // role and status are DELIBERATELY ABSENT. Migration 0023 revokes column-level INSERT on
+  // both (plus inventory_tracking_enabled, invited_at and created_at) from `authenticated`,
+  // so the row takes its column defaults — 'contractor' and 'active' — instead of whatever a
+  // client asks for. A column privilege is checked against the columns NAMED in the
+  // statement, so sending role: "contractor" here would be denied even though the value is
+  // identical to the default. The values come back from the .select() below either way.
+  //
+  // This is what closes self-insert-as-admin: profiles_insert_self is
+  // WITH CHECK (id = auth.uid()) with no column restriction, so before 0023 anyone without a
+  // profile row could create their own as an admin.
   const row = {
     id: u.id,
     name: extra?.name ?? meta.name ?? (u.email ? u.email.split("@")[0] : "Partner"),
     email: u.email ?? "",
     company: extra?.company ?? meta.company ?? null,
-    role: "contractor" as Role,
-    status: "active" as const,
     // Self-created (non-invited) profiles skip onboarding — only admin-created contractors
-    // (inserted by the create-contractor route) carry must_change_password/profile_confirmed.
+    // (inserted by the create-contractor route, as service_role) carry
+    // must_change_password/profile_confirmed. Both columns stay grantable.
     must_change_password: false,
     profile_confirmed: true,
   };
