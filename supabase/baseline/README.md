@@ -45,7 +45,7 @@ That is what these baseline files capture.
 ## Run order for a fresh database
 
 ```
-1. supabase/baseline/B01, B02 (main body), B03
+1. supabase/baseline/B01 … B06, in order   (B02: main body only)
 2. supabase/migrations/0001_initial_schema.sql
 3. supabase/baseline/B02 — the DEFERRED section at the foot of the file
 4. supabase/migrations/0002 … 00NN  (in order)
@@ -54,6 +54,11 @@ That is what these baseline files capture.
 
 Baseline first. The migrations assume these objects already exist; 0008 in particular will
 fail outright without `leads.permits` and `public.companies`.
+
+B01–B06 run in numeric order because they depend on each other in that order: B04 needs both
+`companies` (B02) and `leads.permits` (B03) to compile the view; B05 needs all three. B06 is
+storage and depends on nothing here, but see its header — on Supabase the storage schema is
+platform-managed, so B06 is a specification of what to reproduce rather than a script to run.
 
 **Why step 3 exists.** The dependency runs both ways, so a single pass cannot work.
 `public.companies` is needed by 0008, but two of its own constraints point at tables that
@@ -73,19 +78,34 @@ that slot, and nowhere else.
 | `B01_leads_schema.sql` | The `leads` schema, its ACL (incl. the pre-0022 `anon` USAGE), sequence and role-config notes | **Written** — from Query A |
 | `B02_companies.sql` | `public.companies` + the three `using (true)` policies + pre-0022 grants; `projects.company_id` and the profiles FK as deferred `ALTER`s | **Written** — from Query B / F |
 | `B03_leads_tables.sql` | `leads.permits`, `leads.sources`, `leads.weekly_pulls` — columns, constraints, RLS, policies, grants | **Written** — from Query B / F |
-| `B04_inside_leads_view.sql` | The `public.inside_leads` view | **Outstanding** — needs **Query D** |
-| `B05_promote_permit_to_crm.sql` | `promote_permit_to_crm(bigint)` | **Outstanding** — needs **Query E** |
-| `B06_storage.sql` | Storage buckets and the six `storage.objects` policies | **Outstanding** — needs **Query G** |
+| `B04_inside_leads_view.sql` | `public.inside_leads` — the severity-1 finding: owner rights, no `security_invoker`, granted to `anon` | **Written** — from Query C |
+| `B05_promote_permit_to_crm.sql` | `promote_permit_to_crm(bigint)` — body verbatim, pre-0022 grants reconstructed | **Written** — from Query D |
+| `B06_storage.sql` | The `job-photos` bucket and all six `storage.objects` policies | **Written** — from Query E |
 
-All three written files snapshot production **as it stood before migration 0022**. Each one
-carries a `!!` banner saying so, and every object 0022 later altered is commented at the point
-of the grant or policy it changed. Read them as history; read `0022_close_anon_holes.sql` for
-current state.
+**All six are written. No captures outstanding.** Queries A–G have all been run and both
+extraction files are in `supabase/scratchpad/`.
 
-**Note on B04.** Query C — already captured — contains the full `inside_leads` view definition
-and its raw ACL, which is most of what B04 needs. Query D is listed above because it covers
-the function definitions; B04 may be closer to writable than the table suggests. Confirm
-before scheduling the capture.
+Every file snapshots production **as it stood before migration 0022**. Each carries a `!!`
+banner saying so, and every object 0022 later altered is commented at the point of the grant
+or policy it changed. Read them as history; read `0022_close_anon_holes.sql` for current state.
+
+### Which files are reconstructed, and why that matters
+
+Queries **A, B, C and F** were captured **before** 0022. Queries **D, E and G** were captured
+**after** it. So three files needed the post-0022 output read backwards:
+
+| File | Source | Reconstruction |
+| --- | --- | --- |
+| B01, B02, B03, B04 | A, B, C, F | None — captured pre-0022, transcribed directly |
+| **B05** | D | Query D shows `anon_can_execute = false` and an ACL without `anon` or `PUBLIC`. The pre-0022 grants were rebuilt: `anon` held EXECUTE and the ACL carried a bare `=X/postgres` (PUBLIC). |
+| **B06** | E | Query E shows **two** buckets. Before 0022 there was **one** — `company-logos` was created *by* 0022, evidenced by its `created_at` of `2026-09-28T18:39:25Z`. B06 declares `job-photos` only. |
+| B01, B03 (sequences) | G | No reconstruction needed: `anon` held nothing on the `leads` sequences before 0022 or after. |
+
+The B05 reconstruction is **corroborated, not assumed**. The original extraction captured
+`is_admin()`'s ACL *before* 0022 as
+`{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}`
+— the bare `=X/postgres` and the explicit `anon` entry, exactly the shape the addendum says to
+rebuild. The two files agree across the 0022 boundary.
 
 ## Production dashboard settings
 
@@ -182,12 +202,45 @@ and `set_inventory_tracking` both run with owner rights. Migration 0022 revoked 
 authenticated user can still call either one**, on any permit or any `p_owner_id`. 0022's own
 `comment on function` text says as much. Carried into Session 2.
 
-**Not captured in the extraction.** Query B's section list promises triggers and returned no
+**Two unindexed foreign keys.** `projects.company_id` and `leads.permits.crm_company_id` both
+reference `companies(id)` and neither has an index — Postgres creates one for a primary key or
+a unique constraint, never for a foreign key. So every `DELETE` on `companies` sequentially
+scans `projects` to enforce `NO ACTION`, `inside_leads`' `LEFT JOIN` scans `permits`, and 0008's
+linking `UPDATE` scans it again. Two `CREATE INDEX` statements, recorded rather than applied,
+because a baseline records.
+
+**Production has drifted from migration 0008.** See the drift note below — this is the first
+case the folder was built to catch actually catching one.
+
+**Not captured in either extraction.** Query B's section list promises triggers and returned no
 trigger rows for `public.companies` or any `leads` table. Both `companies.updated_at` and
 `leads.permits.updated_at` carry `DEFAULT now()`, which fires on INSERT only; whether anything
-refreshes them on UPDATE is unanswered. `public.set_updated_at()` does exist. Sequence-level
-ACLs in schema `leads` are also uncaptured, as is everything Query G would cover for
-`projects.company_id` — nullability, default, backing index, and the FK's ON DELETE action.
+refreshes them on UPDATE is unanswered. `public.set_updated_at()` does exist. Query D also
+covers only 9 of the 15 functions Query A enumerated — the six `apply_*` / `inventory_*`
+functions have no captured definition or ACL. 0022's blanket revoke-and-grant-back covered
+them regardless, so nothing is unguarded; they are simply undocumented.
+
+## Drift found: `auto_link_permits_to_companies`
+
+**Production's copy of this function does not match `supabase/migrations/0008_auto_link_permits.sql`.**
+
+Both versions do the same two passes and produce the same result. Pass 2 is written
+differently in each:
+
+| | Pass 2 |
+| --- | --- |
+| **0008 (repo)** | `from lateral (select c.id … order by c.id limit 1) m` — a correlated subquery evaluated per permit |
+| **Production (Query D)** | `from (select distinct on (lower(btrim(c.name))) c.id as company_id, … ) m` joined on `lower(btrim(p.contractor)) = m.match_name` — a pre-aggregated set |
+
+Both pick the lowest `companies.id` for a given lower-cased, trimmed name, so both are
+deterministic and re-run-stable. The production form is the faster shape. 0008's own comment
+still describes the LATERAL, which production does not have.
+
+Someone replaced the function in production after 0008 was applied, or edited 0008 afterward.
+Either way: **re-running 0008 against production would silently replace the working definition
+with a different one.** Not a behaviour change, but not a no-op either, and worth deciding
+deliberately rather than discovering during a rebuild. Reconcile the two before the next
+`supabase db push`.
 
 ## Re-capturing this snapshot
 

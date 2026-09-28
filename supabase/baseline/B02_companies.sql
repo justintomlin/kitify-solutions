@@ -151,20 +151,33 @@ grant all on table public.companies to service_role;
 -- projects.company_id — exists in production, created by NO migration.
 --
 -- This is the second piece of undocumented drift this folder exists to
--- record, alongside the leads schema itself. Query B confirms it only
--- indirectly, as a reverse dependency of companies:
+-- record, alongside the leads schema itself.
 --
---   public.companies,referenced_by,projects . projects_company_id_fkey,
+-- Fully captured by Query G:
+--   public.projects.company_id,column,uuid
+--   public.projects.company_id,constraint:projects_company_id_fkey,
 --     FOREIGN KEY (company_id) REFERENCES companies(id)
 --
--- NOT CAPTURED, because Query G has not been run:
---   * the column's nullability and any DEFAULT
---   * whether an index backs it (an unindexed FK makes every
---     "projects for this company" lookup a sequential scan, and makes
---     deleting a company scan projects)
---   * the FK's ON DELETE / ON UPDATE actions
--- The type is uuid because companies.id is uuid; that much is forced.
--- Re-capture Query G and correct this block before trusting it.
+--   type      uuid
+--   nullable  yes (no NOT NULL)
+--   default   none
+--   FK        references companies(id), NO ON DELETE and NO ON UPDATE
+--             action — so both default to NO ACTION
+--
+-- !! NO INDEX. Query G reports the column and the constraint and no index,
+-- !! and Postgres does not create one for a foreign key the way it does for
+-- !! a primary key or a unique constraint. Two consequences:
+-- !!
+-- !!   1. Every DELETE on public.companies must scan public.projects to
+-- !!      enforce NO ACTION. That is a sequential scan of the whole table
+-- !!      per deleted company.
+-- !!   2. Every "projects for this company" lookup scans too.
+-- !!
+-- !! Cheap to fix — a single CREATE INDEX, no lock of consequence at this
+-- !! table size — but it is a schema change and this is a baseline, so it
+-- !! is recorded here and carried to Session 2, not applied.
+--
+-- leads.permits.crm_company_id has the same problem; see B03.
 -- ---------------------------------------------------------------------
 -- alter table public.projects
 --   add column if not exists company_id uuid;

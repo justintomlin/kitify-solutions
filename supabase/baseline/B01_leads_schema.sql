@@ -51,17 +51,37 @@ grant usage on schema leads to authenticated;
 grant usage on schema leads to service_role;
 
 -- ---------------------------------------------------------------------
--- Sequences — NOT created here, on purpose.
+-- Sequences — NOT created here, on purpose. Still true after Query G.
 --
 -- Query A lists three sequences owned by postgres:
 --     leads.permits_id_seq, leads.sources_id_seq, leads.weekly_pulls_id_seq
 -- All three are IDENTITY sequences. Each is created implicitly by its
 -- `GENERATED ALWAYS AS IDENTITY` column in B03, and creating them here
--- would collide with that. They are listed for completeness only.
+-- would collide with that. Query G confirms the shape that implies —
+-- type=bigint, start=1, increment=1, owner=postgres, which is exactly what
+-- an identity column generates by default — so there is nothing to declare.
 --
--- NOT CAPTURED: sequence-level ACLs. Query A reports ownership only, and
--- Query G (which would have covered leads sequences) has not been run. If
--- the sequences carry grants beyond the defaults, this file does not know.
+-- PRIVILEGES (Query G), recorded as comments because the sequences
+-- themselves are not created here:
+--
+--   leads.permits_id_seq        anon:          USAGE=f SELECT=f UPDATE=f
+--                               authenticated: USAGE=t SELECT=t UPDATE=f
+--   leads.sources_id_seq        anon:          USAGE=f SELECT=f UPDATE=f
+--                               authenticated: USAGE=t SELECT=t UPDATE=f
+--   leads.weekly_pulls_id_seq   anon:          USAGE=f SELECT=f UPDATE=f
+--                               authenticated: USAGE=t SELECT=t UPDATE=f
+--
+-- anon holds NOTHING on any of them, and per the addendum's reading note
+-- that was equally true before 0022 — anon never had sequence privileges
+-- here. This is the third independent confirmation of the same finding:
+-- the leads TABLES granted anon nothing (B03), the SEQUENCES granted anon
+-- nothing, and USAGE on this SCHEMA was the entire reason `leads` was
+-- reachable with the anon key at all. That one grant, revoked by 0022, was
+-- the whole exposure.
+--
+-- authenticated's USAGE+SELECT without UPDATE is the ordinary identity
+-- posture: it may consume nextval and read currval, but cannot setval the
+-- counter backwards or forwards.
 -- ---------------------------------------------------------------------
 
 -- ---------------------------------------------------------------------

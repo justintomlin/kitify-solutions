@@ -176,6 +176,33 @@ grant all on leads.sources      to service_role;
 grant all on leads.weekly_pulls to service_role;
 
 -- ---------------------------------------------------------------------
+-- IDENTITY SEQUENCES — created implicitly by the three `generated always
+-- as identity` columns above. Not declared separately; see B01 for why.
+--
+-- Query G confirms all three are type=bigint start=1 increment=1
+-- owner=postgres, which is what the identity columns generate by default,
+-- and gives the privileges (anon holds nothing; authenticated holds
+-- USAGE+SELECT but not UPDATE). Full detail in B01.
+--
+-- LAST VALUES AT CAPTURE — and these are NOT row counts:
+--
+--   leads.permits_id_seq        last_value = 1754   against    877 rows
+--   leads.sources_id_seq        last_value =   44   against     22 rows
+--   leads.weekly_pulls_id_seq   last_value =    7   against  (never analyzed)
+--
+-- Roughly half the ids are burned. That is the weekly sync doing
+-- insert-on-conflict against permits_permit_num_jurisdiction_key: an
+-- identity sequence advances when the INSERT is ATTEMPTED, and a conflict
+-- that resolves to DO UPDATE does not give the id back. sync.py re-offers
+-- the same permits every week, most of them conflict, and each conflict
+-- costs an id.
+--
+-- This is normal and harmless — bigint will not run out — but it means
+-- max(id) or last_value must never be used as a proxy for "how many
+-- permits do we have". Count the rows.
+-- ---------------------------------------------------------------------
+
+-- ---------------------------------------------------------------------
 -- COLUMN PRIVILEGES.
 --
 -- Query B enumerates column_priv rows for every column of all three tables.
