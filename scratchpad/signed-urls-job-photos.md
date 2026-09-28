@@ -33,20 +33,32 @@ urls.push(supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl);
 Inside `uploadPhotos()`. This is the one to change. It currently converts a path it already
 has into a public URL and throws the path away.
 
-### 2. `app/portal/settings/page.tsx:104` — **OUT of scope, do not touch**
+### 2. `app/portal/settings/page.tsx:104` — **OUT of scope. Do not change this line.**
+
+*(Reviewed and accepted as out of scope. This section exists so a future session does not
+sweep it in while "finishing the getPublicUrl migration".)*
 
 ```ts
 const { data } = supabase.storage.from(LOGO_BUCKET).getPublicUrl(path);
 ```
 
-Different bucket (`company-logos`, `app/portal/settings/page.tsx:19`) and a genuinely
-different problem. The company logo is rendered on the **public, unauthenticated** proposal
-page — `app/proposal/[token]/ProposalView.tsx:500`, a plain `<img src={branding.logo}>`. That
-page has no authenticated Supabase session, so it cannot mint a signed URL. Sweeping
-`company-logos` into this change breaks customer-facing proposals.
+**The reason, stated so it does not have to be rediscovered:**
 
-`company-logos` needs its own decision (stay public, or signed-at-render on the server that
-already resolves the proposal token). Out of scope here; flagged so it is not done by reflex.
+1. **It is a different bucket.** `LOGO_BUCKET = "company-logos"` (`app/portal/settings/page.tsx:19`),
+   not `job-photos`. Nothing about flipping `job-photos` to private touches it.
+2. **Its output is rendered on an unauthenticated page.** The company logo appears on the
+   public proposal page at `app/proposal/[token]/ProposalView.tsx:500`, as a plain
+   `<img src={branding.logo}>`. A homeowner opening a proposal link **has no account and no
+   Supabase session**, so that page cannot mint a signed URL. Converting this call site to
+   signed URLs breaks customer-facing proposals.
+3. **The bucket is public on purpose.** Migration 0022 Part 4 created `company-logos` with
+   `public = true` and says why in the migration itself: *"Public on purpose: a homeowner
+   opening a proposal has no account."* It also restricts MIME types to PNG/JPEG/WebP —
+   no SVG, since an SVG served directly can execute script.
+
+If `company-logos` ever needs to stop being public, it needs its own design, and the obvious
+route is signing on the server that already resolves the proposal token rather than in the
+browser. That is a separate piece of work. Not this one.
 
 ## The change
 
@@ -95,23 +107,54 @@ Display sites:
 Suggested expiry: long enough to survive reading a page and opening an image in a new tab,
 short enough that a leaked URL is not a permanent grant. An hour is a reasonable default.
 
-### Step 4 — handle legacy rows
+### Step 4 — legacy rows: **backfill. Do not settle for the branch.**
 
-**Existing rows already contain full public URLs.** They will not become paths on their own,
-and there is no reason to rewrite them in place before the bucket flips.
+*(Reviewed and accepted. This is the step most likely to be skipped and the one that breaks
+production if it is.)*
 
-Display code must accept both for the whole transition:
+**Every row written before this change holds a full public URL, and all of them break the
+moment the bucket flips.** Not degrade — break. A private bucket refuses a plain public URL,
+so every historical job photo and claim photo becomes a broken image simultaneously, for
+everyone, the instant 0023 runs.
+
+Two ways to survive that, and they are not equal.
+
+**Recommended — backfill the columns to paths, before 0023.**
+
+The paths are **recoverable from the URLs by stripping the public prefix**. A stored URL is
+`…/storage/v1/object/public/job-photos/<path>`; everything after `/job-photos/` is exactly the
+path `uploadPhotos()` would store today. Mechanical string work over two columns, no lookup,
+no guessing:
+
+| Column | Shape |
+| --- | --- |
+| `orders.completion_photos` | jsonb array of strings |
+| `claims.photos` | array of strings |
+
+This is a **data migration, not a schema one**. No types change — a jsonb array of strings
+stays a jsonb array of strings — and the tag-in-filename convention is untouched, because the
+tag rides in the path, not in the prefix being stripped.
+
+> **The backfill must COMPLETE before 0023 runs.** Not be written, not be merged — completed
+> against production and verified. 0023 is the statement that makes the old URLs unusable; any
+> row still holding one at that moment is a broken image whose only recovery is deriving the
+> path anyway, under time pressure, in prod.
+
+**Fallback — a `startsWith("http")` branch.**
 
 ```
 if (s.startsWith("http")) → use as-is (legacy row)
 else                     → path, resolve via createSignedUrls
 ```
 
-This is the part most likely to be skipped and most likely to bite: the day the bucket goes
-private, every un-migrated legacy row turns into a broken image at once. Either backfill the
-columns to paths before the flip, or keep the branch above permanently. Backfilling is
-cleaner and is a data migration, not a schema one — the paths are recoverable from the URLs
-by stripping the public prefix.
+Documented because it is a legitimate way to ship the code without blocking on the backfill,
+and because the branch is cheap. But know what it costs: it has to live at **every** display
+site (`my-jobs`, `orders/[id]`, `PhotoUpload`), and on its own it keeps the legacy rows on
+public URLs indefinitely — leaving exactly the photos this exercise exists to protect
+unprotected. It defers the problem; it does not solve it.
+
+Take the backfill. Keep the branch only as a safety net across the window between the code
+deploy and the backfill finishing, then delete it.
 
 ### Step 5 — `0023`, after the code is live
 

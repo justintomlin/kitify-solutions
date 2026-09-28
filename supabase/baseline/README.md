@@ -45,28 +45,47 @@ That is what these baseline files capture.
 ## Run order for a fresh database
 
 ```
-1. supabase/baseline/B01 … B06      (in order)
-2. supabase/migrations/0001 … 00NN  (in order)
-3. docs/migrations/2026-08-04-proposal-enhancements.sql   — see note below
+1. supabase/baseline/B01, B02 (main body), B03
+2. supabase/migrations/0001_initial_schema.sql
+3. supabase/baseline/B02 — the DEFERRED section at the foot of the file
+4. supabase/migrations/0002 … 00NN  (in order)
+5. docs/migrations/2026-08-04-proposal-enhancements.sql   — see note below
 ```
 
 Baseline first. The migrations assume these objects already exist; 0008 in particular will
 fail outright without `leads.permits` and `public.companies`.
 
+**Why step 3 exists.** The dependency runs both ways, so a single pass cannot work.
+`public.companies` is needed by 0008, but two of its own constraints point at tables that
+migration 0001 creates:
+
+- `companies_assigned_to_fkey` → `public.profiles (id)`
+- `projects_company_id_fkey` → needs `public.projects` to exist
+
+Both are parked in a clearly-marked DEFERRED section at the foot of `B02_companies.sql` and
+must be run after 0001. The commented-out statements are there to be run deliberately, in
+that slot, and nowhere else.
+
 ## File status
 
 | File | Contents | Status |
 | --- | --- | --- |
-| `B01_leads_schema.sql` | The `leads` schema itself, its grants and its search path | **Not yet written** — needs Query A output |
-| `B02_companies.sql` | `public.companies`, plus `projects.company_id` as a documented `ALTER` | **Not yet written** — needs Query B output |
-| `B03_leads_tables.sql` | The three `leads.*` tables, their grants and their policies | **Not yet written** — needs Query F output |
-| `B04_inside_leads_view.sql` | The inside-leads view | **Outstanding** — needs Query D output |
-| `B05_promote_permit_to_crm.sql` | `promote_permit_to_crm()` | **Outstanding** — needs Query E output |
-| `B06_storage.sql` | Storage buckets and their policies | **Outstanding** — needs Query G output |
+| `B01_leads_schema.sql` | The `leads` schema, its ACL (incl. the pre-0022 `anon` USAGE), sequence and role-config notes | **Written** — from Query A |
+| `B02_companies.sql` | `public.companies` + the three `using (true)` policies + pre-0022 grants; `projects.company_id` and the profiles FK as deferred `ALTER`s | **Written** — from Query B / F |
+| `B03_leads_tables.sql` | `leads.permits`, `leads.sources`, `leads.weekly_pulls` — columns, constraints, RLS, policies, grants | **Written** — from Query B / F |
+| `B04_inside_leads_view.sql` | The `public.inside_leads` view | **Outstanding** — needs **Query D** |
+| `B05_promote_permit_to_crm.sql` | `promote_permit_to_crm(bigint)` | **Outstanding** — needs **Query E** |
+| `B06_storage.sql` | Storage buckets and the six `storage.objects` policies | **Outstanding** — needs **Query G** |
 
-B01–B03 are specified and ready to write; the extraction output they transcribe was not
-available in the working tree when this README was written. B04–B06 are blocked on queries
-that have not been run yet.
+All three written files snapshot production **as it stood before migration 0022**. Each one
+carries a `!!` banner saying so, and every object 0022 later altered is commented at the point
+of the grant or policy it changed. Read them as history; read `0022_close_anon_holes.sql` for
+current state.
+
+**Note on B04.** Query C — already captured — contains the full `inside_leads` view definition
+and its raw ACL, which is most of what B04 needs. Query D is listed above because it covers
+the function definitions; B04 may be closer to writable than the table suggests. Confirm
+before scheduling the capture.
 
 ## Production dashboard settings
 
@@ -81,8 +100,14 @@ A fresh project must be set to match.
 - **19 of 22 tables exposed.** The three `leads` tables show warnings in the dashboard. The
   warnings are expected and are a consequence of the permissive policies recorded in `B03`.
 - **"Automatically expose new tables": ON.** Any table added later is exposed through the API
-  the moment it is created, without a further decision being made. Worth knowing before
-  adding a table that is not meant to be public.
+  the moment it is created, without a further decision being made.
+
+  > **Turn this OFF before the tenancy migration runs.** `orgs`, `memberships`,
+  > `org_assignments` and `events` would otherwise inherit the permissive grant pattern at
+  > creation — exposed through the API, with the default grants, before a single policy is
+  > written for them. The tables that define who may see what are the worst possible ones to
+  > create under a setting that publishes them automatically. Flip it off first, create the
+  > tables, write the policies, then decide table by table what gets exposed.
 
 **Authentication**
 
@@ -95,6 +120,20 @@ A fresh project must be set to match.
 | Providers enabled | **Email only** |
 
 Accounts are created by an administrator; there is no self-service signup path.
+
+> **Signup must stay OFF until the `profiles.role` self-write restriction ships.** That toggle
+> is currently the only thing preventing privilege escalation to admin. `profiles_update_self`
+> is `WITH CHECK (id = auth.uid())` with **no column restriction**, so a user may write any
+> column of their own row — including `role`. `is_admin()` reads that same column:
+>
+> ```sql
+> select exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin');
+> ```
+>
+> So anyone who can create an account can set their own `role` to `'admin'` and `is_admin()`
+> will agree. Migration 0022 did not touch this — it closed `anon`, and this path needs an
+> authenticated session. Turning signup on before the column restriction exists converts a
+> latent hole into an open one.
 
 ## Applied outside `supabase/migrations/`
 
@@ -111,8 +150,14 @@ A **weekly** job runs outside this repository. It:
 2. calls `public.auto_link_permits_to_companies()` (the function from migration 0008) to match
    newly-ingested, still-unlinked permits to existing `public.companies` rows by license.
 
-Two consequences worth holding onto:
+Three consequences worth holding onto:
 
+- **`sync.py` must authenticate with the service role key.** Migration 0022 revoked `anon`
+  across both schemas — every table grant, every function, and `USAGE` on schema `leads`. If
+  that job is still using the anon key it now fails, and it fails **silently**: it runs weekly,
+  unattended, and nothing in this application notices that permits stopped arriving. The
+  service role bypasses grants and RLS, which is what an ingest job needs and what the
+  grant-backs in 0022 Part 2 preserved for it. Verify the key before the next weekly run.
 - `leads.permits` has a writer that is not this application, so its shape is not ours to change
   unilaterally — a column rename here breaks the sync job silently, once a week.
 - The linking function is called on a schedule rather than on insert, so a permit can exist
@@ -131,9 +176,22 @@ per rule 4; the fix is a numbered migration once tenancy exists.
 to move to stored paths plus signed URLs. The code change ships first and the
 `public = false` flip follows in a later numbered migration.
 
+**Two `SECURITY DEFINER` functions have no caller-authorization check.** `promote_permit_to_crm`
+and `set_inventory_tracking` both run with owner rights. Migration 0022 revoked `anon` and
+`PUBLIC` execute on them, so they are no longer reachable without an account — but **any
+authenticated user can still call either one**, on any permit or any `p_owner_id`. 0022's own
+`comment on function` text says as much. Carried into Session 2.
+
+**Not captured in the extraction.** Query B's section list promises triggers and returned no
+trigger rows for `public.companies` or any `leads` table. Both `companies.updated_at` and
+`leads.permits.updated_at` carry `DEFAULT now()`, which fires on INSERT only; whether anything
+refreshes them on UPDATE is unanswered. `public.set_updated_at()` does exist. Sequence-level
+ACLs in schema `leads` are also uncaptured, as is everything Query G would cover for
+`projects.company_id` — nullability, default, backing index, and the FK's ON DELETE action.
+
 ## Re-capturing this snapshot
 
-Re-run the extraction queries in `scratchpad/Kitify_Production_Extraction_Output.md` against
+Re-run the extraction queries in `supabase/scratchpad/Kitify_Production_Extraction_Output.md` against
 production, then **diff** the fresh output against the files here. A difference means either
 
 - production drifted (someone changed something by hand), or
