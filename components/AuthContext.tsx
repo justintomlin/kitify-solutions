@@ -27,6 +27,22 @@ export type Profile = {
    *  the /portal/inventory routes. False until the Phase 2 migration runs — the `?? false`
    *  in rowToProfile means a missing column reads as "off" rather than throwing. */
   inventoryTrackingEnabled: boolean;
+  /**
+   * The caller's own org, from public.memberships (migration 0024).
+   *
+   * THIS IS NOT AN AUTHORIZATION SIGNAL. It tells the client which org it is acting in so a
+   * future admin screen can say "creating this on behalf of X"; it does not decide what the
+   * caller may do. Do not write `orgKind === "kitify"` as a stand-in for is_admin() — that
+   * check lives in the database, in RLS, where it cannot be edited by the browser.
+   *
+   * Null on two paths that are both legitimate: before 0024 has been applied (the tables do
+   * not exist yet), and for an account whose membership has not been created. Both read as
+   * "no org known", and every write still works, because org_id carries
+   * `default public.current_org_id()` and the database resolves it server-side regardless of
+   * what the client believes.
+   */
+  orgId: string | null;
+  orgKind: "kitify" | "contractor" | null;
 };
 
 type AuthResult = { error: string | null };
@@ -53,13 +69,54 @@ type ProfileRow = {
   must_change_password?: boolean; profile_confirmed?: boolean; first_login_at?: string | null;
   inventory_tracking_enabled?: boolean;
 };
-const rowToProfile = (r: ProfileRow): Profile => ({
+const rowToProfile = (r: ProfileRow, org?: OrgRef | null): Profile => ({
   id: r.id, name: r.name, email: r.email, company: r.company ?? null, phone: r.phone ?? null, territory: r.territory ?? null,
   companyLogo: r.company_logo ?? null, companyTagline: r.company_tagline ?? null, companyWebsite: r.company_website ?? null,
   role: r.role, status: r.status,
   mustChangePassword: !!r.must_change_password, profileConfirmed: !!r.profile_confirmed, firstLoginAt: r.first_login_at ?? null,
   inventoryTrackingEnabled: r.inventory_tracking_enabled ?? false,
+  orgId: org?.id ?? null,
+  orgKind: org?.kind ?? null,
 });
+
+type OrgRef = { id: string; kind: "kitify" | "contractor" };
+
+/**
+ * The caller's own org, read straight from memberships — no RPC.
+ *
+ * 0024's `memberships_select_own_org_or_admin` policy already admits a user to their own
+ * org's membership rows (`org_id = current_org_id()`), so a plain select is enough and a
+ * dedicated function would be a second place for the same rule to live.
+ *
+ * Ordered by created_at then id, matching `public.current_org_id()` exactly. If the two ever
+ * disagreed, the client would name one org while the database wrote rows into another — so
+ * the ordering here is load-bearing, not incidental.
+ *
+ * NEVER THROWS. A missing table (0024 not yet applied), a policy refusal or a network blip
+ * all resolve to null, which reads as "no org known". Every write still lands correctly
+ * because org_id defaults to current_org_id() server-side; the client's copy is for display.
+ */
+async function loadOrg(userId: string): Promise<OrgRef | null> {
+  try {
+    const { data, error } = await supabase
+      .from("memberships")
+      .select("org_id, orgs(id, kind)")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (error || !data) return null;
+    // PostgREST returns an embedded one-to-one as an object, but types it as a union with an
+    // array; normalise rather than trusting either shape.
+    const embedded = (data as { orgs?: unknown }).orgs;
+    const org = (Array.isArray(embedded) ? embedded[0] : embedded) as OrgRef | undefined;
+    if (!org?.id || (org.kind !== "kitify" && org.kind !== "contractor")) return null;
+    return { id: org.id, kind: org.kind };
+  } catch {
+    return null;
+  }
+}
 
 // Load the user's profile, creating it if missing. This is what keeps the profiles row
 // (and therefore the owner_id foreign key) valid: a row exists for every signed-in user.
@@ -68,7 +125,7 @@ const rowToProfile = (r: ProfileRow): Profile => ({
 async function ensureProfile(u: SupabaseUser, extra?: { name?: string; company?: string }): Promise<Profile | null> {
   const { data: existing, error: selErr } = await supabase.from("profiles").select("*").eq("id", u.id).maybeSingle();
   if (selErr) console.error("[auth] load profile failed:", selErr);
-  if (existing) return rowToProfile(existing as ProfileRow);
+  if (existing) return rowToProfile(existing as ProfileRow, await loadOrg(u.id));
 
   const meta = (u.user_metadata ?? {}) as { name?: string; company?: string };
   // role and status are DELIBERATELY ABSENT. Migration 0023 revokes column-level INSERT on
@@ -97,7 +154,9 @@ async function ensureProfile(u: SupabaseUser, extra?: { name?: string; company?:
     console.error("[auth] create profile failed:", insErr);
     return null;
   }
-  return rowToProfile(created as ProfileRow);
+  // A just-created self-service profile has no membership yet — an admin creates one — so
+  // loadOrg legitimately returns null here and orgId/orgKind read as "no org known".
+  return rowToProfile(created as ProfileRow, await loadOrg(u.id));
 }
 
 // Map raw Supabase auth messages to stable keys the UI can localise; empty string means
@@ -190,7 +249,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const refreshProfile = useCallback(async () => {
     if (!user) return;
     const { data } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
-    if (data) setProfile(rowToProfile(data as ProfileRow));
+    if (data) setProfile(rowToProfile(data as ProfileRow, await loadOrg(user.id)));
   }, [user]);
 
   return (

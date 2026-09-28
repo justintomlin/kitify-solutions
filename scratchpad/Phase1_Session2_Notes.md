@@ -178,6 +178,40 @@ otherwise `orgs`, `memberships`, `org_assignments` and `events` are published th
 with the default grants at the moment they exist, before a single policy is written for them.
 See `supabase/baseline/README.md`.
 
+## 8. The read filters scope by USER; RLS scopes by ORG
+
+**Invisible today. Becomes wrong the day a contractor org has two members.**
+
+There are 11 `eq("owner_id", …)` filters in `lib/store.ts` and `lib/partner-inventory.ts`:
+
+```
+lib/store.ts:408, 485, 547, 749, 1050, 1094
+lib/partner-inventory.ts:301, 338, 348, 391, 410
+```
+
+Each narrows a query to one **user's** rows. Since 0024, RLS scopes by **org**
+(`org_id = public.current_org_id() or public.is_admin()`). The two agree only while every
+contractor org has exactly one member — which is true right now, and is the only reason this
+is not already a bug.
+
+The moment a dealer has two people in one org, `listProjects(ownerId)` shows the signed-in
+user's projects rather than **the org's**, and a colleague's work becomes invisible to them
+even though RLS would happily return it. The failure is silent and looks like missing data,
+not like a permissions error.
+
+Not a security problem — the filter is strictly *narrower* than the policy, so nothing leaks.
+It is a correctness problem, and the fix is to drop the `owner_id` filter wherever the intent
+is "everything in my org" and keep it only where the intent is genuinely "mine". Those two
+intents are currently indistinguishable in the code, which is the actual work: deciding, per
+call site, which one was meant.
+
+`owner_id` stays either way — it still records who created a row inside an org, which is
+worth knowing and is a separate decision from what it scopes.
+
+Related, from the same review: `loadOrg()` in `components/AuthContext.tsx` orders memberships
+by `created_at, id` because `public.current_org_id()` does. If those ever diverge the client
+would name one org while the database wrote rows into another. Change them together.
+
 ## Still undocumented (not blocking)
 
 Query D covered 9 of the 15 functions Query A enumerated. The six `apply_*` / `inventory_*`
