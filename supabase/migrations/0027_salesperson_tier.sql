@@ -790,6 +790,19 @@ comment on function public.orders_lifecycle_guard() is
 -- still apply at CREATE TABLE. profiles hit this in 0022 and events hit
 -- it in 0024. So every new table below is revoked from anon and PUBLIC
 -- first, then granted back to authenticated explicitly.
+--
+-- !! THE PARAGRAPH ABOVE IS WRONG AND THIS FILE SHIPPED THE BUG. !!
+-- `revoke ... from anon, public` DOES NOT TOUCH `authenticated`, and
+-- `authenticated` is the role the default grant goes to. The revokes
+-- below cleared nothing that mattered and the grants that follow them
+-- merely re-stated four of the seven privileges already present —
+-- TRUNCATE, REFERENCES and TRIGGER stayed. Repaired by 0028 (these two
+-- tables) and 0029 (the other thirty the sweep found).
+--
+-- DO NOT COPY THIS PATTERN. The correct form is
+-- `revoke all on <table> from authenticated, anon;` followed by the
+-- explicit grants — see the STANDING RULE at the top of
+-- supabase/baseline/README.md. The SQL below is left exactly as it ran.
 -- =====================================================================
 
 alter table public.appointments  enable row level security;

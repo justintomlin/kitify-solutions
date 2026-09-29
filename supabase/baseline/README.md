@@ -117,37 +117,73 @@ rebuild. The two files agree across the 0022 boundary.
 >
 > **and then the explicit grants that table actually needs.**
 
-Not `revoke all ... from anon, public`. Not a grant on its own. The revoke must name
-**`authenticated`**, because `authenticated` is the role Supabase's `ALTER DEFAULT PRIVILEGES`
-hands a full table grant to the instant a table is created in `public`.
+### The root cause, which explains all five occurrences
+
+**A revoke written `from anon, public` does not touch `authenticated`.** And `authenticated`
+is precisely the role Supabase's `ALTER DEFAULT PRIVILEGES` hands a full table grant to at
+`CREATE TABLE`.
+
+So every "belt and braces" revoke written that way **did nothing at all**, and the
+`grant select, insert, update, delete` that followed it did not grant four privileges — it
+re-stated four of the seven already present. **`TRUNCATE`, `REFERENCES` and `TRIGGER` stayed.**
+
+That one wording error is the whole story. It is not five separate mistakes; it is one
+sentence copied five times.
+
+`TRUNCATE` is the one that matters: it is a **table-level** operation, **no RLS policy applies
+to it**, so any authenticated session can empty the table in full no matter how carefully its
+rows are org-scoped.
 
 **"Automatically expose new tables" being OFF does not prevent this.** That setting governs
 PostgREST *exposure*. Default role privileges are a Postgres-level grant, applied at
-`CREATE TABLE` regardless of any dashboard toggle. The two are separate mechanisms and
-conflating them is what caused this every time.
+`CREATE TABLE` regardless of any dashboard toggle. Two separate mechanisms, and mistaking one
+for the other is why the narrow revoke kept looking sufficient.
 
-A `grant select, insert, update, delete` written without the revoke first does not grant four
-privileges — it re-states four of the seven already present, and **`TRUNCATE`, `REFERENCES`
-and `TRIGGER` stay**. `TRUNCATE` is the one that matters: it is a table-level operation, **no
-RLS policy applies to it**, so any authenticated user can empty the table in full no matter
-how carefully its rows are org-scoped.
+### Five occurrences
 
-**Catching this in a VERIFY block is not sufficient.** It has now been missed four times:
-
-| Table | Migration | Caught by | Repaired in |
+| Table(s) | Created by | Caught by | Repaired in |
 | --- | --- | --- | --- |
 | `public.profiles` | 0022 | review | 0022 |
 | `public.events` | 0024 | post-apply audit | applied by hand, committed in 0026 |
 | `public.appointments` | 0027 | 0027 VERIFY check 6b | **0028** |
 | `public.labor_catalog` | 0027 | 0027 VERIFY check 6b | **0028** |
+| **30 more across `public`** | 0024 and earlier | **0028's public-wide sweep** | **0029** |
 
-VERIFY runs *after* `commit;`. Between the migration committing and a human reading the
-output, the grant is live. The revoke belongs in the same statement block as the
-`create table`, not in the audit that follows it.
+The fifth row is the one to read twice. 0028 repaired two tables and added a sweep across the
+whole schema; the sweep returned **32** combinations. Among them: `anon` **and**
+`authenticated` both held `TRUNCATE` on **`orgs`, `memberships` and `org_assignments`** —
+created by 0024, *after* 0022's blanket revoke had already run, so they took fresh default
+grants that nothing since had cleared.
 
-`0028_new_table_grants.sql` carries a VERIFY check (6 / 6b) that sweeps **every** table in
-`public` for `TRUNCATE` or `REFERENCES` held by `authenticated` or `anon`. Run it after any
-migration that creates a table.
+Truncating `memberships` empties the table `current_org_id()` and `is_admin()` both read:
+every user resolves to no org, every org-scoped policy matches nothing, every admin stops
+being an admin, and every row in fifteen business tables is orphaned. PostgREST exposes no
+`TRUNCATE` verb, so there was no route to it from a browser — but a grant is not made
+acceptable by the current absence of a route to it.
+
+### Two rules that follow
+
+1. **Catching this in a VERIFY block is not sufficient.** VERIFY runs *after* `commit;`.
+   Between the migration committing and a human reading the output, the grant is live. The
+   revoke belongs in the same statement block as the `create table`, not in the audit after it.
+
+2. **Every grant-related VERIFY sweeps the whole schema, not the tables the migration
+   touched.** This is the pattern from `0029_strip_client_role_privileges.sql` check 1: count
+   every combination of `(anon, authenticated)` × `(TRUNCATE, REFERENCES, TRIGGER)` across
+   every table and view in `public` and `leads`, expected `0`, with a companion row listing
+   any survivor. Repairing two tables while thirty stayed broken is exactly what happened
+   here, and a migration-scoped check would have reported a clean result while it did.
+
+   Pair it with an over-swing check in the other direction — a blanket revoke across a whole
+   schema is the sort of statement that fixes the reported problem and breaks the
+   application. 0029's checks 3, 3b, 4 and 5 assert the DML, the RLS and `events`'
+   append-only revoke all survived.
+
+> **Note for a fresh database.** `revoke ... on all tables in schema` acts on the tables that
+> exist when it runs; it does not change default privileges. 0029 cleans up, it does not
+> immunise. An `ALTER DEFAULT PRIVILEGES ... REVOKE` would make rule 1 self-enforcing, and is
+> recorded in 0029's header as the option deliberately *not* taken — it changes behaviour for
+> every future table and every tool that creates one, so it belongs in its own decision.
 
 ## Production dashboard settings
 
@@ -173,7 +209,8 @@ A fresh project must be set to match.
 
   > **Flipping it off does NOT deal with the default grants.** Exposure and privilege are two
   > different mechanisms, and turning this toggle off has been mistaken for handling both —
-  > four times. See **STANDING RULE — every `create table` in a migration** above.
+  > five times, most consequentially on the tenancy tables this very note was written to
+  > protect. See **STANDING RULE — every `create table` in a migration** above.
 
 **Authentication**
 
