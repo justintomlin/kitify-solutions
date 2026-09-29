@@ -107,6 +107,48 @@ The B05 reconstruction is **corroborated, not assumed**. The original extraction
 — the bare `=X/postgres` and the explicit `anon` entry, exactly the shape the addendum says to
 rebuild. The two files agree across the 0022 boundary.
 
+## STANDING RULE — every `create table` in a migration
+
+> **Every `create table` in a migration must be immediately followed by**
+>
+> ```sql
+> revoke all on <table> from authenticated, anon;
+> ```
+>
+> **and then the explicit grants that table actually needs.**
+
+Not `revoke all ... from anon, public`. Not a grant on its own. The revoke must name
+**`authenticated`**, because `authenticated` is the role Supabase's `ALTER DEFAULT PRIVILEGES`
+hands a full table grant to the instant a table is created in `public`.
+
+**"Automatically expose new tables" being OFF does not prevent this.** That setting governs
+PostgREST *exposure*. Default role privileges are a Postgres-level grant, applied at
+`CREATE TABLE` regardless of any dashboard toggle. The two are separate mechanisms and
+conflating them is what caused this every time.
+
+A `grant select, insert, update, delete` written without the revoke first does not grant four
+privileges — it re-states four of the seven already present, and **`TRUNCATE`, `REFERENCES`
+and `TRIGGER` stay**. `TRUNCATE` is the one that matters: it is a table-level operation, **no
+RLS policy applies to it**, so any authenticated user can empty the table in full no matter
+how carefully its rows are org-scoped.
+
+**Catching this in a VERIFY block is not sufficient.** It has now been missed four times:
+
+| Table | Migration | Caught by | Repaired in |
+| --- | --- | --- | --- |
+| `public.profiles` | 0022 | review | 0022 |
+| `public.events` | 0024 | post-apply audit | applied by hand, committed in 0026 |
+| `public.appointments` | 0027 | 0027 VERIFY check 6b | **0028** |
+| `public.labor_catalog` | 0027 | 0027 VERIFY check 6b | **0028** |
+
+VERIFY runs *after* `commit;`. Between the migration committing and a human reading the
+output, the grant is live. The revoke belongs in the same statement block as the
+`create table`, not in the audit that follows it.
+
+`0028_new_table_grants.sql` carries a VERIFY check (6 / 6b) that sweeps **every** table in
+`public` for `TRUNCATE` or `REFERENCES` held by `authenticated` or `anon`. Run it after any
+migration that creates a table.
+
 ## Production dashboard settings
 
 These are configuration, not schema — no SQL file captures them, so they are recorded here.
@@ -128,6 +170,10 @@ A fresh project must be set to match.
   > written for them. The tables that define who may see what are the worst possible ones to
   > create under a setting that publishes them automatically. Flip it off first, create the
   > tables, write the policies, then decide table by table what gets exposed.
+
+  > **Flipping it off does NOT deal with the default grants.** Exposure and privilege are two
+  > different mechanisms, and turning this toggle off has been mistaken for handling both —
+  > four times. See **STANDING RULE — every `create table` in a migration** above.
 
 **Authentication**
 
