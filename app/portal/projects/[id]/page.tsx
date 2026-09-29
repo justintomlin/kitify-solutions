@@ -12,6 +12,7 @@ import {
   listOrders, createOrderFromProposal,
   type Project, type Quote, type Proposal, type Order, type ContractorBranding,
 } from "@/lib/store";
+import { dbErrorKey } from "@/lib/db-errors";
 import { quoteBathrooms, labelForTier } from "@/lib/bathrooms";
 import { ProjectForm } from "@/components/projects/ProjectForm";
 import { ProposalForm } from "@/components/projects/ProposalForm";
@@ -39,6 +40,10 @@ export default function ProjectDetailPage() {
   const [origin, setOrigin] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null); // share/unshare/convert in flight
+  // The last database refusal, already translated. One slot for the whole page: these actions
+  // are mutually exclusive in practice, and a per-row error would need a row to attach to even
+  // when the row has just been deleted.
+  const [actionError, setActionError] = useState("");
   const [nowMs, setNowMs] = useState(0);
   const [previewQuote, setPreviewQuote] = useState<Quote | null>(null); // quote shown in the hero modal
 
@@ -56,14 +61,32 @@ export default function ProjectDetailPage() {
     return () => clearInterval(t2);
   }, []);
 
+  // A project carrying an accepted or ordered proposal cannot be deleted: 0031's
+  // proposals_acceptance_guard refuses the first delete in the cascade below, and the
+  // acceptance record is exactly what must survive. The control is hidden rather than
+  // disabled — see the note on the proposal Edit button.
+  const hasLockedProposal = (proposals ?? []).some((p) => p.status === "accepted" || p.status === "ordered");
+
   async function onDeleteProject() {
     if (typeof window !== "undefined" && !window.confirm(t("projects.confirmDelete"))) return;
+    setActionError("");
     // Proposals reference quotes (tier_*), so remove them before their quotes, then the project.
-    const [qs, ps] = await Promise.all([listQuotes({ projectId: id }), listProposals({ projectId: id })]);
-    await Promise.all(ps.map((p) => deleteProposal(p.id)));
-    await Promise.all(qs.map((q) => deleteQuote(q.id)));
-    await deleteProject(id);
-    router.push("/portal/projects");
+    //
+    // The try/catch is here even though the button is hidden when it would fail: the list this
+    // page renders from can be stale — a colleague accepts a proposal while this tab is open —
+    // and without it the first rejection left the project half-deleted with no message and no
+    // navigation, which is the silent failure this whole session exists to remove.
+    try {
+      const [qs, ps] = await Promise.all([listQuotes({ projectId: id }), listProposals({ projectId: id })]);
+      await Promise.all(ps.map((p) => deleteProposal(p.id)));
+      await Promise.all(qs.map((q) => deleteQuote(q.id)));
+      await deleteProject(id);
+      router.push("/portal/projects");
+    } catch (e) {
+      setActionError(t(dbErrorKey(e)));
+      loadProposals();
+      loadQuotes();
+    }
   }
   async function onDeleteQuote(qid: string) {
     // A quote assigned to a proposal tier can't be deleted (FK) — guard with a clear message.
@@ -72,7 +95,14 @@ export default function ProjectDetailPage() {
     );
     if (usedBy) { if (typeof window !== "undefined") window.alert(t("projects.quoteInUseProposal")); return; }
     if (typeof window !== "undefined" && !window.confirm(t("projects.confirmDeleteQuote"))) return;
-    await deleteQuote(qid);
+    setActionError("");
+    try {
+      await deleteQuote(qid);
+    } catch (e) {
+      // The client-side `usedBy` check above is the fast path; the foreign key is the real
+      // one, and it answers 23503 rather than a named identifier. dbErrorKey knows.
+      setActionError(t(dbErrorKey(e)));
+    }
     loadQuotes();
   }
 
@@ -96,29 +126,43 @@ export default function ProjectDetailPage() {
     };
   }
 
+  // Every one of these can now be refused by the database — share and unshare by 0032's
+  // transition table, delete by 0031's acceptance guard. The `finally` blocks already cleared
+  // the spinner; what was missing was telling anyone why nothing happened.
   async function onShare(pid: string) {
     setBusyId(pid);
-    try { await shareProposal(pid, brandingSnapshot()); } finally { setBusyId(null); }
+    setActionError("");
+    try { await shareProposal(pid, brandingSnapshot()); }
+    catch (e) { setActionError(t(dbErrorKey(e))); }
+    finally { setBusyId(null); }
     loadProposals();
   }
   async function onUnshare(pid: string) {
     if (typeof window !== "undefined" && !window.confirm(t("projects.confirmUnshare"))) return;
     setBusyId(pid);
-    try { await revokeProposal(pid); } finally { setBusyId(null); }
+    setActionError("");
+    try { await revokeProposal(pid); }
+    catch (e) { setActionError(t(dbErrorKey(e))); }
+    finally { setBusyId(null); }
     loadProposals();
   }
   async function onDeleteProposal(pid: string) {
     if (typeof window !== "undefined" && !window.confirm(t("projects.confirmDeleteProposal"))) return;
-    await deleteProposal(pid);
+    setActionError("");
+    try { await deleteProposal(pid); }
+    catch (e) { setActionError(t(dbErrorKey(e))); }
     loadProposals();
   }
   async function onConvertToOrder(pid: string) {
     if (typeof window !== "undefined" && !window.confirm(t("projects.confirmConvert"))) return;
     setBusyId(pid);
+    setActionError("");
     try {
       await createOrderFromProposal(pid);
-    } catch {
-      if (typeof window !== "undefined") window.alert(t("projects.convertError"));
+    } catch (e) {
+      // ORDER_CREATE_FORBIDDEN (0030) lands here for a salesperson. Inline rather than an
+      // alert(), so the message sits beside the button that produced it.
+      setActionError(t(dbErrorKey(e)));
     } finally {
       setBusyId(null);
     }
@@ -302,8 +346,15 @@ export default function ProjectDetailPage() {
                       </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
-                      <button onClick={() => setProposalForm({ editing: p })} title={t("projects.edit")}
-                        className="rounded-md border border-line p-1.5 text-muted transition hover:border-accent hover:text-accent"><Pencil className="h-3.5 w-3.5" /></button>
+                      {/* Edit is hidden on a locked proposal too, not just delete. 0032 freezes
+                          the seven commercial-term columns once a customer has accepted, so
+                          the form would open, save, and throw PROPOSAL_TERMS_FROZEN. Hidden
+                          rather than disabled: a control that cannot succeed should not be
+                          there, and a tooltip system is a later job. */}
+                      {!locked && (
+                        <button onClick={() => setProposalForm({ editing: p })} title={t("projects.edit")}
+                          className="rounded-md border border-line p-1.5 text-muted transition hover:border-accent hover:text-accent"><Pencil className="h-3.5 w-3.5" /></button>
+                      )}
                       {/* A locked (accepted/ordered) proposal is frozen (one-way) — no delete. */}
                       {!locked && (
                         <button onClick={() => onDeleteProposal(p.id)} title={t("projects.deleteProposal")}
@@ -405,13 +456,25 @@ export default function ProjectDetailPage() {
         )}
       </div>
 
-      {/* Danger zone */}
-      <div className="flex justify-end">
-        <button onClick={onDeleteProject}
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-muted transition hover:text-amber">
-          <Trash2 className="h-4 w-4" /> {t("projects.deleteProject")}
-        </button>
-      </div>
+      {/* Whatever the database last refused, in the reader's language. Sits at the foot of the
+          proposals card because that is where every action that can be refused lives. */}
+      {actionError && (
+        <div className="rounded-lg border border-amber/30 bg-amber/10 px-3 py-2 text-sm text-amber" role="alert">
+          {actionError}
+        </div>
+      )}
+
+      {/* Danger zone. Deleting a project cascades through its proposals, so it is unavailable
+          once any of them carries a customer acceptance — the cascade would be refused at the
+          first one, and the acceptance record is what must survive. */}
+      {!hasLockedProposal && (
+        <div className="flex justify-end">
+          <button onClick={onDeleteProject}
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-muted transition hover:text-amber">
+            <Trash2 className="h-4 w-4" /> {t("projects.deleteProject")}
+          </button>
+        </div>
+      )}
 
       {previewQuote && (
         <HeroModal

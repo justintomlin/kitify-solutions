@@ -9,6 +9,7 @@ import { useAuth } from "@/components/AuthContext";
 import { useMediaQuery } from "@/lib/useMediaQuery";
 import { loadCurrentQuote, saveCurrentQuote, clearCurrentQuote } from "@/lib/quoteStorage";
 import { getQuote, getProject, saveQuote, type Quote } from "@/lib/store";
+import { dbErrorKey } from "@/lib/db-errors";
 // From lib/bathrooms rather than lib/store: this is a client component, and lib/store pulls in
 // the Supabase client, which throws at module load without env vars. The seam is import-free.
 import {
@@ -259,6 +260,9 @@ export default function Page() {
   // localStorage autosave which is just crash recovery). `activeQuote` is set once
   // the current work is tied to a stored quote — via Save-to-project or a ?quote= load.
   const [activeQuote, setActiveQuote] = useState<{ id: string; projectId: string; name: string; projectName: string; status: Quote["status"] } | null>(null);
+  // A refusal from updateActiveQuote, already translated. Rendered beside BOTH update buttons
+  // (the wide column and the narrow sticky bar), since either can produce it.
+  const [updateError, setUpdateError] = useState("");
   const [savePanelOpen, setSavePanelOpen] = useState(false);
   const [savePanelProjectId, setSavePanelProjectId] = useState<string | undefined>(undefined);
   const [saveStamp, setSaveStamp] = useState(0); // bumped on each explicit save to flash a confirmation
@@ -405,17 +409,29 @@ export default function Page() {
   }
 
   // Update the active saved quote in place — preserves its name/project/status.
+  //
+  // Since 0032 this can be refused: once a customer has accepted the proposal that names this
+  // quote, its contents are frozen, because createOrderFromProposal reads the quote AT
+  // CONVERSION TIME and an edit here would silently change what the order charges.
+  //
+  // The alternative is already on screen — "Save as new" sits beside this button — so the
+  // message points at it rather than at a workflow the dealer would have to go and find.
   async function updateActiveQuote() {
     if (!activeQuote) return;
-    await saveQuote({
-      id: activeQuote.id, projectId: activeQuote.projectId, ownerId: userKey,
-      name: activeQuote.name,
-      // The dual-write, from the one place that knows the whole quote: flat slots mirror
-      // bathroom 1, `bathrooms` carries the rest.
-      ...quoteFlatSlots({ bathrooms }), bathrooms,
-      total, status: activeQuote.status,
-    });
-    setSaveStamp((s) => s + 1);
+    setUpdateError("");
+    try {
+      await saveQuote({
+        id: activeQuote.id, projectId: activeQuote.projectId, ownerId: userKey,
+        name: activeQuote.name,
+        // The dual-write, from the one place that knows the whole quote: flat slots mirror
+        // bathroom 1, `bathrooms` carries the rest.
+        ...quoteFlatSlots({ bathrooms }), bathrooms,
+        total, status: activeQuote.status,
+      });
+      setSaveStamp((s) => s + 1);
+    } catch (e) {
+      setUpdateError(t(dbErrorKey(e)));
+    }
   }
 
   const savedText = savedAt ? relativeSaved(t, savedAt, nowMs) : null;
@@ -667,6 +683,9 @@ export default function Page() {
               >
                 {t("configurator.saveAsNew")}
               </button>
+              {updateError && (
+                <div className="w-full text-xs text-amber" role="alert">{updateError}</div>
+              )}
             </div>
           ) : (
             <button
@@ -969,6 +988,11 @@ export default function Page() {
       {/* ---- Below xl: sticky total bar, expanding into a sheet ---- */}
       {!wideQuote && (
         <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-card/95 px-4 py-2 backdrop-blur">
+          {/* The narrow-screen twin of the message beside the wide column's update button.
+              Above the bar rather than inside it, so it never squeezes the total. */}
+          {updateError && (
+            <div className="mx-auto mb-2 max-w-[1700px] text-xs text-amber" role="alert">{updateError}</div>
+          )}
           <div className="mx-auto flex max-w-[1700px] items-center gap-2">
             <button
               type="button"

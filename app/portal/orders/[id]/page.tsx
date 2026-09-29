@@ -10,6 +10,7 @@ import {
   canTransition, getOrder, updateOrder, updateOrderStatus, InvalidStatusTransition,
   type Order, type OrderStatus, type OrderStatusFields,
 } from "@/lib/store";
+import { dbErrorKey } from "@/lib/db-errors";
 import {
   recordOrderShipment, retryOrderShipment, listOrderShipments,
   type OrderShipment, type ShipmentOutcome, type ShipmentStatus,
@@ -89,8 +90,10 @@ export default function OrderDetailPage() {
       const updated = await updateOrder(id, patch);
       setOrder(updated);
       setInstallInput(updated.installDate ?? "");
-    } catch {
-      setError(t("orders.actionError"));
+    } catch (e) {
+      // ORDER_LOCKED (0027) reaches here when the 48-hour window has closed on a column the
+      // contractor may no longer change. Previously this said "something went wrong".
+      setError(t(dbErrorKey(e)));
     } finally {
       setBusy(null);
     }
@@ -145,8 +148,10 @@ export default function OrderDetailPage() {
         void refreshShipments();
       }
     } catch (e) {
-      // A rejected transition means this page is stale, which is worth saying plainly.
-      setAdminError(t(e instanceof InvalidStatusTransition ? "orders.transitionError" : "orders.actionError"));
+      // A client-side rejection means this page is stale, which is worth saying plainly. A
+      // server-side one is now a named rule — ORDER_TRANSITION_FORBIDDEN (0032) or ORDER_LOCKED
+      // (0027) — and dbErrorKey turns it into something actionable rather than generic.
+      setAdminError(e instanceof InvalidStatusTransition ? t("orders.transitionError") : t(dbErrorKey(e)));
     } finally {
       setAdminBusy(false);
     }
@@ -165,9 +170,29 @@ export default function OrderDetailPage() {
   }
 
   const saveInstall = () => run("install", { installDate: installInput || null });
-  const markCompleted = () => {
+
+  // THE ONE CALL SITE THAT PASSED `status` TO updateOrder(), which writes it straight past
+  // canTransition(). That was the only shipped bypass of the client's sequencing rule; since
+  // 0032 the database enforces transitions itself, so the bypass stopped being a hole and
+  // started producing refusals the client had no model for.
+  //
+  // Routed through updateOrderStatus, which checks canTransition first and stamps completed_at
+  // itself. install_date rides along in OrderStatusFields rather than going out as a second
+  // updateOrder call — one statement, no half-applied middle, exactly how the shipping fields
+  // have always travelled with the ready_to_ship → in_transit move.
+  const markCompleted = async () => {
     if (!installInput) { setError(t("orders.installRequired")); return; }
-    run("complete", { status: "completed", installDate: installInput, completedAt: new Date().toISOString() });
+    setBusy("complete");
+    setError("");
+    try {
+      const updated = await updateOrderStatus(id, "completed", { installDate: installInput });
+      setOrder(updated);
+      setInstallInput(updated.installDate ?? "");
+    } catch (e) {
+      setError(e instanceof InvalidStatusTransition ? t("orders.transitionError") : t(dbErrorKey(e)));
+    } finally {
+      setBusy(null);
+    }
   };
   const registerWarranty = () => run("warranty", { warrantyStatus: "registered", warrantyRegisteredAt: new Date().toISOString() });
 

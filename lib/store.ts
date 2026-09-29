@@ -17,6 +17,7 @@
 
 import { supabase } from "@/lib/supabase";
 import type { PostgrestError } from "@supabase/supabase-js";
+import { StoreError } from "./db-errors.ts";
 import { quoteBathrooms, quoteFlatSlots, toBathrooms, toOptionNames, type Bathroom, type OptionNames } from "./bathrooms.ts";
 import { freightForQuote, resolveFreight, retailWithFreight } from "./freight.ts";
 
@@ -157,9 +158,19 @@ type ProposalInput = Pick<
 // ------------------------------ error handling ----------------------------
 // Surface failures loudly instead of returning them as empty data — a Supabase
 // error during testing should look like an error, not like an empty table.
+//
+// Throws a StoreError rather than a bare Error so `code` survives the trip to the UI.
+// Every rule the database enforces since 0027 raises at errcode 42501 with a named
+// identifier in the message; the one exception is 23503 (a foreign key refusing to orphan
+// an accepted quote), which has no identifier and can only be told apart by its code.
+// lib/db-errors.ts is the single place that reads either.
 function fail(context: string, error: PostgrestError | null): never {
   console.error(`[store] ${context} failed:`, error);
-  throw new Error(`store: ${context} failed — ${error?.message ?? "unknown error"}`);
+  throw new StoreError(
+    `store: ${context} failed — ${error?.message ?? "unknown error"}`,
+    error?.code ?? null,
+    error?.message ?? null,
+  );
 }
 
 // -------------------------------- mapping ---------------------------------
@@ -805,11 +816,23 @@ export class InvalidStatusTransition extends Error {
   }
 }
 
-// Shipping details captured at the ready_to_ship → in_transit hand-off.
+// Details captured alongside a status move, so the transition and the fields that belong to
+// it land in ONE statement.
+//
+// `installDate` joins the shipping trio for the delivered → completed hand-off. It is there
+// so markCompleted can stop routing its status change through updateOrder(), which writes
+// `status` straight past canTransition() — the one shipped bypass of the only sequencing rule
+// the client had. Since 0032 the database enforces transitions itself, so that bypass stopped
+// being a hole and started being a source of refusals the client could not explain.
+//
+// Splitting it into updateOrder({installDate}) then updateOrderStatus("completed") would have
+// been two round trips with a half-applied middle. One statement, as the shipping fields
+// already do it.
 export type OrderStatusFields = {
   carrier?: string | null;
   trackingNumber?: string | null;
   estimatedDelivery?: string | null;
+  installDate?: string | null;
 };
 
 // Advance an order along the pipeline, stamping the lifecycle timestamp for whichever
@@ -833,6 +856,7 @@ export async function updateOrderStatus(
   if (fields && "carrier" in fields) row.carrier = fields.carrier ?? null;
   if (fields && "trackingNumber" in fields) row.tracking_number = fields.trackingNumber ?? null;
   if (fields && "estimatedDelivery" in fields) row.estimated_delivery = fields.estimatedDelivery ?? null;
+  if (fields && "installDate" in fields) row.install_date = fields.installDate ?? null;
 
   if (status === "confirmed" && !current.confirmedAt) row.confirmed_at = now;
   if (status === "in_transit" && !current.shippedAt) row.shipped_at = now;
