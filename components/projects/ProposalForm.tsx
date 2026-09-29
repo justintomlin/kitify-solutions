@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { useLanguage } from "@/components/LanguageContext";
 import { saveProposal, labelForTier, toOptionNames, type Proposal, type ProposalLineItem, type Quote } from "@/lib/store";
+import { dbErrorKey } from "@/lib/db-errors";
 import type { OptionTier } from "@/lib/bathrooms";
 import { freightForQuote, resolveFreight } from "@/lib/freight";
 
@@ -81,6 +82,9 @@ export function ProposalForm({ ownerId, projectId, quotes, initial, onSaved, onC
   );
   const [nameError, setNameError] = useState(false);
   const [saving, setSaving] = useState(false);
+  // A refusal from the database, already translated. Sits beside the Save button rather than
+  // at the top of the form, because that is where the reader is looking when it appears.
+  const [saveError, setSaveError] = useState("");
 
   // The current names, in the shape labelForTier reads. Live, so the heading above each
   // column becomes the dealer's own wording as they type it.
@@ -143,27 +147,40 @@ export function ProposalForm({ ownerId, projectId, quotes, initial, onSaved, onC
     if (!name.trim()) { setNameError(true); return; }
     setNameError(false);
     setSaving(true);
+    setSaveError("");
     const parsedMarkup = Number(markup);
-    const saved = await saveProposal({
-      id: initial?.id,
-      ownerId,
-      projectId,
-      name: name.trim(),
-      markupPct: Number.isFinite(parsedMarkup) ? Math.max(0, parsedMarkup) : 0,
-      tierGood: tierGood || null,
-      tierBetter: tierBetter || null,
-      tierBest: tierBest || null,
-      status: initial?.status ?? "draft", // keep an existing status (e.g. 'shared') on edit
-      customLineItems: cleanLineItems(),
-      // An unparseable entry saves as null rather than NaN — warn-don't-block: the field shows
-      // a note, the proposal still saves, and it falls back to the computed estimate.
-      freightOverride: overrideValid ? parsedOverride : null,
-      // toOptionNames trims and collapses an all-blank set to null, so clearing every field
-      // saves "unnamed" rather than three empty strings.
-      optionNames: namesNow,
-    });
-    setSaving(false);
-    onSaved(saved);
+    try {
+      const saved = await saveProposal({
+        id: initial?.id,
+        ownerId,
+        projectId,
+        name: name.trim(),
+        markupPct: Number.isFinite(parsedMarkup) ? Math.max(0, parsedMarkup) : 0,
+        tierGood: tierGood || null,
+        tierBetter: tierBetter || null,
+        tierBest: tierBest || null,
+        status: initial?.status ?? "draft", // keep an existing status (e.g. 'shared') on edit
+        customLineItems: cleanLineItems(),
+        // An unparseable entry saves as null rather than NaN — warn-don't-block: the field shows
+        // a note, the proposal still saves, and it falls back to the computed estimate.
+        freightOverride: overrideValid ? parsedOverride : null,
+        // toOptionNames trims and collapses an all-blank set to null, so clearing every field
+        // saves "unnamed" rather than three empty strings.
+        optionNames: namesNow,
+      });
+      onSaved(saved);
+    } catch (e) {
+      // PROPOSAL_TERMS_FROZEN (0032) is the one that gets here: the project page now hides
+      // Edit on an accepted proposal, but its list can be stale — a colleague accepts while
+      // this form is open — and before this the save threw unhandled with the spinner stuck
+      // on and the dealer's edits still on screen with no explanation.
+      //
+      // The form is deliberately NOT closed. Whatever was typed stays visible, so it can be
+      // copied into a new estimate rather than lost to a failed save.
+      setSaveError(t(dbErrorKey(e)));
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -321,6 +338,11 @@ export function ProposalForm({ ownerId, projectId, quotes, initial, onSaved, onC
         <button type="button" onClick={onCancel} className="rounded-lg border border-line px-4 py-2 text-sm font-medium text-muted transition hover:text-ink">
           {t("projects.cancel")}
         </button>
+        {saveError && (
+          <div className="w-full rounded-lg border border-amber/30 bg-amber/10 px-3 py-2 text-sm text-amber" role="alert">
+            {saveError}
+          </div>
+        )}
       </div>
     </form>
   );

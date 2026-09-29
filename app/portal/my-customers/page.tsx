@@ -23,6 +23,7 @@ import {
   saveContractorCustomer,
   type Claim, type ContractorCustomer, type CustomerAddress, type Order, type Project,
 } from "@/lib/store";
+import { dbErrorKey } from "@/lib/db-errors";
 
 const fmtDate = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString() : "—");
 const norm = (v: string | null | undefined) => (v ?? "").trim().toLowerCase();
@@ -67,6 +68,9 @@ export default function MyCustomersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [claims, setClaims] = useState<Claim[]>([]);
   const [failed, setFailed] = useState(false);
+  // The last refused write, already translated. Distinct from `failed`, which is about the
+  // page not loading; this is about a rule saying no to something the reader just did.
+  const [writeError, setWriteError] = useState("");
 
   const [query, setQuery] = useState("");
   const [adding, setAdding] = useState(false);
@@ -113,42 +117,69 @@ export default function MyCustomersPage() {
     return list.filter((c) => [c.name, c.email ?? "", c.phone ?? ""].some((s) => s.toLowerCase().includes(q)));
   }, [customers, query]);
 
+  // All three writes on this page are role-gated by 0031, and this is the first page a
+  // salesperson lands on. Until now none of them had any error handling at all: a refused
+  // create threw unhandled, a refused edit threw unhandled, and a refused delete did not even
+  // throw — a filtering DELETE policy removes nothing and reports nothing, so the list simply
+  // reloaded with the customer still in it and a "Deleted" toast on screen.
+  //
+  // lib/store.ts now normalises the last two into CUSTOMER_WRITE_FORBIDDEN so all three
+  // arrive here the same way. The toast stays for successes; refusals get a banner that does
+  // not vanish after two and a half seconds, because a rule is something to read and act on.
   async function create(d: Draft) {
     if (!userId) return;
-    await saveContractorCustomer({
-      ownerId: userId,
-      name: d.name.trim(),
-      email: trimOpt(d.email),
-      phone: trimOpt(d.phone),
-      address: draftAddress(d),
-      notes: trimOpt(d.notes),
-      source: "manual",
-    });
-    setAdding(false);
-    showToast(t("customers.added"));
+    setWriteError("");
+    try {
+      await saveContractorCustomer({
+        ownerId: userId,
+        name: d.name.trim(),
+        email: trimOpt(d.email),
+        phone: trimOpt(d.phone),
+        address: draftAddress(d),
+        notes: trimOpt(d.notes),
+        source: "manual",
+      });
+      setAdding(false);
+      showToast(t("customers.added"));
+    } catch (e) {
+      // The add form stays open, so what was typed is not lost to a refusal.
+      setWriteError(t(dbErrorKey(e)));
+    }
     load();
   }
 
   async function update(c: ContractorCustomer, d: Draft) {
-    await saveContractorCustomer({
-      id: c.id,
-      ownerId: c.ownerId,
-      name: d.name.trim(),
-      email: trimOpt(d.email),
-      phone: trimOpt(d.phone),
-      address: draftAddress(d),
-      notes: trimOpt(d.notes),
-      source: c.source,
-      projectId: c.projectId,
-    });
-    showToast(t("customers.saved"));
+    setWriteError("");
+    try {
+      await saveContractorCustomer({
+        id: c.id,
+        ownerId: c.ownerId,
+        name: d.name.trim(),
+        email: trimOpt(d.email),
+        phone: trimOpt(d.phone),
+        address: draftAddress(d),
+        notes: trimOpt(d.notes),
+        source: c.source,
+        projectId: c.projectId,
+      });
+      showToast(t("customers.saved"));
+    } catch (e) {
+      setWriteError(t(dbErrorKey(e)));
+    }
     load();
   }
 
   async function remove(c: ContractorCustomer) {
-    await deleteContractorCustomer(c.id);
-    setExpanded(null);
-    showToast(t("customers.deleted"));
+    setWriteError("");
+    try {
+      await deleteContractorCustomer(c.id);
+      setExpanded(null);
+      showToast(t("customers.deleted"));
+    } catch (e) {
+      // Includes the zero-rows-deleted case, which the store now raises rather than letting
+      // it pass as success. The row stays expanded so it is obvious which one was refused.
+      setWriteError(t(dbErrorKey(e)));
+    }
     load();
   }
 
@@ -167,6 +198,14 @@ export default function MyCustomersPage() {
           </button>
         )}
       </div>
+
+      {/* A refused write. Above the add form and the list, because any of the three can
+          produce it and the reader needs it wherever they were working. */}
+      {writeError && (
+        <div className="mb-4 rounded-lg border border-amber/30 bg-amber/10 px-3 py-2 text-sm text-amber" role="alert">
+          {writeError}
+        </div>
+      )}
 
       {adding && <AddForm onCancel={() => setAdding(false)} onSave={create} />}
 

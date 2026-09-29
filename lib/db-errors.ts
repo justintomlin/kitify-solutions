@@ -104,6 +104,23 @@ export function dbErrorKey(e: unknown): string {
     return "dbError.quoteInUse";
   }
 
+  // A PLAIN RLS REFUSAL, with no named identifier behind it.
+  //
+  // Two shapes, one meaning. The first is Postgres's own wording when a WITH CHECK fails on
+  // an INSERT or UPDATE — that is what 0031's role-gated policies on contractor_customers
+  // produce, since they are policies rather than triggers and so have no message of their
+  // own. The second is CUSTOMER_WRITE_FORBIDDEN, which lib/store.ts raises when an UPDATE or
+  // DELETE on that table matches zero rows; a filtering USING clause removes nothing and
+  // reports nothing, so the store infers it (see saveContractorCustomer).
+  //
+  // Both mean the same thing to the person reading it: the rule says no.
+  if (
+    message.includes("CUSTOMER_WRITE_FORBIDDEN") ||
+    message.includes("violates row-level security policy")
+  ) {
+    return "dbError.notPermitted";
+  }
+
   return DB_ERROR_FALLBACK_KEY;
 }
 

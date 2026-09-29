@@ -1083,6 +1083,28 @@ export async function getContractorCustomer(id: string): Promise<ContractorCusto
   return data ? rowToCustomer(data) : null;
 }
 
+/**
+ * THE ASYMMETRY 0031 LEFT ON THIS TABLE, and why these three writes read the way they do.
+ *
+ * 0031 role-gated all three customer writes with POLICIES rather than a trigger, because the
+ * rule is role-and-org with no state component. That was the right call for the rule and it
+ * costs something here: an RLS refusal is not uniform across the three verbs.
+ *
+ *   INSERT  a failing WITH CHECK RAISES — 42501, "new row violates row-level security
+ *           policy". Catchable, and lib/db-errors.ts recognises that phrasing.
+ *   UPDATE  a failing USING FILTERS. Zero rows match, `.single()` turns that into PGRST116,
+ *           which is catchable but indistinguishable from "somebody else deleted it".
+ *   DELETE  a failing USING FILTERS, and a bare delete reports nothing at all. Zero rows
+ *           removed looks exactly like success.
+ *
+ * So the last two are normalised HERE, where the context makes them unambiguous: the caller
+ * is acting on a row it just listed, so "no rows matched" means the policy refused rather
+ * than the row having evaporated. Both throw CUSTOMER_WRITE_FORBIDDEN, which reads like the
+ * database's own named errors and resolves through the same helper — the UI does not need to
+ * know that one of these came from Postgres and two were inferred.
+ */
+const CUSTOMER_FORBIDDEN = "CUSTOMER_WRITE_FORBIDDEN";
+
 export async function saveContractorCustomer(input: ContractorCustomerInput): Promise<ContractorCustomer> {
   if (input.id) {
     const { data, error } = await supabase
@@ -1091,8 +1113,21 @@ export async function saveContractorCustomer(input: ContractorCustomerInput): Pr
       .eq("id", input.id)
       .select()
       .single();
+    // PGRST116 is "no rows" from .single(). On a row the caller just read, that is the UPDATE
+    // policy filtering it out, not a vanished row.
+    if (error && error.code === "PGRST116") {
+      throw new StoreError(
+        `store: saveContractorCustomer (update) — ${CUSTOMER_FORBIDDEN}: the customer record was not writable`,
+        error.code, error.message,
+      );
+    }
     if (error) fail("saveContractorCustomer (update)", error);
-    if (!data) fail("saveContractorCustomer (update)", null);
+    if (!data) {
+      throw new StoreError(
+        `store: saveContractorCustomer (update) — ${CUSTOMER_FORBIDDEN}: no row was updated`,
+        null, null,
+      );
+    }
     return rowToCustomer(data);
   }
   const { data, error } = await supabase.from("contractor_customers").insert(customerToRow(input)).select().single();
@@ -1101,9 +1136,29 @@ export async function saveContractorCustomer(input: ContractorCustomerInput): Pr
   return rowToCustomer(data);
 }
 
-export async function deleteContractorCustomer(id: string): Promise<void> {
-  const { error } = await supabase.from("contractor_customers").delete().eq("id", id);
+/**
+ * Returns the number of rows actually removed.
+ *
+ * It used to return void, which made a policy-refused delete indistinguishable from a
+ * successful one — the page reloaded, the customer was still there, and nothing said why.
+ * `.select("id")` makes the delete report what it did. Callers that ignore the count behave
+ * exactly as before.
+ */
+export async function deleteContractorCustomer(id: string): Promise<number> {
+  const { data, error } = await supabase
+    .from("contractor_customers")
+    .delete()
+    .eq("id", id)
+    .select("id");
   if (error) fail("deleteContractorCustomer", error);
+  const removed = (data ?? []).length;
+  if (removed === 0) {
+    throw new StoreError(
+      `store: deleteContractorCustomer — ${CUSTOMER_FORBIDDEN}: no row was deleted`,
+      null, null,
+    );
+  }
+  return removed;
 }
 
 // Case-insensitive email match within one contractor's book. Compared in JS rather than

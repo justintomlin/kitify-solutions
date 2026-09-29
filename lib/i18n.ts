@@ -303,6 +303,7 @@ export const dictionary: Record<Lang, Record<string, any>> = {
       proposalTransitionForbidden: "This estimate can't move to that stage from where it is now.",
       quoteAcceptedFrozen: "A customer accepted this quote, so it can't be changed. Use \"Save as new\" to keep your edits on a new quote.",
       quoteInUse: "This quote is attached to an estimate and can't be deleted. Remove it from the estimate first.",
+      notPermitted: "You don't have permission to make this change. Ask an owner or office staff.",
     },
     orders: {
       title: "Orders",
@@ -2467,6 +2468,7 @@ export const dictionary: Record<Lang, Record<string, any>> = {
       proposalTransitionForbidden: "Este presupuesto no puede pasar a esa etapa desde su estado actual.",
       quoteAcceptedFrozen: "Un cliente aceptó esta cotización, así que no se puede cambiar. Use «Guardar como nueva» para conservar sus cambios en una cotización nueva.",
       quoteInUse: "Esta cotización está adjunta a un presupuesto y no se puede eliminar. Quítela del presupuesto primero.",
+      notPermitted: "No tiene permiso para hacer este cambio. Pida a un propietario o al personal de oficina.",
     },
     orders: {
       title: "Pedidos",
@@ -4574,6 +4576,7 @@ export const dictionary: Record<Lang, Record<string, any>> = {
       proposalTransitionForbidden: "Эта смета не может перейти на указанный этап из текущего состояния.",
       quoteAcceptedFrozen: "Клиент принял этот расчёт, поэтому изменить его нельзя. Нажмите «Сохранить как новый», чтобы сохранить правки в новом расчёте.",
       quoteInUse: "Этот расчёт привязан к смете и не может быть удалён. Сначала уберите его из сметы.",
+      notPermitted: "У вас нет прав на это изменение. Обратитесь к владельцу или сотруднику офиса.",
     },
     orders: {
       title: "Заказы",

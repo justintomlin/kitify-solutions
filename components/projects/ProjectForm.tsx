@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useLanguage } from "@/components/LanguageContext";
 import { saveProject, type Project } from "@/lib/store";
+import { dbErrorKey } from "@/lib/db-errors";
 
 const INPUT =
   "w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm text-ink placeholder:text-muted focus:border-accent focus:outline-none";
@@ -41,6 +42,7 @@ export function ProjectForm({ ownerId, initial, onSaved, onCancel }: {
   const [notes, setNotes] = useState(initial?.notes ?? "");
   const [errors, setErrors] = useState<{ name?: boolean; customer?: boolean }>({});
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -48,18 +50,32 @@ export function ProjectForm({ ownerId, initial, onSaved, onCancel }: {
     if (errs.name || errs.customer) { setErrors(errs); return; }
     setErrors({});
     setSaving(true);
-    const saved = await saveProject({
-      id: initial?.id,
-      ownerId,
-      name: name.trim(),
-      customer: { name: customerName.trim(), phone: trimOpt(phone), email: trimOpt(email) },
-      address: { street: trimOpt(street), city: trimOpt(city), state: trimOpt(stateField), zip: trimOpt(zip) },
-      status: initial?.status ?? "estimating",
-      jobRegistration: initial?.jobRegistration ?? "not_started",
-      notes: trimOpt(notes),
-    });
-    setSaving(false);
-    onSaved(saved);
+    setSaveError("");
+    // No role gate on projects today — they are org-scoped only — so nothing here is
+    // currently refused by a rule. The catch is for the same reason as everywhere else in
+    // this sweep: a bare await left the button on "Saving…" forever and said nothing, which
+    // is the failure mode worth removing whether or not a rule causes it.
+    //
+    // Note that saveProject also writes the customer book, via linkProjectCustomer. That call
+    // is already best-effort and swallows its own errors (lib/store.ts), so a salesperson
+    // saving a project still saves the project even though 0031 refuses them the customer row.
+    try {
+      const saved = await saveProject({
+        id: initial?.id,
+        ownerId,
+        name: name.trim(),
+        customer: { name: customerName.trim(), phone: trimOpt(phone), email: trimOpt(email) },
+        address: { street: trimOpt(street), city: trimOpt(city), state: trimOpt(stateField), zip: trimOpt(zip) },
+        status: initial?.status ?? "estimating",
+        jobRegistration: initial?.jobRegistration ?? "not_started",
+        notes: trimOpt(notes),
+      });
+      onSaved(saved);
+    } catch (e) {
+      setSaveError(t(dbErrorKey(e)));
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -112,6 +128,11 @@ export function ProjectForm({ ownerId, initial, onSaved, onCancel }: {
         <button type="button" onClick={onCancel} className="rounded-lg border border-line px-4 py-2 text-sm font-medium text-muted transition hover:text-ink">
           {t("projects.cancel")}
         </button>
+        {saveError && (
+          <div className="w-full rounded-lg border border-amber/30 bg-amber/10 px-3 py-2 text-sm text-amber" role="alert">
+            {saveError}
+          </div>
+        )}
       </div>
     </form>
   );

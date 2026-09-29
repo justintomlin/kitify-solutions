@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useLanguage } from "@/components/LanguageContext";
 import { listProjects, listQuotes, saveQuote, quoteFlatSlots, type Bathroom, type Project, type Quote } from "@/lib/store";
+import { dbErrorKey } from "@/lib/db-errors";
 import { ProjectForm } from "@/components/projects/ProjectForm";
 
 const NEW = "__new__";
@@ -65,19 +66,29 @@ export function SaveQuotePanel({
     setError(null);
     setSaving(true);
     const finalName = name.trim() || t("configurator.quoteNameDefault", { n: "1" });
-    const saved = await saveQuote({
-      projectId: selectedId,
-      ownerId,
-      name: finalName,
-      // Both shapes: the flat columns mirror bathroom 1 so anything that has not been taught
-      // about bathrooms still reads the quote, and the array carries the rest.
-      ...quoteFlatSlots({ bathrooms: quoteInput.bathrooms }),
-      bathrooms: quoteInput.bathrooms,
-      total: quoteInput.total,
-      status: "draft",
-    });
-    setSaving(false);
-    onSaved(saved, projects?.find((p) => p.id === selectedId)?.name ?? "");
+    // This panel ALWAYS creates (no id), so 0032's quote freeze can never refuse it — the
+    // freeze is on updating the quote behind an acceptance. The catch is here because a bare
+    // await was still an unhandled rejection on any other failure, which left the button
+    // stuck on "Saving…" with nothing said. The panel already has an error slot; it was only
+    // ever used for the client-side "pick a project first" check.
+    try {
+      const saved = await saveQuote({
+        projectId: selectedId,
+        ownerId,
+        name: finalName,
+        // Both shapes: the flat columns mirror bathroom 1 so anything that has not been taught
+        // about bathrooms still reads the quote, and the array carries the rest.
+        ...quoteFlatSlots({ bathrooms: quoteInput.bathrooms }),
+        bathrooms: quoteInput.bathrooms,
+        total: quoteInput.total,
+        status: "draft",
+      });
+      onSaved(saved, projects?.find((p) => p.id === selectedId)?.name ?? "");
+    } catch (e) {
+      setError(t(dbErrorKey(e)));
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
