@@ -60,7 +60,10 @@ function draftAddress(d: Draft): CustomerAddress | null {
 
 export default function MyCustomersPage() {
   const { t } = useLanguage();
-  const { userId } = useAuth();
+  const { userId, membershipRole } = useAuth();
+  // Only an explicit 'salesperson' changes the query. A null role falls through to the
+  // owner-filtered read, which is what this page has always done.
+  const isRep = membershipRole === "salesperson";
   const { toast, showToast } = useToast();
 
   const [customers, setCustomers] = useState<ContractorCustomer[] | null>(null);
@@ -79,12 +82,21 @@ export default function MyCustomersPage() {
   const load = useCallback(() => {
     if (!userId) return;
     setFailed(false);
-    listContractorCustomers(userId).then(setCustomers).catch(() => { setCustomers([]); setFailed(true); });
+    // NO OWNER FILTER FOR A SALESPERSON. 0034 scopes a rep's customers through their assigned
+    // appointments, and 0031 stopped a rep creating customers — so a rep owns none, and
+    // asking for `owner_id = me` returns an empty page to exactly the people the new policy
+    // was written to serve. Everyone else keeps the owner filter, which is what their screen
+    // has always meant. RLS narrows either way.
+    listContractorCustomers(isRep ? undefined : userId)
+      .then(setCustomers)
+      .catch(() => { setCustomers([]); setFailed(true); });
     // Supporting data for the expanded panels — a failure here just means thinner detail.
+    // These stay owner-filtered for everyone: a rep's own projects and orders are their own
+    // work, which is precisely what the ruling says they may see.
     listProjects(userId).then(setProjects).catch(() => setProjects([]));
     listOrders({ ownerId: userId }).then(setOrders).catch(() => setOrders([]));
     listClaims().then(setClaims).catch(() => setClaims([]));
-  }, [userId]);
+  }, [userId, isRep]);
   useEffect(() => { load(); }, [load]);
 
   // project id → its orders, so a customer's orders resolve through their projects.

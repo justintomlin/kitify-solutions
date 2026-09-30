@@ -1067,12 +1067,25 @@ function customerToRow(c: ContractorCustomerInput) {
   };
 }
 
-export async function listContractorCustomers(ownerId: string): Promise<ContractorCustomer[]> {
-  const { data, error } = await supabase
-    .from("contractor_customers")
-    .select("*")
-    .eq("owner_id", ownerId)
-    .order("updated_at", { ascending: false });
+/**
+ * The customer book.
+ *
+ * ownerId IS NOW OPTIONAL, and omitting it is not a widening — it is what makes the book
+ * visible to a salesperson at all.
+ *
+ * 0034 scopes a rep's customers through their assigned appointments rather than through
+ * ownership, and 0031 stopped a rep creating customers, so a rep owns none. Asking for
+ * `owner_id = me` therefore returns nothing for exactly the people the new policy was written
+ * to serve. Pass no owner and let RLS decide: an owner or member still gets their org, a rep
+ * gets the customers attached to their visits.
+ *
+ * Callers that genuinely mean "mine" — the dashboard count, which is about a contractor's own
+ * book — keep passing it.
+ */
+export async function listContractorCustomers(ownerId?: string): Promise<ContractorCustomer[]> {
+  let query = supabase.from("contractor_customers").select("*");
+  if (ownerId != null) query = query.eq("owner_id", ownerId);
+  const { data, error } = await query.order("updated_at", { ascending: false });
   if (error) fail("listContractorCustomers", error);
   return (data ?? []).map(rowToCustomer);
 }
@@ -1439,4 +1452,148 @@ export async function getProfile(id: string): Promise<Profile | null> {
 // and placed_at DESC ordering; with no owner filter, admins get the whole network.
 export async function listAllOrders(): Promise<Order[]> {
   return listOrders({});
+}
+
+// ------------------------------- appointments -------------------------------
+// A scheduled visit (migration 0027), assigned to one person in the org.
+//
+// This is the first table in the system with PER-USER scoping rather than per-org:
+// appointments_select_org lets a salesperson read only the rows assigned to them, and since
+// 0034 the customer book is scoped THROUGH those rows. So the list a rep sees here is not a
+// filtered view of the org's appointments — it is the whole of what the database will show
+// them, and the client passes no owner filter for that reason.
+//
+// Creating and assigning is owner/member only, enforced by appointments_insert_org (0027).
+// A salesperson gets no INSERT and no UPDATE; the rep-facing screen is read-only by design
+// until 4b decides what a rep may record against a visit.
+
+export type AppointmentStatus = "scheduled" | "confirmed" | "completed" | "cancelled" | "no_show";
+
+export type Appointment = {
+  id: string;
+  orgId: string;
+  assignedToUserId: string | null;
+  customerId: string | null;
+  scheduledAt: string;
+  status: AppointmentStatus;
+  address: CustomerAddress | null;
+  notes: string | null;
+  createdByUserId: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AppointmentInput = {
+  id?: string;
+  assignedToUserId: string | null;
+  customerId?: string | null;
+  scheduledAt: string;
+  status?: AppointmentStatus;
+  address?: CustomerAddress | null;
+  notes?: string | null;
+  createdByUserId?: string | null;
+};
+
+type AppointmentRow = {
+  id: string;
+  org_id: string;
+  assigned_to_user_id: string | null;
+  customer_id: string | null;
+  scheduled_at: string;
+  status: AppointmentStatus;
+  address: CustomerAddress | null;
+  notes: string | null;
+  created_by_user_id: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+const rowToAppointment = (r: AppointmentRow): Appointment => ({
+  id: r.id,
+  orgId: r.org_id,
+  assignedToUserId: r.assigned_to_user_id ?? null,
+  customerId: r.customer_id ?? null,
+  scheduledAt: r.scheduled_at,
+  status: r.status ?? "scheduled",
+  address: r.address ?? null,
+  notes: r.notes ?? null,
+  createdByUserId: r.created_by_user_id ?? null,
+  createdAt: r.created_at,
+  updatedAt: r.updated_at,
+});
+
+// org_id is deliberately absent: it carries `default public.current_org_id()`, so the
+// database resolves it server-side and a client that guessed could only get it wrong.
+const appointmentToRow = (a: AppointmentInput) => ({
+  assigned_to_user_id: a.assignedToUserId,
+  customer_id: a.customerId ?? null,
+  scheduled_at: a.scheduledAt,
+  status: a.status ?? "scheduled",
+  address: a.address ?? null,
+  notes: a.notes ?? null,
+  created_by_user_id: a.createdByUserId ?? null,
+});
+
+/**
+ * Appointments the signed-in user may see, soonest first.
+ *
+ * NO OWNER FILTER, on purpose, and unlike every other list in this file. RLS already decides:
+ * an owner or member gets the whole org, a salesperson gets only their own assignments. Adding
+ * `eq("assigned_to_user_id", userId)` here would make the rep screen work and silently break
+ * the owner screen, which is the mistake the rest of this file already makes in reverse —
+ * see the Phase 1 note about read filters scoping by user while RLS scopes by org.
+ */
+export async function listAppointments(opts?: { assignedToUserId?: string; from?: string }): Promise<Appointment[]> {
+  let query = supabase.from("appointments").select("*");
+  if (opts?.assignedToUserId != null) query = query.eq("assigned_to_user_id", opts.assignedToUserId);
+  if (opts?.from != null) query = query.gte("scheduled_at", opts.from);
+  const { data, error } = await query.order("scheduled_at", { ascending: true });
+  if (error) fail("listAppointments", error);
+  return (data ?? []).map(rowToAppointment);
+}
+
+export async function saveAppointment(a: AppointmentInput): Promise<Appointment> {
+  const row = appointmentToRow(a);
+  if (a.id) {
+    const { data, error } = await supabase.from("appointments").update(row).eq("id", a.id).select().single();
+    if (error) fail("saveAppointment (update)", error);
+    if (!data) fail("saveAppointment (update)", null);
+    return rowToAppointment(data);
+  }
+  const { data, error } = await supabase.from("appointments").insert(row).select().single();
+  if (error) fail("saveAppointment (insert)", error);
+  if (!data) fail("saveAppointment (insert)", null);
+  return rowToAppointment(data);
+}
+
+export async function deleteAppointment(id: string): Promise<void> {
+  const { error } = await supabase.from("appointments").delete().eq("id", id);
+  if (error) fail("deleteAppointment", error);
+}
+
+/**
+ * The people in the signed-in user's org who can be assigned a visit.
+ *
+ * Reads memberships (admitted by 0024's memberships_select_own_org_or_admin) and joins the
+ * profile for a display name. Returns everyone in the org, not just salespeople: an owner
+ * assigning a visit to themselves or to office staff is ordinary.
+ */
+export type OrgMember = { userId: string; name: string; email: string; role: string };
+
+export async function listOrgMembers(): Promise<OrgMember[]> {
+  const { data, error } = await supabase
+    .from("memberships")
+    .select("user_id, role, profiles(name, email)")
+    .order("role", { ascending: true });
+  if (error) fail("listOrgMembers", error);
+  return (data ?? []).map((r) => {
+    const embedded = (r as { profiles?: unknown }).profiles;
+    const p = (Array.isArray(embedded) ? embedded[0] : embedded) as { name?: string; email?: string } | undefined;
+    return {
+      userId: (r as { user_id: string }).user_id,
+      name: p?.name ?? p?.email ?? "—",
+      email: p?.email ?? "",
+      role: (r as { role: string }).role,
+    };
+  });
 }

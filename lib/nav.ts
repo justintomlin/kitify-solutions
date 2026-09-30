@@ -2,6 +2,7 @@ import {
   LayoutDashboard,
   Settings,
   GraduationCap,
+  CalendarClock,
   Briefcase,
   Package,
   FolderKanban,
@@ -28,6 +29,11 @@ export type NavItem = {
 // Primary partner-facing navigation.
 export const primaryNav: NavItem[] = [
   { key: "dashboard", href: "/portal/dashboard", icon: LayoutDashboard },
+  // Scheduled visits. Sits second, directly under the dashboard, because for a salesperson
+  // it IS the home screen — the list of where they are going next — and burying the rep's
+  // only screen behind Training would be an odd way to build a sales app. An owner sees the
+  // whole org's book here and assigns from it.
+  { key: "appointments", href: "/portal/appointments", icon: CalendarClock },
   { key: "training", href: "/portal/training", icon: GraduationCap },
   // My Jobs replaces the old "Register a job" / "Work samples" / "Claims" items — the
   // install → warranty → claim lifecycle now lives in one tabbed page.

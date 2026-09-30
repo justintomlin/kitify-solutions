@@ -43,7 +43,23 @@ export type Profile = {
    */
   orgId: string | null;
   orgKind: "kitify" | "contractor" | null;
+  /**
+   * The caller's role in that org, from public.memberships (0027).
+   *
+   * THIS IS NOT AN AUTHORIZATION SIGNAL EITHER. Like orgId above, it exists so the UI can
+   * stop offering controls the database will refuse — a salesperson is shown their assigned
+   * appointments instead of the org's project list, and my-customers stops filtering by
+   * owner because 0034 scopes a rep's customers through their appointments instead.
+   *
+   * Every rule it influences is ALSO enforced in the database, in RLS and in the guards, so a
+   * browser that lies about this gets a nicer-looking screen and exactly the same data.
+   *
+   * Null before 0027, for a membership-less account, or if the read fails.
+   */
+  membershipRole: MembershipRole | null;
 };
+
+export type MembershipRole = "owner" | "member" | "salesperson";
 
 type AuthResult = { error: string | null };
 type SignUpResult = AuthResult & { needsConfirmation: boolean };
@@ -53,6 +69,14 @@ type AuthContextValue = {
   userId: string | null; // stable uuid — replaces the old name-based identity everywhere
   profile: Profile | null;
   isAdmin: boolean; // profile.role === 'admin' — gates the admin nav + pages
+  /**
+   * Lifted off the profile so a page can read it without null-checking `profile` first.
+   *
+   * PRESENTATION ONLY. It decides which controls a page offers, never what data comes back —
+   * every rule it touches is enforced again in RLS and in the guards. See the field on
+   * Profile for the longer note.
+   */
+  membershipRole: MembershipRole | null;
   loading: boolean; // true while the initial session is resolving (avoid logged-out flash)
   refreshProfile: () => Promise<void>; // re-read the profile (used by the onboarding gate)
   signIn: (email: string, password: string) => Promise<AuthResult>;
@@ -77,9 +101,14 @@ const rowToProfile = (r: ProfileRow, org?: OrgRef | null): Profile => ({
   inventoryTrackingEnabled: r.inventory_tracking_enabled ?? false,
   orgId: org?.id ?? null,
   orgKind: org?.kind ?? null,
+  membershipRole: org?.role ?? null,
 });
 
-type OrgRef = { id: string; kind: "kitify" | "contractor" };
+type OrgRef = { id: string; kind: "kitify" | "contractor"; role: MembershipRole | null };
+
+const MEMBERSHIP_ROLES: MembershipRole[] = ["owner", "member", "salesperson"];
+const asRole = (v: unknown): MembershipRole | null =>
+  MEMBERSHIP_ROLES.includes(v as MembershipRole) ? (v as MembershipRole) : null;
 
 /**
  * The caller's own org, read straight from memberships — no RPC.
@@ -100,7 +129,7 @@ async function loadOrg(userId: string): Promise<OrgRef | null> {
   try {
     const { data, error } = await supabase
       .from("memberships")
-      .select("org_id, orgs(id, kind)")
+      .select("org_id, role, orgs(id, kind)")
       .eq("user_id", userId)
       .order("created_at", { ascending: true })
       .order("id", { ascending: true })
@@ -110,9 +139,14 @@ async function loadOrg(userId: string): Promise<OrgRef | null> {
     // PostgREST returns an embedded one-to-one as an object, but types it as a union with an
     // array; normalise rather than trusting either shape.
     const embedded = (data as { orgs?: unknown }).orgs;
-    const org = (Array.isArray(embedded) ? embedded[0] : embedded) as OrgRef | undefined;
+    const org = (Array.isArray(embedded) ? embedded[0] : embedded) as
+      | { id?: string; kind?: string }
+      | undefined;
     if (!org?.id || (org.kind !== "kitify" && org.kind !== "contractor")) return null;
-    return { id: org.id, kind: org.kind };
+    // `role` comes off the MEMBERSHIP row, not the embedded org — it is a property of the
+    // person's place in that org, not of the org. An unrecognised value reads as null rather
+    // than being passed through, so a future fourth role cannot be mistaken for a known one.
+    return { id: org.id, kind: org.kind, role: asRole((data as { role?: unknown }).role) };
   } catch {
     return null;
   }
@@ -253,7 +287,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [user]);
 
   return (
-    <AuthContext.Provider value={{ user, userId: user?.id ?? null, profile, isAdmin: profile?.role === "admin", loading, refreshProfile, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, userId: user?.id ?? null, profile, isAdmin: profile?.role === "admin", membershipRole: profile?.membershipRole ?? null, loading, refreshProfile, signIn, signUp, signOut }}>
       {children}
     </AuthContext.Provider>
   );
