@@ -59,7 +59,10 @@ type Tab = "registered" | "portfolio" | "claims";
 
 export default function MyJobsPage() {
   const { t } = useLanguage();
-  const { userId } = useAuth();
+  const { userId, membershipRole } = useAuth();
+  // 0036-client: a rep keeps the owner filter on ORDERS only, because orders SELECT is not
+  // role-narrowed in the database. Everything else is decided by RLS.
+  const isRep = membershipRole === "salesperson";
   const { toast, showToast } = useToast(6000);
 
   const [tab, setTab] = useState<Tab>("registered");
@@ -69,7 +72,11 @@ export default function MyJobsPage() {
   const load = useCallback(() => {
     if (!userId) return;
     setLoadFailed(false);
-    listOrders({ ownerId: userId })
+    // THE CRITICAL ONE. 0035 made the office the only party permitted to register an
+    // install — and an order converted from a rep's proposal belongs to the REP, so with an
+    // owner filter the office never saw it and the install could never be registered at all.
+    // A rep keeps the filter: they see their own jobs and the controls are hidden for them.
+    listOrders(isRep ? { ownerId: userId } : {})
       .then(setOrders)
       .catch(() => { setOrders([]); setLoadFailed(true); });
   }, [userId]);

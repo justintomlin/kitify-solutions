@@ -13,7 +13,10 @@ import { ProjectStatusChip, RegChip, relativeUpdated } from "@/components/projec
 
 export default function ProjectsPage() {
   const { t } = useLanguage();
-  const { userId } = useAuth();
+  const { userId, membershipRole } = useAuth();
+  // 0036-client: a rep keeps the owner filter on ORDERS only, because orders SELECT is not
+  // role-narrowed in the database. Everything else is decided by RLS.
+  const isRep = membershipRole === "salesperson";
   // owner_id is the stable auth uuid (references profiles.id). Portal routes require a
   // session, so this is a real uuid; "anon" is only a defensive fallback.
   const ownerId = userId ?? "anon";
@@ -34,10 +37,16 @@ export default function ProjectsPage() {
   const [deleteError, setDeleteError] = useState("");
 
   const refresh = useCallback(() => {
-    listProjects(ownerId).then(setProjects);
+    // NO OWNER FILTER. RLS answers correctly for both roles since 0034 — an owner or member
+    // gets the org, a salesperson gets their own work. Passing an owner id narrowed BELOW the
+    // policy, which is why an owner could not see a project their own rep had created.
+    listProjects().then(setProjects);
     // Deliberately not Promise.all with the above: the list should paint as soon as it can,
     // and the delete controls appearing a moment later is better than a slower first render.
-    Promise.all([listProposals({ ownerId }), listOrders({ ownerId })])
+    // Same for proposals. Orders stays owner-filtered for a REP only: orders SELECT was
+    // never narrowed by role, so omitting it unconditionally would widen what a rep sees,
+    // which this session must not do. See the report.
+    Promise.all([listProposals({}), listOrders(isRep ? { ownerId } : {})])
       .then(([ps, os]) => setBlocked(undeletableProjectIds(ps, os)))
       // A guard that failed to load must not be read as "everything is deletable". An empty
       // set would do exactly that, so the failure keeps it null and the controls stay hidden.

@@ -4,8 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useLanguage } from "@/components/LanguageContext";
 import { useAuth } from "@/components/AuthContext";
-import { listAllOrders, listAllProfiles, listOrders, type Order, type OrderStatus, type Profile } from "@/lib/store";
-import { OrderStatusChip } from "@/components/projects/ui";
+import { listAllOrders, listAllProfiles, listOrders, listOrgMembers, type Order, type OrderStatus, type Profile } from "@/lib/store";
+import { OrderStatusChip, OwnerBadge } from "@/components/projects/ui";
 
 const money = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 const fmtDate = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString() : "—");
@@ -30,12 +30,16 @@ const TABS: { key: Tab; labelKey: string; emptyKey: string }[] = [
 
 export default function OrdersPage() {
   const { t } = useLanguage();
-  const { userId, isAdmin } = useAuth();
+  const { userId, isAdmin, membershipRole } = useAuth();
+  // 0036-client: a rep keeps the owner filter on ORDERS only, because orders SELECT is not
+  // role-narrowed in the database. Everything else is decided by RLS.
+  const isRep = membershipRole === "salesperson";
   const ownerId = userId ?? "anon";
 
   const [orders, setOrders] = useState<Order[] | null>(null);
   // Admin only: owner_id → contractor, so each card can say whose order it is.
   const [owners, setOwners] = useState<Map<string, Profile>>(new Map());
+  const [roles, setRoles] = useState<Map<string, string>>(new Map());
   const [tab, setTab] = useState<Tab>("all");
   const [window, setWindow] = useState<DeliveredWindow>(30);
 
@@ -43,11 +47,27 @@ export default function OrdersPage() {
   // only their own. The contractor lookup is admin-only — it'd return just themselves
   // otherwise, and the card doesn't need it.
   const load = useCallback(() => {
-    (isAdmin ? listAllOrders() : listOrders({ ownerId })).then(setOrders).catch(() => setOrders([]));
-    if (!isAdmin) { setOwners(new Map()); return; }
-    listAllProfiles()
-      .then((ps) => setOwners(new Map(ps.map((p) => [p.id, p]))))
-      .catch(() => setOwners(new Map()));
+    // An admin sees the network. An owner or member now sees their whole ORG, which is the
+    // fix: an order converted from a rep's proposal carries the REP's owner_id, so the office
+    // — the only party 0035 permits to act on it — could not find it here. A rep keeps the
+    // owner filter, because orders SELECT is not role-narrowed in the database and omitting it
+    // would widen their view.
+    (isAdmin ? listAllOrders() : listOrders(isRep ? { ownerId } : {}))
+      .then(setOrders).catch(() => setOrders([]));
+    if (isAdmin) {
+      listAllProfiles()
+        .then((ps) => setOwners(new Map(ps.map((p) => [p.id, p]))))
+        .catch(() => setOwners(new Map()));
+      return;
+    }
+    setOwners(new Map());
+    // Roles, not names: profiles_select_self_or_admin means a contractor reads only their own
+    // profile, while memberships is readable org-wide. See OwnerBadge.
+    if (!isRep) {
+      listOrgMembers()
+        .then((ms) => setRoles(new Map(ms.map((m) => [m.userId, m.role]))))
+        .catch(() => setRoles(new Map()));
+    }
   }, [ownerId, isAdmin]);
   useEffect(() => { load(); }, [load]);
 
@@ -131,10 +151,12 @@ export default function OrdersPage() {
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-mono text-sm font-bold text-ink">{o.orderNumber}</span>
-                        {isAdmin && (
+                        {isAdmin ? (
                           <span className="max-w-full truncate rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[9px] uppercase tracking-wide text-muted">
                             {owner?.company || owner?.name || t("orders.unknownContractor")}
                           </span>
+                        ) : (
+                          <OwnerBadge ownerId={o.ownerId} viewerId={ownerId} roleOf={(id) => roles.get(id)} t={t} />
                         )}
                       </div>
                       <div className="mt-0.5 truncate text-xs text-muted">

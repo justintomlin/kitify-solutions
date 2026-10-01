@@ -77,6 +77,9 @@ export default function DashboardPage() {
 // ----------------------------- contractor view -----------------------------
 function ContractorCards({ ownerId }: { ownerId: string | null }) {
   const { t } = useLanguage();
+  // A rep keeps the owner filter on ORDERS only, because orders SELECT is not role-narrowed in
+  // the database. Everything else here is decided by RLS.
+  const isRep = useAuth().membershipRole === "salesperson";
   const [projects, setProjects] = useState<Load<Project[]>>(LOADING);
   const [orders, setOrders] = useState<Load<Order[]>>(LOADING);
   const [quotes, setQuotes] = useState<Load<Quote[]>>(LOADING);
@@ -84,10 +87,13 @@ function ContractorCards({ ownerId }: { ownerId: string | null }) {
 
   useEffect(() => {
     if (!ownerId) return;
-    listProjects(ownerId).then((v) => setProjects(ok(v))).catch(() => setProjects(ERR));
-    listOrders({ ownerId }).then((v) => setOrders(ok(v))).catch(() => setOrders(ERR));
-    listQuotes({ ownerId }).then((v) => setQuotes(ok(v))).catch(() => setQuotes(ERR));
-    listContractorCustomers(ownerId).then((v) => setCustomers(ok(v))).catch(() => setCustomers(ERR));
+    // Org-wide for an owner or member, own-work for a rep — all of it decided by RLS since
+    // 0034 rather than by a filter here. A contractor's dashboard counting only the principal's
+    // own rows was understating the business by however much their reps had sold.
+    listProjects().then((v) => setProjects(ok(v))).catch(() => setProjects(ERR));
+    listOrders(isRep ? { ownerId } : {}).then((v) => setOrders(ok(v))).catch(() => setOrders(ERR));
+    listQuotes({}).then((v) => setQuotes(ok(v))).catch(() => setQuotes(ERR));
+    listContractorCustomers().then((v) => setCustomers(ok(v))).catch(() => setCustomers(ERR));
   }, [ownerId]);
 
   return (

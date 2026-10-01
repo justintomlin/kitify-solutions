@@ -91,10 +91,13 @@ export default function MyCustomersPage() {
       .then(setCustomers)
       .catch(() => { setCustomers([]); setFailed(true); });
     // Supporting data for the expanded panels — a failure here just means thinner detail.
-    // These stay owner-filtered for everyone: a rep's own projects and orders are their own
-    // work, which is precisely what the ruling says they may see.
-    listProjects(userId).then(setProjects).catch(() => setProjects([]));
-    listOrders({ ownerId: userId }).then(setOrders).catch(() => setOrders([]));
+    //
+    // ORG-WIDE FOR AN OWNER OR MEMBER. A customer's history includes work a rep did for them,
+    // so filtering by owner meant an owner opening a customer saw a blank history for a job
+    // their own rep had sold. A rep keeps the orders filter, because orders SELECT is not
+    // role-narrowed in the database; projects needs none, since 0034 narrows that for them.
+    listProjects().then(setProjects).catch(() => setProjects([]));
+    listOrders(isRep ? { ownerId: userId } : {}).then(setOrders).catch(() => setOrders([]));
     listClaims().then(setClaims).catch(() => setClaims([]));
   }, [userId, isRep]);
   useEffect(() => { load(); }, [load]);

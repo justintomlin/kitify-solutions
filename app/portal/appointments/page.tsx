@@ -31,6 +31,21 @@ const LABEL = "mb-1 block font-mono text-[10px] uppercase tracking-[0.12em] text
 const BTN =
   "inline-flex items-center gap-1.5 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-50";
 
+/**
+ * The two states a visit can be removed from: ones that have not happened yet.
+ *
+ * completed, cancelled and no_show are deliberately absent. All three record that SOMETHING
+ * HAPPENED — a visit worked, a customer who called off, a door nobody answered — and deleting
+ * one erases a rep's history along with the evidence behind any commission question. cancelled
+ * and no_show matter as much as completed here: a rep whose bookings keep cancelling has a
+ * pattern worth seeing, and a tidy-up that removes them removes the pattern too.
+ *
+ * Not enforced in the database. The policies let an owner delete any appointment in their org,
+ * which is right — this is a guard against routine tidying, not against intent, and an owner
+ * who genuinely needs one gone should have to ask rather than be quietly unable to.
+ */
+const REMOVABLE = new Set<AppointmentStatus>(["scheduled", "confirmed"]);
+
 const STATUS_KEY: Record<AppointmentStatus, string> = {
   scheduled: "appointments.stScheduled",
   confirmed: "appointments.stConfirmed",
@@ -177,7 +192,16 @@ export default function AppointmentsPage() {
                   )}
                   {a.notes && <div className="mt-2 whitespace-pre-wrap text-sm text-ink">{a.notes}</div>}
                 </div>
-                {!isRep && (
+                {/* DELETE IS OFFERED ONLY ON A VISIT THAT HAS NOT HAPPENED YET.
+                    completed, cancelled and no_show are all RECORDS OF SOMETHING THAT
+                    HAPPENED — a visit worked, a customer who called off, a door nobody
+                    answered. Deleting one erases a rep's history and, if a commission
+                    question ever arises, the evidence behind it. An owner tidying up old
+                    visits should not be able to do that by accident.
+
+                    Only scheduled and confirmed can be removed, which is what "I booked
+                    this by mistake" actually needs. Anything else is an admin action. */}
+                {!isRep && REMOVABLE.has(a.status) && (
                   <button
                     onClick={() => remove(a.id)}
                     title={t("appointments.delete")}

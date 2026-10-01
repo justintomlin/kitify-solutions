@@ -412,12 +412,21 @@ function proposalToRow(p: ProposalInput) {
 }
 
 // -------------------------------- projects --------------------------------
-export async function listProjects(ownerId: string): Promise<Project[]> {
-  const { data, error } = await supabase
-    .from("projects")
-    .select("*")
-    .eq("owner_id", ownerId)
-    .order("updated_at", { ascending: false });
+/**
+ * ownerId IS OPTIONAL, and omitting it is the normal case now.
+ *
+ * Omitting it asks RLS, which answers correctly for both roles since 0034: an owner or member
+ * gets the whole org, a salesperson gets only the projects they created. Passing an owner id
+ * narrows BELOW that, which was the mismatch recorded as item 8 of the Phase 1 notes — the
+ * client scoping by user while RLS scoped by org — and it is why an owner could not see a
+ * project their own rep had created.
+ *
+ * Keep passing it only where the page genuinely means "mine", not "my org's".
+ */
+export async function listProjects(ownerId?: string): Promise<Project[]> {
+  let query = supabase.from("projects").select("*");
+  if (ownerId != null) query = query.eq("owner_id", ownerId);
+  const { data, error } = await query.order("updated_at", { ascending: false });
   if (error) fail("listProjects", error);
   return (data ?? []).map(rowToProject);
 }

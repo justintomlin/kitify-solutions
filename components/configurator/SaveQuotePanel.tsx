@@ -41,7 +41,9 @@ export function SaveQuotePanel({
   // Load the contractor's projects; default the selection.
   useEffect(() => {
     let cancelled = false;
-    listProjects(ownerId).then((ps) => {
+    // Destination list. Org-wide for an owner or member — office staff finalising a rep's
+    // quote need the rep's project in the dropdown — and own-work for a rep, via RLS.
+    listProjects().then((ps) => {
       if (cancelled) return;
       setProjects(ps);
       setSelectedId((cur) => cur || (initialProjectId ?? (ps.length ? ps[0].id : NEW)));

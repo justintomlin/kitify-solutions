@@ -317,6 +317,17 @@ export const dictionary: Record<Lang, Record<string, any>> = {
       stCancelled: "Cancelled",
       stNoShow: "No show",
     },
+    // Whose work a row is, on the lists that show the whole org. A ROLE rather than a name:
+    // profiles_select_self_or_admin (0002) means a contractor owner can read only their own
+    // profile, while memberships is readable org-wide, so the role resolves and the name does
+    // not. Swap these for names once that policy widens.
+    team: {
+      you: "You",
+      roleOwner: "Owner",
+      roleMember: "Office",
+      roleSalesperson: "Sales rep",
+      unknown: "Team member",
+    },
     dbError: {
       generic: "That didn't work. Please try again.",
       orderCreateForbidden: "Only the office can turn an accepted estimate into an order. Ask an owner or office staff to place it once payment is collected.",
@@ -2511,6 +2522,13 @@ export const dictionary: Record<Lang, Record<string, any>> = {
       stCancelled: "Cancelada",
       stNoShow: "No se presentó",
     },
+    team: {
+      you: "Usted",
+      roleOwner: "Propietario",
+      roleMember: "Oficina",
+      roleSalesperson: "Representante",
+      unknown: "Miembro del equipo",
+    },
     dbError: {
       generic: "No se pudo completar. Inténtelo de nuevo.",
       orderCreateForbidden: "Solo la oficina puede convertir un presupuesto aceptado en un pedido. Pida a un propietario o al personal de oficina que lo realice una vez cobrado el pago.",
@@ -4647,6 +4665,13 @@ export const dictionary: Record<Lang, Record<string, any>> = {
       stCompleted: "Проведён",
       stCancelled: "Отменён",
       stNoShow: "Не состоялся",
+    },
+    team: {
+      you: "Вы",
+      roleOwner: "Владелец",
+      roleMember: "Офис",
+      roleSalesperson: "Представитель",
+      unknown: "Участник команды",
     },
     dbError: {
       generic: "Не получилось. Попробуйте ещё раз.",

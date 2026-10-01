@@ -124,3 +124,38 @@ export function ClaimStatusChip({ status }: { status: ClaimStatus }) {
   const s = CLAIM_STATUS[status];
   return <Chip tone={s.tone}>{t(s.key)}</Chip>;
 }
+
+/**
+ * Whose work a row is, on a list that has gone org-wide.
+ *
+ * An orders or projects list that shows the whole org and does not say who each row belongs to
+ * is worse than a short list — the office cannot tell their own work from a rep's.
+ *
+ * SHOWS A ROLE, NOT A NAME, AND THAT IS A LIMITATION RATHER THAN A CHOICE.
+ * public.profiles still carries profiles_select_self_or_admin from 0002, so a contractor owner
+ * can read exactly one profile: their own. memberships IS readable org-wide (0024), and the
+ * role lives there, so "Sales rep" resolves today and "Dana Whitlock" does not. Swapping in
+ * the name is a one-line change here once that policy is widened — see the report.
+ *
+ * Renders nothing at all for your own rows. A badge on every line is noise; a badge on the
+ * lines that are not yours is information.
+ */
+export function OwnerBadge({ ownerId, viewerId, roleOf, t }: {
+  ownerId: string;
+  viewerId: string | null;
+  roleOf: (userId: string) => string | undefined;
+  t: (k: string) => string;
+}) {
+  if (viewerId && ownerId === viewerId) return null;
+  const role = roleOf(ownerId);
+  const label =
+    role === "salesperson" ? t("team.roleSalesperson")
+    : role === "owner" ? t("team.roleOwner")
+    : role === "member" ? t("team.roleMember")
+    : t("team.unknown");
+  return (
+    <span className="max-w-full truncate rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[9px] uppercase tracking-wide text-muted">
+      {label}
+    </span>
+  );
+}
