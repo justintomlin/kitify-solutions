@@ -36,6 +36,7 @@ export class StoreError extends Error {
 /** The identifiers the database raises, in the order the migrations added them. */
 const IDENTIFIERS = [
   "ORDER_CREATE_FORBIDDEN", // 0030 — a salesperson may not convert
+  "ORDER_WRITE_FORBIDDEN", // 0035 — a salesperson may not change a placed order
   "ORDER_LOCKED", // 0027 — past the 48-hour change window
   "ORDER_TRANSITION_FORBIDDEN", // 0032 — illegal order state move
   "PROPOSAL_ACCEPTED_IMMUTABLE", // 0031 — deleting an accepted proposal
@@ -52,6 +53,7 @@ export type DbErrorIdentifier = (typeof IDENTIFIERS)[number];
 // IDENTIFIER -> i18n key. camelCase suffix so the keys read as keys, not as shouting.
 const KEY_BY_IDENTIFIER: Record<DbErrorIdentifier, string> = {
   ORDER_CREATE_FORBIDDEN: "dbError.orderCreateForbidden",
+  ORDER_WRITE_FORBIDDEN: "dbError.orderWriteForbidden",
   ORDER_LOCKED: "dbError.orderLocked",
   ORDER_TRANSITION_FORBIDDEN: "dbError.orderTransitionForbidden",
   PROPOSAL_ACCEPTED_IMMUTABLE: "dbError.proposalAcceptedImmutable",

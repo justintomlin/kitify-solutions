@@ -320,6 +320,7 @@ export const dictionary: Record<Lang, Record<string, any>> = {
     dbError: {
       generic: "That didn't work. Please try again.",
       orderCreateForbidden: "Only the office can turn an accepted estimate into an order. Ask an owner or office staff to place it once payment is collected.",
+      orderWriteForbidden: "Only the office can change an order once it is placed. Ask an owner or office staff.",
       orderLocked: "This order passed its 48-hour change window and is locked to the production schedule. Contact Kitify to change it.",
       orderTransitionForbidden: "This order can't move to that stage from where it is now.",
       proposalAcceptedImmutable: "This estimate was accepted by the customer, so it can't be deleted. The order is built from it.",
@@ -2513,6 +2514,7 @@ export const dictionary: Record<Lang, Record<string, any>> = {
     dbError: {
       generic: "No se pudo completar. Inténtelo de nuevo.",
       orderCreateForbidden: "Solo la oficina puede convertir un presupuesto aceptado en un pedido. Pida a un propietario o al personal de oficina que lo realice una vez cobrado el pago.",
+      orderWriteForbidden: "Solo la oficina puede modificar un pedido ya realizado. Pida a un propietario o al personal de oficina.",
       orderLocked: "Este pedido superó su ventana de cambios de 48 horas y está fijado al calendario de producción. Comuníquese con Kitify para modificarlo.",
       orderTransitionForbidden: "Este pedido no puede pasar a esa etapa desde su estado actual.",
       proposalAcceptedImmutable: "El cliente aceptó este presupuesto, así que no se puede eliminar. El pedido se construye a partir de él.",
@@ -4649,6 +4651,7 @@ export const dictionary: Record<Lang, Record<string, any>> = {
     dbError: {
       generic: "Не получилось. Попробуйте ещё раз.",
       orderCreateForbidden: "Превратить принятую смету в заказ может только офис. Попросите владельца или сотрудника офиса оформить заказ после получения оплаты.",
+      orderWriteForbidden: "Изменить размещённый заказ может только офис. Обратитесь к владельцу или сотруднику офиса.",
       orderLocked: "48-часовое окно изменений по этому заказу истекло, он закреплён за производственным графиком. Для изменений обратитесь в Kitify.",
       orderTransitionForbidden: "Этот заказ не может перейти на указанный этап из текущего состояния.",
       proposalAcceptedImmutable: "Клиент принял эту смету, поэтому её нельзя удалить. На её основе построен заказ.",

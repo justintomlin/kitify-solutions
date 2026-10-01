@@ -27,7 +27,11 @@ export default function PartnerInventoryPage() {
 
 function PartnerInventoryDashboard() {
   const { t } = useLanguage();
-  const { userId } = useAuth();
+  const { userId, membershipRole } = useAuth();
+  // 0035: a salesperson gets SELECT only on partner inventory and no write on orders or
+  // claims. Read here to HIDE the controls rather than let them fail — the database refuses
+  // them regardless, and an explicit null role falls through to the fuller screen.
+  const isRep = membershipRole === "salesperson";
   const router = useRouter();
   const data = usePartnerInventory(userId);
 
@@ -56,9 +60,13 @@ function PartnerInventoryDashboard() {
             <Link href="/portal/inventory/history" className={BTN_GHOST}>
               <History className="h-4 w-4" /> {t("partnerInv.history")}
             </Link>
-            <Link href="/portal/inventory/movement/new" className={BTN_PRIMARY}>
-              <Plus className="h-4 w-4" /> {t("partnerInv.addStock")}
-            </Link>
+            {/* 0035: stock movement is a warehouse and office function. A salesperson may
+                read availability and never move it. */}
+            {!isRep && (
+              <Link href="/portal/inventory/movement/new" className={BTN_PRIMARY}>
+                <Plus className="h-4 w-4" /> {t("partnerInv.addStock")}
+              </Link>
+            )}
           </div>
         }
       />

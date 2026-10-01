@@ -33,7 +33,11 @@ export default function PartnerSkusPage() {
 
 function PartnerSkus() {
   const { t } = useLanguage();
-  const { userId } = useAuth();
+  const { userId, membershipRole } = useAuth();
+  // 0035: a salesperson gets SELECT only on partner inventory and no write on orders or
+  // claims. Read here to HIDE the controls rather than let them fail — the database refuses
+  // them regardless, and an explicit null role falls through to the fuller screen.
+  const isRep = membershipRole === "salesperson";
   const router = useRouter();
 
   const [skus, setSkus] = useState<PartnerSku[] | null>(null);
@@ -67,7 +71,8 @@ function PartnerSkus() {
         eyebrow={t("partnerInv.mySkus")}
         sub={t("partnerInv.mySkusSub")}
         right={
-          !adding && (
+          // 0035: a rep reads their org stock and never adds to it.
+          !adding && !isRep && (
             <button type="button" onClick={() => setAdding(true)} className={BTN_PRIMARY}>
               <Plus className="h-4 w-4" /> {t("partnerInv.newSku")}
             </button>

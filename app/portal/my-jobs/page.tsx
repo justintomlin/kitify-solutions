@@ -119,6 +119,9 @@ export default function MyJobsPage() {
 
 // --------------------------- tab 1 — registered ---------------------------
 function RegisteredTab({ orders, onDone }: { orders: Order[]; onDone: (msg: string) => void }) {
+  // 0035: a salesperson gets no UPDATE on orders and no INSERT on claims. Read here to HIDE
+  // the control; the database refuses it regardless.
+  const isRep = useAuth().membershipRole === "salesperson";
   const { t } = useLanguage();
   const [openId, setOpenId] = useState<string | null>(null);
 
@@ -143,9 +146,17 @@ function RegisteredTab({ orders, onDone }: { orders: Order[]; onDone: (msg: stri
                     <div className="font-mono text-sm font-bold text-ink">{o.orderNumber}</div>
                     <div className="mt-0.5 truncate text-xs text-muted">{o.customer.name || "—"}</div>
                   </div>
-                  <button onClick={() => setOpenId(openId === o.id ? null : o.id)} className={openId === o.id ? BTN_GHOST : BTN}>
-                    {openId === o.id ? (<><X className="h-4 w-4" /> {t("myJobs.cancel")}</>) : (<><CheckCircle2 className="h-4 w-4" /> {t("myJobs.registerInstall")}</>)}
-                  </button>
+                  {/* 0035: registering an install writes status, install date, photos AND
+                      warranty on the order — one UPDATE, all of it a commitment in the
+                      contractor's name after the handover 0030 established. A salesperson gets
+                      no UPDATE on orders at all, so the control is hidden rather than left to
+                      raise ORDER_WRITE_FORBIDDEN. A rep DOES own these orders (the order
+                      inherits owner_id from their proposal), which is why they are listed. */}
+                  {!isRep && (
+                    <button onClick={() => setOpenId(openId === o.id ? null : o.id)} className={openId === o.id ? BTN_GHOST : BTN}>
+                      {openId === o.id ? (<><X className="h-4 w-4" /> {t("myJobs.cancel")}</>) : (<><CheckCircle2 className="h-4 w-4" /> {t("myJobs.registerInstall")}</>)}
+                    </button>
+                  )}
                 </div>
                 {openId === o.id && (
                   <RegistrationForm order={o} onDone={(msg) => { setOpenId(null); onDone(msg); }} />
@@ -349,6 +360,9 @@ function PortfolioTab({ orders }: { orders: Order[] }) {
 
 // ------------------------------ tab 3 — claims ------------------------------
 function ClaimsTab({ orders, ownerId, onDone }: { orders: Order[]; ownerId: string; onDone: (msg: string) => void }) {
+  // 0035: a salesperson gets no UPDATE on orders and no INSERT on claims. Read here to HIDE
+  // the control; the database refuses it regardless.
+  const isRep = useAuth().membershipRole === "salesperson";
   const { t } = useLanguage();
   const [claims, setClaims] = useState<Claim[] | null>(null);
   const [failed, setFailed] = useState(false);
@@ -378,9 +392,13 @@ function ClaimsTab({ orders, ownerId, onDone }: { orders: Order[]; ownerId: stri
           onDone={(msg) => { setShowForm(false); onDone(msg); load(); }}
         />
       ) : (
-        <button onClick={() => setShowForm(true)} className={BTN}>
-          <ShieldAlert className="h-4 w-4" /> {t("myJobs.fileClaim")}
-        </button>
+        // 0035: a claim is a commercial commitment in the contractor's name, filed after
+        // installation and long past the rep's involvement. No INSERT for a salesperson.
+        !isRep && (
+          <button onClick={() => setShowForm(true)} className={BTN}>
+            <ShieldAlert className="h-4 w-4" /> {t("myJobs.fileClaim")}
+          </button>
+        )
       )}
 
       {claims === null ? (
